@@ -3,11 +3,13 @@ const config = {
   // API Configuration
   API_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
   WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:5000',
+  FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL || 'http://localhost:8000',
   
   // Environment info
   NODE_ENV: process.env.NODE_ENV || 'development',
   
-  // Helper methods
+  // Platform detection
+  isVercel: () => process.env.VERCEL === '1',
   isProduction: () => process.env.NODE_ENV === 'production',
   isDevelopment: () => process.env.NODE_ENV === 'development',
   
