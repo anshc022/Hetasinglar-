@@ -1,0 +1,346 @@
+import React, { useState, useRef, useEffect, memo } from 'react';
+import { FaPaperPlane, FaSmile, FaImage, FaFile, FaMicrophone, FaStop, FaImages } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const MessageComposer = memo(({ 
+  onSendMessage, 
+  isLoading = false, 
+  disabled = false,
+  placeholder = "Type your message...",
+  showEmojiPicker = true,
+  showAttachments = true,
+  showVoiceNote = true,
+  onTyping = null,
+  onShowImageSelector = null
+}) => {
+  // Generate unique instance ID to prevent duplicates
+  const instanceId = useRef(Math.random().toString(36).substr(2, 9)).current;
+  
+  const [message, setMessage] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  // Common emojis for quick access
+  const quickEmojis = ['😊', '😂', '❤️', '👍', '👎', '😢', '😮', '😡', '🔥', '💯', '🎉', '💋', '😘', '😍', '🥰', '😋'];
+
+  useEffect(() => {
+    // Auto-resize textarea
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+  }, [message]);
+
+  useEffect(() => {
+    // Cleanup on unmount
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleSend = async () => {
+    const messageToSend = message.trim();
+    if (!messageToSend || disabled || isLoading || isRecording) return;
+
+    setMessage('');
+    
+    if (onSendMessage) {
+      await onSendMessage(messageToSend, 'text');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setMessage(e.target.value);
+    
+    // Typing indicator
+    if (onTyping) {
+      onTyping(true);
+      
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 1000);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleEmojiClick = (emoji) => {
+    const cursorPosition = textareaRef.current?.selectionStart || message.length;
+    const newMessage = 
+      message.slice(0, cursorPosition) + 
+      emoji + 
+      message.slice(cursorPosition);
+    
+    setMessage(newMessage);
+    setShowEmojis(false);
+    
+    // Focus back to textarea
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(cursorPosition + emoji.length, cursorPosition + emoji.length);
+    }, 0);
+  };
+
+  const handleFileUpload = async (files, type = 'file') => {
+    for (const file of files) {
+      try {
+        if (type === 'image') {
+          // For images, convert to base64 and send as image message
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const imageData = reader.result; // This is base64 with data: prefix
+            const imageObject = {
+              filename: file.name,
+              imageData: imageData,
+              mimeType: file.type
+            };
+            
+            // Call onSendMessage with image type and full image data
+            await onSendMessage('📷 Image', 'image', imageObject);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          // For regular files, create FormData for file upload
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          // You would typically upload to your server here
+          // For now, we'll simulate with the filename
+          const fileName = file.name;
+          await onSendMessage(`📎 ${fileName}`, type, file);
+        }
+      } catch (error) {
+        console.error('Failed to upload file:', error);
+      }
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Start recording timer
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      
+      // Here you would implement actual voice recording
+    } catch (error) {
+      alert('Could not access microphone. Please check permissions.');
+    }
+  };
+
+  const stopRecording = async () => {
+    setIsRecording(false);
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
+    
+    if (recordingTime > 0) {
+      // Here you would process the actual recording
+      // For now, we'll send a placeholder
+      await onSendMessage(`🎤 Voice message (${recordingTime}s)`, 'voice');
+    }
+    
+    setRecordingTime(0);
+  };
+
+  const formatRecordingTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="bg-transparent p-0">
+      {/* Recording indicator */}
+      <AnimatePresence>
+        {isRecording && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-3"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-red-400 text-sm font-medium">Recording...</span>
+            </div>
+            <span className="text-white text-sm font-mono">{formatRecordingTime(recordingTime)}</span>
+            <button
+              onClick={stopRecording}
+              className="ml-auto p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <FaStop className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Emoji picker */}
+      <AnimatePresence>
+        {showEmojis && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="mb-3 p-3 bg-gray-700 rounded-lg"
+          >
+            <div className="grid grid-cols-8 gap-2">
+              {quickEmojis.map((emoji, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleEmojiClick(emoji)}
+                  className="p-2 text-lg hover:bg-gray-600 rounded transition-colors"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main composer */}
+      <div className="flex items-end gap-3">
+        {/* Attachment buttons */}
+        <div className="flex flex-col gap-2">
+          {showAttachments && (
+            <>
+              {/* File upload */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => handleFileUpload(Array.from(e.target.files || []), 'file')}
+                className="hidden"
+                multiple
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || isLoading || isRecording}
+                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Attach file"
+              >
+                <FaFile className="w-4 h-4" />
+              </button>
+
+              {/* Image upload */}
+              <input
+                type="file"
+                ref={imageInputRef}
+                onChange={(e) => handleFileUpload(Array.from(e.target.files || []), 'image')}
+                accept="image/*"
+                className="hidden"
+                multiple
+              />
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                disabled={disabled || isLoading || isRecording}
+                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Upload image from device"
+              >
+                <FaImage className="w-4 h-4" />
+              </button>
+
+              {/* Gallery - select from pre-uploaded images */}
+              {onShowImageSelector && (
+                <button
+                  onClick={() => onShowImageSelector()}
+                  disabled={disabled || isLoading || isRecording}
+                  className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  title="Select from gallery"
+                >
+                  <FaImages className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Voice note */}
+          {showVoiceNote && (
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={disabled || isLoading}
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                isRecording 
+                  ? 'text-red-400 bg-red-900/30 hover:bg-red-900/50' 
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+              title={isRecording ? "Stop recording" : "Record voice message"}
+            >
+              <FaMicrophone className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Message input */}
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder={placeholder}
+            disabled={disabled || isLoading || isRecording}
+            className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+            rows="1"
+            style={{ maxHeight: '120px' }}
+          />
+          
+          {/* No word count display anymore */}
+          
+          {/* Emoji button */}
+          {showEmojiPicker && (
+            <button
+              onClick={() => setShowEmojis(!showEmojis)}
+              disabled={disabled || isLoading || isRecording}
+              className="absolute bottom-3 right-3 p-1 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+              title="Add emoji"
+            >
+              <FaSmile className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Send button */}
+        <button
+          onClick={handleSend}
+          disabled={!message.trim() || disabled || isLoading || isRecording}
+          className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+          title="Send message"
+        >
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <FaPaperPlane className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+});
+
+export default React.memo(MessageComposer);

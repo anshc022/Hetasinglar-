@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Rouge+Script&family=Italiana&display=swap');
+
+/* Add to existing styles */
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #ff3366, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.2);
+}
+
+/* Input focus styles */
+input:focus {
+  box-shadow: 0 0 0 2px rgba(255, 51, 102, 0.2);
+}
+
+/* Button hover animation */
+.btn-hover-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-hover-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.btn-hover-effect:hover::after {
+  left: 100%;
+}
+
+/* Feature badge animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.feature-badge {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Add smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
