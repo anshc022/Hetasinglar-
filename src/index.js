@@ -7,8 +7,15 @@ import axios from 'axios';
 import config from './config/environment';
 
 // Configure axios default base URL
-axios.defaults.baseURL = config.API_URL.replace('/api', '');
+// Remove '/api' from the end if present to avoid duplication
+let baseURL = config.API_URL;
+if (baseURL.endsWith('/api')) {
+  baseURL = baseURL.slice(0, -4); // Remove '/api' from the end
+}
+axios.defaults.baseURL = baseURL;
 console.log('🔧 Axios configured with base URL:', axios.defaults.baseURL);
+console.log('🔍 Original API_URL:', config.API_URL);
+console.log('🎯 Final requests will go to:', `${axios.defaults.baseURL}/api/...`);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

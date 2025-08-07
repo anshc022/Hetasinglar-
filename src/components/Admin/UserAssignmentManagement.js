@@ -15,7 +15,7 @@ import {
   FaShieldAlt,
   FaTrophy
 } from 'react-icons/fa';
-import axios from 'axios';
+import adminApi from '../../services/adminApi';
 
 const UserAssignmentManagement = () => {
   const [users, setUsers] = useState([]);
@@ -43,9 +43,7 @@ const UserAssignmentManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/admin/users', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
-      });
+      const response = await adminApi.get('/admin/users');
       setUsers(response.data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -54,9 +52,7 @@ const UserAssignmentManagement = () => {
 
   const fetchAgents = async () => {
     try {
-      const response = await axios.get('/api/admin/agents', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
-      });
+      const response = await adminApi.get('/admin/agents');
       setAgents(response.data.agents || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -66,9 +62,7 @@ const UserAssignmentManagement = () => {
   const fetchAssignments = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/admin/assignments', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
-      });
+      const response = await adminApi.get('/admin/assignments');
       setAssignments(response.data.assignments || []);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -83,11 +77,9 @@ const UserAssignmentManagement = () => {
     }
 
     try {
-      await axios.post('/api/admin/assignments', {
+      await adminApi.post('/admin/assignments', {
         userId: userId,
         agentId: agentId
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
       });
       
       alert('User assigned successfully');
@@ -105,9 +97,7 @@ const UserAssignmentManagement = () => {
     }
 
     try {
-      await axios.delete(`/api/admin/assignments/${assignmentId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
-      });
+      await adminApi.delete(`/admin/assignments/${assignmentId}`);
       
       alert('User unassigned successfully');
       fetchAssignments();
