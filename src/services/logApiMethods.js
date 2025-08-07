@@ -1,8 +1,9 @@
 // Log API methods for agentApi.js
 import axios from 'axios';
+import config from '../config/environment';
 
-// Reuse the existing agentApi instance from agentApi.js
-const API_URL = 'http://localhost:5000/api';
+// API URL configuration
+const API_URL = config.API_URL;
 
 // Create a dedicated API instance for logs to better debug issues
 const logApiInstance = axios.create({

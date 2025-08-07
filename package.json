@@ -12,6 +12,7 @@
     "chart.js": "^4.5.0",
     "date-fns": "^4.1.0",
     "dompurify": "^3.2.6",
+    "env-cmd": "^10.1.0",
     "framer-motion": "^12.18.1",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",
@@ -24,7 +25,11 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:dev": "env-cmd -f .env.development react-scripts start",
+    "start:prod": "env-cmd -f .env.production react-scripts start",
     "build": "react-scripts build",
+    "build:dev": "env-cmd -f .env.development react-scripts build",
+    "build:prod": "env-cmd -f .env.production react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

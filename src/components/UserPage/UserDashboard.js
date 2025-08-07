@@ -6,6 +6,7 @@ import websocketService from '../../services/websocket';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import SubscriptionPlans from './SubscriptionPlans';
+import config from '../../config/environment';
 
 const MessageItem = ({ chat, isSelected, onClick }) => (
   <div
@@ -78,7 +79,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
     // Fetch user's coin balance when component mounts
     const fetchCoins = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/subscription/coins/balance', {
+        const response = await axios.get(`${config.API_URL}/subscription/coins/balance`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUserCoins(response.data.balance);
@@ -318,7 +319,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       }));
 
       // Update coin balance after sending
-      const coinResponse = await axios.get('http://localhost:5000/api/subscription/coins/balance', { 
+      const coinResponse = await axios.get(`${config.API_URL}/subscription/coins/balance`, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
       setUserCoins(coinResponse.data.balance);
@@ -1124,7 +1125,7 @@ const UserDashboard = () => {
     const fetchUserData = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const userRes = await axios.get('http://localhost:5000/api/subscription/coins/balance', { headers });
+        const userRes = await axios.get(`${config.API_URL}/subscription/coins/balance`, { headers });
         setUserCoins(userRes.data.balance);
       } catch (err) {
         console.error('Error fetching user coins:', err);

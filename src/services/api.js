@@ -1,7 +1,14 @@
 import axios from 'axios';
+import config from '../config/environment';
 
-// Force the API URL to use port 5000
-const API_URL = 'http://localhost:5000/api';
+// Use environment-based API URL
+const API_URL = config.API_URL;
+
+console.log('🌐 API Configuration:', {
+  API_URL,
+  Environment: config.NODE_ENV,
+  IsProduction: config.isProduction()
+});
 
 const api = axios.create({
   baseURL: API_URL,

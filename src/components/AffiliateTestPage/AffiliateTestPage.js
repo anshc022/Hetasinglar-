@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { FaLink, FaShare, FaCopy, FaCheckCircle } from 'react-icons/fa';
+import config from '../../config/environment';
 
 const AffiliateTestPage = () => {
   const [testCode, setTestCode] = useState('agent1_1641909600000');
   const [copied, setCopied] = useState(false);
 
-  const testLink = `http://localhost:3000/auth?ref=${testCode}&signup=true`;
+  // Get frontend URL from environment or default to localhost:8000
+  const frontendUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:8000';
+  const testLink = `${frontendUrl}/auth?ref=${testCode}&signup=true`;
 
   const copyToClipboard = async (text) => {
     try {

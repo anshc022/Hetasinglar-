@@ -1,6 +1,7 @@
 import axios from 'axios';
+import config from '../config/environment';
 
-const BASE_URL = 'http://localhost:5000/api/subscription';
+const BASE_URL = `${config.API_URL}/subscription`;
 
 // Create axios instance with base configuration
 const subscriptionAxios = axios.create({

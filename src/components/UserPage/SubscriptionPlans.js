@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FaCoins, FaGift, FaCrown, FaCheckCircle } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import config from '../../config/environment';
 import './SubscriptionPlans.css';
 
 const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
@@ -19,13 +20,13 @@ const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
       try {
         setLoading(true);
         // Fetch coin packages
-        const packagesRes = await axios.get('http://localhost:5000/api/subscription/plans');
+        const packagesRes = await axios.get(`${config.API_URL}/subscription/plans`);
         setPackages(packagesRes.data.filter(pkg => pkg.type === 'coin_package'));
 
         // Fetch user's coin balance if logged in
         if (user && token) {
           const headers = { Authorization: `Bearer ${token}` };
-          const userRes = await axios.get('http://localhost:5000/api/subscription/coins/balance', { headers });
+          const userRes = await axios.get(`${config.API_URL}/subscription/coins/balance`, { headers });
           setUserCoins(userRes.data.balance);
         }
       } catch (err) {
@@ -52,13 +53,13 @@ const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const response = await axios.post(
-        'http://localhost:5000/api/subscription/purchase/coins',
+        `${config.API_URL}/subscription/purchase/coins`,
         { packageId },
         { headers }
       );
       
       // Refresh user's coin balance
-      const userRes = await axios.get('http://localhost:5000/api/subscription/coins/balance', { headers });
+      const userRes = await axios.get(`${config.API_URL}/subscription/coins/balance`, { headers });
       setUserCoins(userRes.data.balance);
       
       // Call success callback if provided (for dashboard context)
