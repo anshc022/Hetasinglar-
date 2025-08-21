@@ -199,7 +199,7 @@ export const escorts = {
 
   async getEscortProfile(id) {
     try {
-      const response = await api.get(`/escorts/${id}`);
+      const response = await api.get(`/agents/escorts/${id}/profile`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

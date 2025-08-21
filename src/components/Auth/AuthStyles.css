@@ -1,0 +1,62 @@
+/* Auth Components - Modern CSS Enhanced Styles */
+
+/* Glass morphism effect */
+.glass-effect {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Button glow effect */
+.btn-glow {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Font families */
+.font-rouge {
+  font-family: 'Rouge Script', cursive;
+}
+
+.font-italiana {
+  font-family: 'Italiana', serif;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Input focus effects */
+input:focus,
+button:focus {
+  outline: 2px solid #ec4899;
+  outline-offset: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .glass-effect {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+}

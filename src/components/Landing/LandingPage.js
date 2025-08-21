@@ -1,741 +1,874 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { auth } from '../../services/api';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import Footer from '../Layout/Footer';
+import './LandingPage.css';
 
-const MaleIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M20 4v2h-2V4h2zm0-2h-2c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h2c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-10c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2 0 3.61 1.55 3.61 3.46 0 1.91-1.61 3.46-3.61 3.46s-3.61-1.55-3.61-3.46C8.39 7.55 10 6 12 6z"/>
+const HeartIcon = ({ className = "w-8 h-8" }) => (
+  <svg className={`${className} text-rose-400`} fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
   </svg>
 );
 
-const FemaleIcon = () => (
-  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2C8.69 2 6 4.69 6 8c0 2.97 2.16 5.43 5 5.91v2.02h-2v2h2v2h2v-2h2v-2h-2v-2.02c2.84-.48 5-2.94 5-5.91 0-3.31-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+const StarIcon = () => (
+  <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
   </svg>
 );
 
-const FloatingShape = ({ className }) => (
+const CheckIcon = () => (
+  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const MenuIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const FloatingShape = ({ className, delay = 0 }) => (
   <motion.div
-    className={`absolute rounded-full mix-blend-multiply filter blur-xl opacity-70 ${className}`}
+    className={`absolute rounded-full mix-blend-multiply filter blur-xl opacity-15 ${className}`}
     animate={{
-      y: [0, 30, 0],
-      scale: [1, 1.1, 1],
+      y: [0, 50, 0],
+      x: [0, 30, 0],
+      scale: [1, 1.3, 1],
+      rotate: [0, 180, 360],
     }}
     transition={{
-      duration: 8,
+      duration: 12 + delay,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: "easeInOut",
+      delay: delay
     }}
   />
 );
 
-const LandingPage = () => {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({
-    username: '', // Changed from email
-    password: '',
-    confirmPassword: '',
-    dateOfBirth: '',
-    email: '', // Keep email for registration
-    sex: '', // Add sex field
-    referral_code: '' // Add referral code field
-  });
+const TestimonialCard = ({ name, image, rating, text, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 50 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    className="glass-effect rounded-2xl p-6 shadow-xl border border-white/40 hover-lift flex-shrink-0 w-80 mx-4"
+  >
+    <div className="flex items-center gap-4 mb-4">
+      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-rose-400 to-pink-400 flex items-center justify-center">
+        <span className="text-white font-bold text-lg">{name[0]}</span>
+      </div>
+      <div>
+        <h4 className="font-semibold text-gray-800">{name}</h4>
+        <div className="flex gap-1">
+          {[...Array(rating)].map((_, i) => (
+            <StarIcon key={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+    <p className="text-gray-700 italic">"{text}"</p>
+  </motion.div>
+);
 
-  // Check for referral code in URL parameters when component loads
-  useEffect(() => {
-    console.log('LandingPage mounted, checking URL for referral code...');
-    console.log('Current location search:', location.search);
+const ProfileCard = ({ name, delay, navigate, image }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 30, scale: 0.9 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ delay, duration: 0.5 }}
+    className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover-lift group cursor-pointer w-64"
+    whileHover={{ scale: 1.02, y: -5 }}
+  >
+    {/* Profile Image */}
+    <div className="relative">
+      <div className="w-full h-80 bg-gray-200 overflow-hidden">
+        {image ? (
+          <img 
+            src={image} 
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white font-bold text-4xl">
+            {name[0]}
+          </div>
+        )}
+      </div>
+      {/* Online indicator */}
+      <div className="absolute top-3 right-3 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-md animate-pulse"></div>
+    </div>
     
-    const urlParams = new URLSearchParams(location.search);
-    const refCode = urlParams.get('ref') || urlParams.get('referral') || urlParams.get('code');
-    
-    console.log('Extracted referral code from URL:', refCode);
-    
-    if (refCode && refCode.trim()) {
-      const cleanCode = refCode.trim();
+    {/* Profile Info */}
+    <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center">
+      {/* Name */}
+      <h3 className="text-xl font-bold mb-1">{name}</h3>
       
-      // Validate the referral code format (allow both old format with timestamp and new simple format)
-      if (/^[a-zA-Z0-9_.-]+$/.test(cleanCode) && cleanCode.length >= 2 && cleanCode.length <= 100) {
-        console.log('Referral code is valid, setting in form data:', cleanCode);
-        
-        setFormData(prev => ({
-          ...prev,
-          referral_code: cleanCode
-        }));
-        
-        setIsReferralFromUrl(true);
-        
-        // Track the affiliate click
-        auth.trackAffiliateClick(cleanCode).then(() => {
-          console.log('Affiliate click tracked successfully');
-        }).catch(error => {
-          console.log('Affiliate click tracking failed:', error);
-        });
-        
-        console.log('Referral code auto-filled from URL:', cleanCode);
-      } else {
-        console.warn('Invalid referral code format in URL:', refCode);
-        console.log('Code length:', cleanCode.length);
-        console.log('Regex test result:', /^[a-zA-Z0-9_.-]+$/.test(cleanCode));
-      }
-    } else {
-      console.log('No referral code found in URL');
+      {/* Status */}
+      <div className="flex items-center justify-center gap-2 text-white/90">
+        <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+        <span className="text-sm font-medium">Active Now</span>
+      </div>
+    </div>
+
+    {/* Hover overlay with action button */}
+    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+      <motion.button
+        className="px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-full font-semibold 
+          shadow-lg hover:shadow-xl transition-all duration-300"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => navigate('/register')}
+      >
+        Say Hi 👋
+      </motion.button>
+    </div>
+  </motion.div>
+);
+
+const LandingPage = () => {
+  const navigate = useNavigate();
+  const scrollRef = useRef(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const profiles = [
+    { name: 'Gunilla', image: 'https://images.unsplash.com/photo-1494790108755-2616b612b550?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Eva', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Fanny', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Bettina', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Ulrika', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Marianne', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Malin', image: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Madeleine', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Sabrina', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Julia', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Emma', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Sofia', image: 'https://images.unsplash.com/photo-1506863530036-1efeddceb993?w=400&h=600&fit=crop&crop=face' }
+  ];
+
+  const testimonials = [
+    {
+      name: "Sarah Johnson",
+      rating: 5,
+      text: "I found my soulmate on HetaSinglar! The platform is amazing and the matching system really works."
+    },
+    {
+      name: "Mike Chen",
+      rating: 5,
+      text: "Best dating app I've ever used. Met my girlfriend here and we're planning our future together!"
+    },
+    {
+      name: "Emma Davis",
+      rating: 5,
+      text: "The user experience is incredible. Clean, modern interface and genuine people. Highly recommended!"
+    },
+    {
+      name: "James Wilson",
+      rating: 5,
+      text: "Found my perfect match within weeks! The connection we have is incredible. Thank you HetaSinglar!"
+    },
+    {
+      name: "Lisa Anderson",
+      rating: 5,
+      text: "Amazing experience! The quality of matches and the platform itself exceeded all my expectations."
+    },
+    {
+      name: "David Kim",
+      rating: 5,
+      text: "Finally, a dating platform that actually works! Met the love of my life here. Couldn't be happier!"
     }
-  }, [location.search]);
+  ];
 
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isReferralFromUrl, setIsReferralFromUrl] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    dateOfBirth: '',
-    sex: '',
-    referral_code: ''
-  });
+  // Duplicate profiles for infinite scroll effect
+  const infiniteProfiles = [...profiles, ...profiles];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setFieldErrors({});
-    setLoading(true);
-    
-    try {
-      // Validate password match
-      if (formData.password !== formData.confirmPassword) {
-        setFieldErrors(prev => ({
-          ...prev,
-          confirmPassword: 'Passwords do not match'
-        }));
-        setLoading(false);
-        return;
-      }
+  useEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
 
-      // Validate referral code if provided
-      if (formData.referral_code && formData.referral_code.trim()) {
-        const code = formData.referral_code.trim();
-        if (!/^[a-zA-Z0-9_.-]+$/.test(code)) {
-          setFieldErrors(prev => ({
-            ...prev,
-            referral_code: 'Referral code can only contain letters, numbers, underscores, dots, and dashes'
-          }));
-          setLoading(false);
-          return;
-        } else if (code.length < 2) {
-          setFieldErrors(prev => ({
-            ...prev,
-            referral_code: 'Referral code must be at least 2 characters'
-          }));
-          setLoading(false);
-          return;
-        } else if (code.length > 100) {
-          setFieldErrors(prev => ({
-            ...prev,
-            referral_code: 'Referral code must be less than 100 characters'
-          }));
-          setLoading(false);
-          return;
+    let scrollSpeed = 1; // pixels per frame
+    let animationId;
+    let isPaused = false;
+
+    const autoScroll = () => {
+      if (!isPaused && scrollContainer) {
+        scrollContainer.scrollLeft += scrollSpeed;
+        
+        // Reset scroll position when we've scrolled through first set
+        const cardWidth = 280; // 256px width + 24px gap
+        const totalWidth = profiles.length * cardWidth;
+        
+        if (scrollContainer.scrollLeft >= totalWidth) {
+          scrollContainer.scrollLeft = 0;
         }
       }
+      animationId = requestAnimationFrame(autoScroll);
+    };
 
-      // Register new user
-      const registerData = {
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        dateOfBirth: formData.dateOfBirth,
-        sex: formData.sex,
-        referral_code: formData.referral_code
-      };
+    // Start auto-scroll
+    animationId = requestAnimationFrame(autoScroll);
 
-      await auth.register(registerData);
-      
-      // Auto login after successful registration
-      const loginResponse = await login(formData.username, formData.password);
-      
-      if (loginResponse.access_token) {
-        navigate('/dashboard', { replace: true });
+    // Pause on hover
+    const handleMouseEnter = () => { isPaused = true; };
+    const handleMouseLeave = () => { isPaused = false; };
+
+    scrollContainer.addEventListener('mouseenter', handleMouseEnter);
+    scrollContainer.addEventListener('mouseleave', handleMouseLeave);
+
+    // Cleanup
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
       }
-    } catch (err) {
-      console.error('Registration error:', err);
-      if (err.errors) {
-        // Handle validation errors
-        const newFieldErrors = {};
-        err.errors.forEach(error => {
-          newFieldErrors[error.path] = error.msg;
-        });
-        setFieldErrors(newFieldErrors);
-      } else {
-        setError(err.message || 'Registration failed');
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('mouseenter', handleMouseEnter);
+        scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+  }, [profiles.length]);
 
-  const handleSocialLogin = (provider) => {
-    // Implement social login logic here
-    console.log(`Logging in with ${provider}`);
-  };
+  // Auto-scrolling testimonials
+  useEffect(() => {
+    const scrollContainer = testimonialsRef.current;
+    if (!scrollContainer) return;
 
-  const handleQuickLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    let scrollSpeed = 0.8; // slower speed for testimonials
+    let animationId;
+    let isPaused = false;
 
-    try {
-      const loginResponse = await login(formData.username, formData.password);
-      if (loginResponse.access_token) {
-        navigate('/dashboard', { replace: true });
+    const autoScroll = () => {
+      if (!isPaused && scrollContainer) {
+        scrollContainer.scrollLeft += scrollSpeed;
+        
+        // Reset scroll position when we've scrolled through first set
+        const cardWidth = 400; // estimated testimonial card width + gap
+        const totalWidth = testimonials.length * cardWidth;
+        
+        if (scrollContainer.scrollLeft >= totalWidth) {
+          scrollContainer.scrollLeft = 0;
+        }
       }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Invalid credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
+      animationId = requestAnimationFrame(autoScroll);
+    };
 
-  const handleForgotPassword = () => {
-    navigate('/auth/forgot-password');
-  };
+    // Start auto-scroll
+    animationId = requestAnimationFrame(autoScroll);
 
-  const handleSexSelection = (sex) => {
-    setFormData({ ...formData, sex });
-  };
+    // Pause on hover
+    const handleMouseEnter = () => { isPaused = true; };
+    const handleMouseLeave = () => { isPaused = false; };
 
-  const formVariants = {
-    enter: (direction) => ({
-      x: direction > 0 ? 1000 : -1000,
-      opacity: 0
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1
+    scrollContainer.addEventListener('mouseenter', handleMouseEnter);
+    scrollContainer.addEventListener('mouseleave', handleMouseLeave);
+
+    // Cleanup
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('mouseenter', handleMouseEnter);
+        scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, [testimonials.length]);
+
+  const features = [
+    {
+      icon: "💕",
+      title: "Smart Matching",
+      description: "Our AI-powered algorithm finds your perfect match based on compatibility and shared interests."
     },
-    exit: (direction) => ({
-      zIndex: 0,
-      x: direction < 0 ? 1000 : -1000,
-      opacity: 0
-    })
-  };
+    {
+      icon: "🔒",
+      title: "Safe & Secure",
+      description: "Your privacy and safety are our top priority with end-to-end encryption and verified profiles."
+    },
+    {
+      icon: "💬",
+      title: "Instant Chat",
+      description: "Connect instantly with real-time messaging, voice calls, and video chats with your matches."
+    },
+    {
+      icon: "🌟",
+      title: "Premium Experience",
+      description: "Enjoy ad-free browsing, unlimited likes, and exclusive features for premium members."
+    }
+  ];
+
+  // Auto-scrolling testimonials ref
+  const testimonialsRef = useRef(null);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Enhanced Full-page background image with adjusted overlay */}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50">
+      {/* Enhanced Background */}
       <div className="fixed inset-0 -z-10">
-        <motion.img
-          src="/img/pexels-dana-tentis-118658-364382.jpg"
-          alt="Background"
-          className="absolute w-full h-full object-cover opacity-90"
-          initial={{ scale: 1.1, opacity: 0 }}
-          animate={{ scale: 1, opacity: 0.9 }}
-          transition={{ duration: 1.5 }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-white/60 via-rose-100/50 to-white/60 backdrop-blur-[1px]"></div>
+        {/* Clean Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white via-rose-50/60 to-pink-100/70"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-rose-100/40"></div>
+
+        {/* Dynamic Floating Shapes */}
+        <FloatingShape className="bg-gradient-to-r from-rose-400 to-pink-400 w-96 h-96 -top-48 -left-48" delay={0} />
+        <FloatingShape className="bg-gradient-to-r from-pink-300 to-rose-300 w-80 h-80 top-1/3 -right-40" delay={2} />
+        <FloatingShape className="bg-gradient-to-r from-red-300 to-rose-400 w-64 h-64 bottom-20 left-1/4" delay={4} />
+        <FloatingShape className="bg-gradient-to-r from-purple-300 to-pink-300 w-48 h-48 top-1/2 left-1/2" delay={6} />
         
-        {/* Adjusted Floating shapes */}
-        <FloatingShape className="bg-pink-300/10 w-96 h-96 -top-20 -left-20" />
-        <FloatingShape className="bg-rose-300/10 w-96 h-96 top-1/2 -right-20" />
-        <FloatingShape className="bg-red-300/10 w-72 h-72 bottom-20 left-1/3" />
+        {/* Floating Hearts with SVG */}
+        <motion.div
+          className="absolute top-1/4 right-1/4"
+          animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
+          transition={{ duration: 4, repeat: Infinity }}
+        >
+          <img 
+            src="/img/Heart.svg" 
+            alt="Heart" 
+            className="w-16 h-16 text-rose-400 opacity-70"
+          />
+        </motion.div>
+        <motion.div
+          className="absolute bottom-1/3 left-1/3"
+          animate={{ y: [0, -15, 0], rotate: [0, -10, 0] }}
+          transition={{ duration: 5, repeat: Infinity, delay: 2 }}
+        >
+          <img 
+            src="/img/Heart.svg" 
+            alt="Heart" 
+            className="w-20 h-20 text-rose-400 opacity-60"
+          />
+        </motion.div>
+        <motion.div
+          className="absolute top-2/3 right-1/3"
+          animate={{ y: [0, -25, 0], rotate: [0, 15, 0] }}
+          transition={{ duration: 6, repeat: Infinity, delay: 1 }}
+        >
+          <img 
+            src="/img/Heart.svg" 
+            alt="Heart" 
+            className="w-12 h-12 text-pink-400 opacity-50"
+          />
+        </motion.div>
       </div>
 
-      {/* Main Content with Integrated Navigation */}
-      <section className="relative z-10 min-h-screen pt-8">
-        {/* Integrated Navigation Area */}
-        <div className="container mx-auto px-6 mb-16">
-          <div className="flex justify-between items-center">
-            {/* Updated Logo with Card */}
+      {/* Combined Navigation + Hero Section */}
+      <section className="relative z-10 min-h-screen bg-gradient-to-br from-purple-900 via-pink-900 to-red-900">
+        {/* Navigation */}
+        <div className="relative z-20 p-4 md:p-6">
+          <div className="container mx-auto">
             <motion.div
-              className="backdrop-blur-xl bg-white/30 p-3 rounded-xl border border-white/50 shadow-lg"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <motion.h1 
-                className="font-['Rouge_Script'] text-5xl bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 bg-clip-text text-transparent drop-shadow-xl leading-none cursor-pointer"
-              >
-                HetaSinglar
-              </motion.h1>
-            </motion.div>
-
-            <div className="flex items-center gap-4">
-              <form onSubmit={handleQuickLogin} className="flex items-center gap-4">
-                <div className="relative group">
-                  <input
-                    type="text" // Changed from email to text
-                    placeholder="Username" // Changed from Email Address to Username
-                    value={formData.username}
-                    onChange={(e) => setFormData({...formData, username: e.target.value})}
-                    className="w-44 px-4 py-2.5 rounded-lg border border-white/50 focus:ring-2 focus:ring-rose-400 focus:border-transparent text-sm
-                      bg-white/70 backdrop-blur-sm transition-all duration-300 outline-none group-hover:shadow-md"
-                    required
-                  />
-                </div>
-                <div className="relative group">
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    className="w-44 px-4 py-2.5 rounded-lg border border-white/50 focus:ring-2 focus:ring-rose-400 focus:border-transparent text-sm
-                      bg-white/70 backdrop-blur-sm transition-all duration-300 outline-none group-hover:shadow-md"
-                    required
-                  />
-                  <motion.div 
-                    className="absolute -bottom-7 right-0 flex items-center gap-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <span role="img" aria-label="key" className="text-base">🔑</span>
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-xs text-rose-600 hover:text-rose-700 hover:underline font-medium"
-                    >
-                      Forgot Password?
-                    </button>
-                  </motion.div>
-                </div>
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-lg font-medium text-sm
-                    hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {loading ? '...' : 'Login'}
-                </motion.button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Section */}
-        <div className="container mx-auto px-4 flex flex-col lg:flex-row justify-between items-start gap-12">
-          {/* Enhanced Left side content with better text visibility */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="w-full lg:w-[40%] pr-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="space-y-8"
+              className="bg-white/10 backdrop-blur-md rounded-full px-4 md:px-8 py-3 md:py-4 flex items-center justify-between border border-white/20 shadow-xl"
             >
-              <h2 className="text-7xl font-['Italiana'] text-gray-900 tracking-wide leading-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)]">
-                Find Your <span className="text-rose-600 font-bold bg-white/50 px-2 rounded-lg backdrop-blur-sm">Perfect Match</span>
-              </h2>
-              <div className="w-40 h-1.5 bg-gradient-to-r from-red-500 to-transparent rounded-full"></div>
-              <div className="space-y-6 backdrop-blur-sm bg-white/30 p-6 rounded-xl border border-white/50">
-                <p className="text-3xl text-gray-800 leading-relaxed font-semibold drop-shadow-[0_2px_2px_rgba(0,0,0,0.2)] max-w-lg">
-                  Join thousands of singles finding meaningful connections every day
-                </p>
-                <p className="text-2xl text-rose-600 font-bold drop-shadow-[0_2px_2px_rgba(255,255,255,0.5)]">
-                  Join the best flirting site ever
-                </p>
-                <p className="text-xl text-gray-800 font-medium drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]">
-                  Looking for flirty chat? HetaSinglar is the easiest site. Try your luck and join!
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* Updated Right side - Sign Up Form */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="w-full lg:w-[45%] max-w-md ml-auto mr-0 lg:mr-8 relative lg:sticky lg:top-24"
-          >
-            <div className="backdrop-blur-xl bg-white/50 p-6 rounded-2xl shadow-2xl border border-white/50">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Create Account</h2>
-              
-              {/* Simplified Google Sign Up Button */}
-              <div className="mb-4">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSocialLogin('google')}
-                  className="w-full py-2 px-4 flex items-center justify-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-md hover:shadow-lg transition-all border border-white/50 text-sm"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24">
-                    <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115Z"/>
-                    <path fill="#34A853" d="M16.04 18.013c-1.09.703-2.474 1.078-4.04 1.078a7.077 7.077 0 0 1-6.723-4.823l-4.04 3.067A11.965 11.965 0 0 0 12 24c2.933 0 5.735-1.043 7.834-3l-3.793-2.987Z"/>
-                    <path fill="#4A90E2" d="M19.834 21c2.195-2.048 3.62-5.096 3.62-9 0-.71-.109-1.473-.272-2.182H12v4.637h6.436c-.317 1.559-1.17 2.766-2.395 3.558L19.834 21Z"/>
-                    <path fill="#FBBC05" d="M5.277 14.268A7.12 7.12 0 0 1 4.909 12c0-.782.125-1.533.357-2.235L1.24 6.65A11.934 11.934 0 0 0 0 12c0 1.92.445 3.73 1.237 5.335l4.04-3.067Z"/>
-                  </svg>
-                  <span className="text-gray-700">Continue with Google</span>
-                </motion.button>
-              </div>
-
-              <div className="relative mb-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300/50"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white/50 backdrop-blur-sm text-gray-600">or</span>
-                </div>
-              </div>
-
-              {/* Updated Sign Up Form */}
-              <motion.form onSubmit={handleSubmit} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Username"
-                      className={`w-full px-4 py-2 rounded-lg bg-white/70 backdrop-blur-sm border ${
-                        fieldErrors.username ? 'border-red-400' : 'border-white/50'
-                      } focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder-gray-500 text-sm`}
-                      value={formData.username}
-                      onChange={(e) => setFormData({...formData, username: e.target.value})}
-                      required
-                    />
-                    {fieldErrors.username && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.username}</p>
-                    )}
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      className={`w-full px-4 py-2 rounded-lg bg-white/70 backdrop-blur-sm border ${
-                        fieldErrors.email ? 'border-red-400' : 'border-white/50'
-                      } focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder-gray-500 text-sm`}
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      required
-                    />
-                    {fieldErrors.email && (
-                      <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
-                    )}
-                  </motion.div>
-                </div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <input
-                    type="date"
-                    placeholder="Date of Birth"
-                    className={`w-full px-4 py-2 rounded-lg bg-white/70 backdrop-blur-sm border ${
-                      fieldErrors.dateOfBirth ? 'border-red-400' : 'border-white/50'
-                    } focus:ring-2 focus:ring-rose-400 focus:border-transparent text-gray-500 text-sm`}
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
-                    required
-                  />
-                  {fieldErrors.dateOfBirth && (
-                    <p className="text-red-500 text-xs mt-1">{fieldErrors.dateOfBirth}</p>
-                  )}
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="space-y-2"
-                >
-                  <label className="text-sm text-gray-600 block text-center">Select Sex</label>
-                  <div className="flex justify-center gap-3">
-                    <motion.button
-                      type="button"
-                      onClick={() => handleSexSelection('male')}
-                      className={`p-2 rounded-lg transition-all duration-300 flex items-center gap-2 ${
-                        formData.sex === 'male'
-                          ? 'bg-blue-500 text-white shadow-lg scale-105'
-                          : 'bg-white/70 text-gray-600 hover:bg-blue-100'
-                      }`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <MaleIcon />
-                      <span className="text-sm font-medium">Male</span>
-                    </motion.button>
-
-                    <motion.button
-                      type="button"
-                      onClick={() => handleSexSelection('female')}
-                      className={`p-2 rounded-lg transition-all duration-300 flex items-center gap-2 ${
-                        formData.sex === 'female'
-                          ? 'bg-pink-500 text-white shadow-lg scale-105'
-                          : 'bg-white/70 text-gray-600 hover:bg-pink-100'
-                      }`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <FemaleIcon />
-                      <span className="text-sm font-medium">Female</span>
-                    </motion.button>
-                  </div>
-                  {fieldErrors.sex && (
-                    <p className="text-red-500 text-xs mt-1 text-center">{fieldErrors.sex}</p>
-                  )}
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    className={`w-full px-4 py-2 rounded-lg bg-white/70 backdrop-blur-sm border ${
-                      fieldErrors.password ? 'border-red-400' : 'border-white/50'
-                    } focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder-gray-500 text-sm`}
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    required
-                  />
-                  {fieldErrors.password && (
-                    <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
-                  )}
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <input
-                    type="password"
-                    placeholder="Confirm Password"
-                    className={`w-full px-4 py-2 rounded-lg bg-white/70 backdrop-blur-sm border ${
-                      fieldErrors.confirmPassword ? 'border-red-400' : 'border-white/50'
-                    } focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder-gray-500 text-sm`}
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                    required
-                  />
-                  {fieldErrors.confirmPassword && (
-                    <p className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</p>
-                  )}
-                </motion.div>
-
-                {/* Referral Code Input */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.7 }}
-                >
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder={isReferralFromUrl ? "Auto-filled from link" : "Referral Code (optional)"}
-                      className={`w-full px-4 py-2 rounded-lg backdrop-blur-sm border ${
-                        fieldErrors.referral_code ? 'border-red-400' : 
-                        isReferralFromUrl ? 'border-green-400 bg-green-50/70' : 'border-white/50 bg-white/70'
-                      } focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder-gray-500 text-sm`}
-                      value={formData.referral_code}
-                      onChange={(e) => {
-                        setFormData({...formData, referral_code: e.target.value.trim()});
-                        setIsReferralFromUrl(false); // Remove auto-fill styling when user types
-                      }}
-                    />
-                    {formData.referral_code && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        {isReferralFromUrl ? (
-                          <span className="text-blue-500 text-lg" title="Auto-filled from affiliate link">🔗</span>
-                        ) : (
-                          <span className="text-green-500 text-lg">✓</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {fieldErrors.referral_code && (
-                    <p className="text-red-500 text-xs mt-1">{fieldErrors.referral_code}</p>
-                  )}
-                  {formData.referral_code && !fieldErrors.referral_code && isReferralFromUrl && (
-                    <p className="text-blue-600 text-xs mt-1">
-                      🔗 Referral code automatically detected from your affiliate link!
-                    </p>
-                  )}
-                  {formData.referral_code && !fieldErrors.referral_code && !isReferralFromUrl && (
-                    <p className="text-green-600 text-xs mt-1">
-                      ✓ Referral code applied! You'll be connected with your referring agent.
-                    </p>
-                  )}
-                  <p className="text-gray-500 text-xs mt-1">
-                    {isReferralFromUrl ? 
-                      "This code was automatically filled from your affiliate link." :
-                      "Have a referral code? Enter it here to get connected with your agent."
-                    }
-                  </p>
-                </motion.div>
-
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-lg font-semibold text-lg
-                    hover:shadow-lg transition-all duration-300 disabled:opacity-50 backdrop-blur-sm"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.8 }}
-                >
-                  {loading ? 'Creating Account...' : 'Create Free Account'}
-                </motion.button>
-              </motion.form>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-red-500 mt-4 text-center text-sm"
-                >
-                  {error}
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Simplified Chat Preview Section */}
-      <section className="relative z-10 py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto space-y-6">
-            {/* Message 1 */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex gap-4"
-            >
-              <div className="bg-gradient-to-r from-rose-100 to-rose-200 rounded-2xl p-4 max-w-md shadow-lg">
-                <p className="text-gray-800 text-lg">Hey there! 😊</p>
-                <span className="text-xs text-gray-600 mt-2 block">02 Sep 11:09</span>
-              </div>
-            </motion.div>
-
-            {/* Message 2 */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="flex justify-end gap-4"
-            >
-              <div className="bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-2xl p-4 max-w-md shadow-lg">
-                <p className="text-lg">Hi! How are you? 😊</p>
-                <span className="text-xs text-white/90 mt-2 block">02 Sep 11:13</span>
-              </div>
-            </motion.div>
-
-            {/* Message 3 */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 }}
-              className="flex gap-4"
-            >
-              <div className="bg-gradient-to-r from-rose-100 to-rose-200 rounded-2xl p-4 max-w-md shadow-lg">
-                <p className="text-gray-800 text-lg">You have a really interesting profile and I love your pictures!</p>
-                <span className="text-xs text-gray-600 mt-2 block">02 Sep 11:17</span>
-              </div>
-            </motion.div>
-
-            {/* Message 4 */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.8 }}
-              className="flex justify-end gap-4"
-            >
-              <div className="bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-2xl p-4 max-w-md shadow-lg">
-                <p className="text-lg">Aww that's so sweet of you! Thank you!!! 💕</p>
-                <span className="text-xs text-white/90 mt-2 block">02 Sep 11:19</span>
-              </div>
-            </motion.div>
-
-            {/* Simplified Call to Action */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1 }}
-              className="text-center mt-12"
-            >
-              <p className="text-2xl text-gray-800 font-medium mb-6">
-                Feel at home... and chat with thousands of active users!
-              </p>
-              <motion.button
+              {/* Logo */}
+              <motion.div
+                className="flex items-center gap-2 md:gap-3"
                 whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-3 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-full 
-                  font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
               >
-                Start Chatting Now
+                <HeartIcon className="w-8 h-8 md:w-10 md:h-10 text-white" />
+                <span className="font-rouge text-xl md:text-3xl bg-gradient-to-r from-white via-pink-200 to-rose-200 bg-clip-text text-transparent">
+                  HetaSinglar
+                </span>
+              </motion.div>
+              
+              {/* Desktop Navigation */}
+              <div className="hidden lg:flex items-center gap-8">
+                <a href="#features" className="text-white/90 hover:text-white font-medium transition-colors">
+                  Features
+                </a>
+                <a href="#testimonials" className="text-white/90 hover:text-white font-medium transition-colors">
+                  Reviews
+                </a>
+                <button 
+                  onClick={() => navigate('/pricing')} 
+                  className="text-white/90 hover:text-white font-medium transition-colors"
+                >
+                  Pricing
+                </button>
+              </div>
+
+              {/* Desktop Auth Buttons */}
+              <div className="hidden md:flex items-center gap-2 md:gap-4">
+                <motion.button
+                  onClick={() => navigate('/login')}
+                  className="px-3 md:px-6 py-2 text-white/90 hover:text-white font-semibold transition-colors text-sm md:text-base"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Login
+                </motion.button>
+                <motion.button
+                  onClick={() => navigate('/register')}
+                  className="px-3 md:px-6 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-full font-semibold 
+                    shadow-lg hover:shadow-xl transition-shadow text-sm md:text-base"
+                  whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Join Now
+                </motion.button>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <motion.button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-white/90 hover:text-white transition-colors"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                {isMobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
               </motion.button>
             </motion.div>
+
+            {/* Mobile Menu */}
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ 
+                opacity: isMobileMenuOpen ? 1 : 0, 
+                height: isMobileMenuOpen ? 'auto' : 0 
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden mt-4"
+            >
+              {isMobileMenuOpen && (
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 shadow-xl">
+                  {/* Mobile Navigation Links */}
+                  <div className="flex flex-col space-y-4 mb-6">
+                    <a 
+                      href="#features" 
+                      className="text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Features
+                    </a>
+                    <a 
+                      href="#testimonials" 
+                      className="text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Reviews
+                    </a>
+                    <button 
+                      onClick={() => {
+                        navigate('/pricing');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="text-left text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
+                    >
+                      Pricing
+                    </button>
+                  </div>
+
+                  {/* Mobile Auth Buttons */}
+                  <div className="flex flex-col space-y-3">
+                    <motion.button
+                      onClick={() => {
+                        navigate('/login');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full py-3 text-white/90 hover:text-white font-semibold transition-colors border border-white/30 rounded-xl"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Login
+                    </motion.button>
+                    <motion.button
+                      onClick={() => {
+                        navigate('/register');
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl font-semibold 
+                        shadow-lg hover:shadow-xl transition-shadow"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Join Now
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Hero Content */}
+        <div className="container mx-auto px-6 text-center pt-12 pb-32">
+          {/* Background decorative elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            <motion.div
+              className="absolute top-32 left-20 w-40 h-40 flex items-center justify-center"
+              animate={{ scale: [1, 1.3, 1], rotate: [0, 180, 360] }}
+              transition={{ duration: 12, repeat: Infinity }}
+            >
+              <img 
+                src="/img/Heart.svg" 
+                alt="Heart" 
+                className="w-32 h-32 opacity-40 filter blur-sm"
+                style={{ filter: 'hue-rotate(270deg) saturate(0.8)' }}
+              />
+            </motion.div>
+            <motion.div
+              className="absolute bottom-32 right-20 w-48 h-48 flex items-center justify-center"
+              animate={{ scale: [1.2, 1, 1.2], rotate: [360, 180, 0] }}
+              transition={{ duration: 15, repeat: Infinity }}
+            >
+              <img 
+                src="/img/Heart.svg" 
+                alt="Heart" 
+                className="w-40 h-40 opacity-30 filter blur-sm"
+                style={{ filter: 'hue-rotate(320deg) saturate(1.2)' }}
+              />
+            </motion.div>
+            <motion.div
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 flex items-center justify-center"
+              animate={{ scale: [1, 1.4, 1], opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 8, repeat: Infinity }}
+            >
+              <img 
+                src="/img/Heart.svg" 
+                alt="Heart" 
+                className="w-28 h-28 filter blur-sm"
+                style={{ filter: 'hue-rotate(300deg) saturate(1.5)' }}
+              />
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-4xl mx-auto space-y-8 relative z-10"
+          >
+            <motion.h1
+              className="text-6xl md:text-8xl font-bold bg-gradient-to-r from-white via-pink-200 to-rose-200 
+                bg-clip-text text-transparent leading-tight"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+            >
+              Find Your Perfect Match
+            </motion.h1>
+            
+            <motion.p
+              className="text-xl md:text-2xl text-white/90 leading-relaxed max-w-2xl mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+            >
+              Join millions of people discovering meaningful connections through our 
+              AI-powered matching system. Your soulmate is just a click away.
+            </motion.p>
+
+            <motion.div
+              className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+            >
+              <motion.button
+                onClick={() => navigate('/register')}
+                className="group px-12 py-6 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
+                  rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 btn-glow"
+                whileHover={{ scale: 1.05, y: -5 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className="flex items-center gap-3">
+                  Start Dating Today
+                  <HeartIcon />
+                </span>
+              </motion.button>
+
+              <motion.button
+                onClick={() => navigate('/login')}
+                className="group px-12 py-6 glass-effect border-2 border-white/40 text-gray-700 text-xl font-bold 
+                  rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300"
+                whileHover={{ scale: 1.05, y: -5 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                I Have an Account
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Find Your Flirt Section */}
+      <section id="features" className="relative z-10 py-32">
+        <div className="container mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-20"
+          >
+            <h2 className="text-5xl font-bold text-gray-800 mb-6">
+              Find your flirt today!
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Newly Registered Women
+            </p>
+          </motion.div>
+
+          {/* Women Profiles Auto-Scrolling Carousel */}
+          <div className="relative">
+            <div 
+              ref={scrollRef}
+              className="flex gap-6 overflow-x-hidden pb-4" 
+              style={{ 
+                scrollbarWidth: 'none', 
+                msOverflowStyle: 'none',
+                WebkitScrollbar: { display: 'none' }
+              }}
+            >
+              {infiniteProfiles.map((profile, index) => (
+                <div key={`${profile.name}-${index}`} className="flex-shrink-0">
+                  <ProfileCard
+                    name={profile.name}
+                    image={profile.image}
+                    delay={0} // Remove staggered animation for auto-scroll
+                    navigate={navigate}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <style jsx>{`
+              .flex::-webkit-scrollbar {
+                display: none;
+              }
+            `}</style>
+          </div>
+
+          {/* Call to Action */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+            className="text-center mt-16"
+          >
+            <motion.button
+              onClick={() => navigate('/register')}
+              className="px-12 py-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
+                rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 btn-glow"
+              whileHover={{ scale: 1.05, y: -3 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="flex items-center gap-3">
+                Meet More Women
+                <HeartIcon className="w-6 h-6" />
+              </span>
+            </motion.button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* It All Starts With a Chat Section */}
+      <section className="relative z-10 py-32 bg-gradient-to-br from-purple-900 via-pink-900 to-red-900">
+        <div className="container mx-auto px-6">
+          {/* Background decorative hearts */}
+          <div className="absolute inset-0 overflow-hidden">
+            <motion.div
+              className="absolute top-20 left-10 w-32 h-32 bg-purple-600/30 rounded-full"
+              animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+              transition={{ duration: 8, repeat: Infinity }}
+            />
+            <motion.div
+              className="absolute bottom-20 right-10 w-40 h-40 bg-pink-600/30 rounded-full"
+              animate={{ scale: [1.2, 1, 1.2], rotate: [360, 180, 0] }}
+              transition={{ duration: 10, repeat: Infinity }}
+            />
+          </div>
+
+          {/* Section Title */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-5xl font-bold text-white mb-8">
+              It all starts with a chat
+            </h2>
+          </motion.div>
+
+          {/* Two Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Card 1 - Dating Site */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl p-8 text-center text-white shadow-2xl relative overflow-hidden"
+            >
+              {/* Top corner accent */}
+              <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-400 transform rotate-45 -translate-x-8 -translate-y-8"></div>
+              
+              {/* Heart icon with character */}
+              <div className="mb-6">
+                <div className="relative mx-auto w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                  {/* Character inside heart */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl">😊</span>
+                  </div>
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-4">
+                One of Sweden's best<br />dating sites
+              </h3>
+            </motion.div>
+
+            {/* Card 2 - Easy Flirting */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl p-8 text-center text-white shadow-2xl relative overflow-hidden"
+            >
+              {/* Top corner accent */}
+              <div className="absolute top-0 left-0 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-400 transform rotate-45 -translate-x-8 -translate-y-8"></div>
+              
+              {/* Heart icon with laptop */}
+              <div className="mb-6">
+                <div className="relative mx-auto w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  </svg>
+                  {/* Laptop icon inside heart */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-4">
+                Finding a flirt has never<br />been so easy before
+              </h3>
+            </motion.div>
+          </div>
+
+          {/* Call to Action */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="text-center mt-16"
+          >
+            <motion.button
+              onClick={() => navigate('/register')}
+              className="px-12 py-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
+                rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300"
+              whileHover={{ scale: 1.05, y: -3 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="flex items-center gap-3">
+                Start Chatting Today
+                <HeartIcon className="w-6 h-6" />
+              </span>
+            </motion.button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="relative z-10 py-32">
+        <div className="container mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-20"
+          >
+            <h2 className="text-5xl font-bold text-gray-800 mb-6">
+              People Love <span className="bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">HetaSinglar</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Testimonials
+            </p>
+          </motion.div>
+
+          {/* Horizontal Scrolling Testimonials */}
+          <div className="relative">
+            <div 
+              ref={testimonialsRef}
+              className="flex overflow-x-auto scrollbar-hide gap-6 pb-4"
+              style={{ 
+                scrollBehavior: 'smooth',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+            >
+              {/* Duplicate testimonials for infinite scroll */}
+              {[...testimonials, ...testimonials].map((testimonial, index) => (
+                <TestimonialCard
+                  key={`${testimonial.name}-${index}`}
+                  name={testimonial.name}
+                  rating={testimonial.rating}
+                  text={testimonial.text}
+                  delay={0}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Update the bottom section before closing div */}
-      <footer className="relative z-10 py-8 bg-white/30 backdrop-blur-sm mt-16">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="text-center">
-              <p className="text-gray-600 mb-4">Access Portals</p>
-              <div className="flex items-center gap-4">
-                <motion.button
-                  onClick={() => navigate('/agent/login')}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg
-                    hover:shadow-lg transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+      {/* Professional Access Portals Section */}
+      <section className="relative z-10 py-12 bg-gradient-to-t from-white via-rose-50/50 to-transparent">
+        <div className="container mx-auto px-6">
+          <div className="glass-effect rounded-2xl p-8 border border-white/40 shadow-xl">
+            <div className="text-center space-y-8">
+              {/* Access Portals */}
+              <div>
+                <motion.h4 
+                  className="text-xl font-semibold text-gray-700 mb-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                 >
-                  <div className="flex items-center gap-2">
-                    <span role="img" aria-label="agent">👨‍💼</span>
-                    Agent Login
-                  </div>
-                </motion.button>
+                  Professional Access Portals
+                </motion.h4>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+                  <motion.button
+                    onClick={() => navigate('/agent/login')}
+                    className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold
+                      shadow-xl hover:shadow-2xl transition-all duration-300 btn-glow flex items-center gap-3"
+                    whileHover={{ scale: 1.05, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">👨‍💼</span>
+                    <span>Agent Portal</span>
+                  </motion.button>
 
-                <motion.button
-                  onClick={() => navigate('/admin/login')}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg
-                    hover:shadow-lg transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span role="img" aria-label="admin">👑</span>
-                    Admin Login
-                  </div>
-                </motion.button>
+                  <motion.button
+                    onClick={() => navigate('/admin/login')}
+                    className="group px-8 py-4 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-xl font-semibold
+                      shadow-xl hover:shadow-2xl transition-all duration-300 btn-glow flex items-center gap-3"
+                    whileHover={{ scale: 1.05, y: -3 }}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <span className="text-2xl group-hover:scale-110 transition-transform">👑</span>
+                    <span>Admin Panel</span>
+                  </motion.button>
+                </div>
               </div>
             </div>
-
-            <p className="text-sm text-gray-500 mt-4">
-              © 2024 HetaSinglar. All rights reserved.
-            </p>
           </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Footer Component */}
+      <Footer />
     </div>
   );
 };

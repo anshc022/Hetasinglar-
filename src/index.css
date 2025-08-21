@@ -4,6 +4,31 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Rouge+Script&family=Italiana&display=swap');
 
+/* Smooth scrolling for the entire page */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px; /* Offset for fixed headers */
+}
+
+/* Smooth scrolling for all elements */
+* {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced smooth scrolling for specific containers */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  scroll-padding: 20px;
+}
+
+/* Smooth scrolling with custom timing */
+@media (prefers-reduced-motion: no-preference) {
+  .smooth-scroll-enhanced {
+    scroll-behavior: smooth;
+    transition: scroll-behavior 0.3s ease-in-out;
+  }
+}
+
 /* Add to existing styles */
 .backdrop-blur-xl {
   backdrop-filter: blur(24px);
@@ -59,9 +84,4 @@ input:focus {
 
 .feature-badge {
   animation: float 3s ease-in-out infinite;
-}
-
-/* Add smooth transitions */
-* {
-  transition: all 0.2s ease-in-out;
 }
