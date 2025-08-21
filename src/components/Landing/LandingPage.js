@@ -818,55 +818,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Professional Access Portals Section */}
-      <section className="relative z-10 py-12 bg-gradient-to-t from-white via-rose-50/50 to-transparent">
-        <div className="container mx-auto px-6">
-          <div className="glass-effect rounded-2xl p-8 border border-white/40 shadow-xl">
-            <div className="text-center space-y-8">
-              {/* Access Portals */}
-              <div>
-                <motion.h4 
-                  className="text-xl font-semibold text-gray-700 mb-6"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  Professional Access Portals
-                </motion.h4>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                  <motion.button
-                    onClick={() => navigate('/agent/login')}
-                    className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold
-                      shadow-xl hover:shadow-2xl transition-all duration-300 btn-glow flex items-center gap-3"
-                    whileHover={{ scale: 1.05, y: -3 }}
-                    whileTap={{ scale: 0.95 }}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <span className="text-2xl group-hover:scale-110 transition-transform">👨‍💼</span>
-                    <span>Agent Portal</span>
-                  </motion.button>
-
-                  <motion.button
-                    onClick={() => navigate('/admin/login')}
-                    className="group px-8 py-4 bg-gradient-to-r from-purple-500 to-violet-600 text-white rounded-xl font-semibold
-                      shadow-xl hover:shadow-2xl transition-all duration-300 btn-glow flex items-center gap-3"
-                    whileHover={{ scale: 1.05, y: -3 }}
-                    whileTap={{ scale: 0.95 }}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                  >
-                    <span className="text-2xl group-hover:scale-110 transition-transform">👑</span>
-                    <span>Admin Panel</span>
-                  </motion.button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Footer Component */}
       <Footer />
     </div>
