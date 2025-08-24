@@ -1068,86 +1068,108 @@ const AgentDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="bg-gray-800 rounded-2xl p-8 shadow-2xl border border-gray-700 min-w-[400px] max-w-md mx-4">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Agent Dashboard</h2>
-            <p className="text-gray-400">Initializing your workspace...</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        {/* Floating background shapes matching website */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white via-rose-50/60 to-pink-100/70"></div>
+        <div className="absolute w-96 h-96 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-15 -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-80 h-80 bg-gradient-to-r from-pink-300 to-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 top-1/3 -right-40 animate-pulse"></div>
+        <div className="absolute w-64 h-64 bg-gradient-to-r from-purple-300 to-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 bottom-20 left-1/4 animate-pulse"></div>
 
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex justify-between text-sm text-gray-400 mb-2">
-              <span>Step {loadingStatus.step} of {loadingStatus.total}</span>
-              <span>{loadingStatus.progress}%</span>
+        <div className="max-w-md w-full mx-auto relative z-10">
+          <div className="glass-effect bg-white/20 backdrop-filter backdrop-blur-20 rounded-3xl shadow-2xl p-8 border border-white/30">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-pink-900 to-red-900 bg-clip-text text-transparent mb-2">Agent Dashboard</h2>
+              <p className="text-gray-600">Initializing your workspace...</p>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
-                style={{ width: `${loadingStatus.progress}%` }}
-              />
-            </div>
-          </div>
 
-          {/* Current Status */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center">
-                {loadingStatus.step > 0 ? (
-                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"/>
-                ) : (
-                  <div className="w-6 h-6 bg-gray-600 rounded-full"/>
-                )}
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span className="font-medium">Step {loadingStatus.step} of {loadingStatus.total}</span>
+                <span className="font-bold text-rose-600">{loadingStatus.progress}%</span>
               </div>
-              <div className="flex-1">
-                <h3 className="text-white font-semibold">{loadingStatus.message}</h3>
-                <p className="text-gray-400 text-sm">{loadingStatus.details}</p>
+              <div className="w-full bg-gray-200/50 rounded-full h-3 shadow-inner">
+                <div 
+                  className="bg-gradient-to-r from-rose-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
+                  style={{ width: `${loadingStatus.progress}%` }}
+                ></div>
               </div>
+            </div>
+
+            {/* Current Status */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-3 h-3 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full animate-pulse shadow-lg"></div>
+                <span className="text-gray-800 font-semibold">{loadingStatus.message}</span>
+              </div>
+              <p className="text-gray-600 text-sm ml-6 italic">{loadingStatus.details}</p>
             </div>
 
             {/* Loading Steps Checklist */}
-            <div className="mt-6 space-y-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Loading Steps:</h3>
+              
               {[
-                { step: 1, label: 'Server Connection', desc: 'WebSocket & Real-time services' },
-                { step: 2, label: 'Agent Profile', desc: 'Your account & permissions' },
-                { step: 3, label: 'Services', desc: 'Notifications & monitoring' },
-                { step: 4, label: 'Dashboard Stats', desc: 'Metrics & analytics' },
-                { step: 5, label: 'Live Queue', desc: 'Active conversations' },
-                { step: 6, label: 'Escort Profiles', desc: 'Your assigned profiles' }
+                { step: 1, label: 'Server Connection', desc: 'WebSocket & Real-time services', icon: '🔗' },
+                { step: 2, label: 'Agent Profile', desc: 'Your account & permissions', icon: '👤' },
+                { step: 3, label: 'Services', desc: 'Notifications & monitoring', icon: '🔔' },
+                { step: 4, label: 'Dashboard Stats', desc: 'Metrics & analytics', icon: '📊' },
+                { step: 5, label: 'Live Queue', desc: 'Active conversations', icon: '💬' },
+                { step: 6, label: 'Escort Profiles', desc: 'Your assigned profiles', icon: '👥' }
               ].map((item) => (
-                <div key={item.step} className="flex items-center gap-3 text-sm">
+                <div key={item.step} className="flex items-center gap-3 p-2 rounded-lg bg-white/30 backdrop-filter backdrop-blur-10 border border-white/20">
                   <div className="flex-shrink-0">
                     {loadingStatus.step > item.step ? (
-                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg">
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     ) : loadingStatus.step === item.step ? (
-                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                      <div className="w-6 h-6 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center animate-pulse shadow-lg text-white text-xs">
+                        {item.icon}
+                      </div>
                     ) : (
-                      <div className="w-5 h-5 border-2 border-gray-600 rounded-full"/>
+                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-xs">
+                        {item.icon}
+                      </div>
                     )}
                   </div>
                   <div className="flex-1">
-                    <span className={`font-medium ${
-                      loadingStatus.step > item.step ? 'text-green-400' :
-                      loadingStatus.step === item.step ? 'text-blue-400' : 'text-gray-500'
+                    <span className={`font-semibold text-sm ${
+                      loadingStatus.step > item.step ? 'text-green-700' :
+                      loadingStatus.step === item.step ? 'text-gray-800' : 'text-gray-500'
                     }`}>
                       {item.label}
                     </span>
                     <div className={`text-xs ${
-                      loadingStatus.step >= item.step ? 'text-gray-400' : 'text-gray-600'
+                      loadingStatus.step >= item.step ? 'text-gray-600' : 'text-gray-500'
                     }`}>
                       {item.desc}
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Loading Animation */}
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center gap-3 text-gray-600">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-transparent bg-gradient-to-r from-rose-500 to-pink-500 rounded-full"></div>
+                <span className="text-sm font-medium">Preparing your agent environment...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
                 </div>
               ))}
             </div>

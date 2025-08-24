@@ -329,27 +329,33 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="max-w-md w-full mx-auto">
-          <div className="bg-gray-800 rounded-lg shadow-2xl p-8 border border-gray-700">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
+        {/* Floating background shapes matching website */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white via-rose-50/60 to-pink-100/70"></div>
+        <div className="absolute w-96 h-96 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-15 -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-80 h-80 bg-gradient-to-r from-pink-300 to-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 top-1/3 -right-40 animate-pulse"></div>
+        <div className="absolute w-64 h-64 bg-gradient-to-r from-purple-300 to-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 bottom-20 left-1/4 animate-pulse"></div>
+
+        <div className="max-w-md w-full mx-auto relative z-10">
+          <div className="glass-effect bg-white/20 backdrop-filter backdrop-blur-20 rounded-3xl shadow-2xl p-8 border border-white/30">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-rose-500 to-rose-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <FaUserShield className="text-white text-2xl" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Admin Dashboard</h2>
-              <p className="text-gray-400">Loading administrative interface...</p>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-pink-900 to-red-900 bg-clip-text text-transparent mb-2">Admin Dashboard</h2>
+              <p className="text-gray-600">Loading administrative interface...</p>
             </div>
 
             {/* Progress Bar */}
             <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-400 mb-2">
-                <span>Progress</span>
-                <span>{loadingStatus.progress}%</span>
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span className="font-medium">Progress</span>
+                <span className="font-bold text-rose-600">{loadingStatus.progress}%</span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-gray-200/50 rounded-full h-3 shadow-inner">
                 <div 
-                  className="bg-gradient-to-r from-rose-500 to-rose-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  className="bg-gradient-to-r from-rose-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
                   style={{ width: `${loadingStatus.progress}%` }}
                 ></div>
               </div>
@@ -358,34 +364,34 @@ const AdminDashboard = () => {
             {/* Current Status */}
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-3 h-3 bg-rose-500 rounded-full animate-pulse"></div>
-                <span className="text-white font-medium">{loadingStatus.message}</span>
+                <div className="w-3 h-3 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full animate-pulse shadow-lg"></div>
+                <span className="text-gray-800 font-semibold">{loadingStatus.message}</span>
               </div>
-              <p className="text-gray-400 text-sm ml-6">{loadingStatus.details}</p>
+              <p className="text-gray-600 text-sm ml-6 italic">{loadingStatus.details}</p>
             </div>
 
             {/* Loading Steps Checklist */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-300 mb-3">Loading Steps:</h3>
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Loading Steps:</h3>
               
               {[
-                { step: 1, label: 'Server Connection', description: 'Connecting to admin backend' },
-                { step: 2, label: 'Dashboard Statistics', description: 'Loading metrics and performance data' },
-                { step: 3, label: 'Admin Profile', description: 'Fetching administrator details' },
-                { step: 4, label: 'Interface Setup', description: 'Finalizing dashboard components' }
-              ].map(({ step, label, description }) => (
-                <div key={step} className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                { step: 1, label: 'Server Connection', description: 'Connecting to admin backend', icon: '🔗' },
+                { step: 2, label: 'Dashboard Statistics', description: 'Loading metrics and performance data', icon: '📊' },
+                { step: 3, label: 'Admin Profile', description: 'Fetching administrator details', icon: '👤' },
+                { step: 4, label: 'Interface Setup', description: 'Finalizing dashboard components', icon: '⚙️' }
+              ].map(({ step, label, description, icon }) => (
+                <div key={step} className="flex items-center gap-4 p-3 rounded-xl bg-white/40 backdrop-filter backdrop-blur-10 border border-white/20">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
                     loadingStatus.step >= step 
-                      ? 'bg-green-500 text-white' 
+                      ? 'bg-gradient-to-r from-green-400 to-green-500 text-white shadow-lg scale-110' 
                       : loadingStatus.step === step - 1 
-                        ? 'bg-rose-500 text-white animate-pulse' 
-                        : 'bg-gray-600 text-gray-400'
+                        ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white animate-pulse shadow-lg' 
+                        : 'bg-gray-300 text-gray-600'
                   }`}>
-                    {loadingStatus.step > step ? '✓' : step}
+                    {loadingStatus.step > step ? '✓' : icon}
                   </div>
-                  <div className={`flex-1 ${loadingStatus.step >= step ? 'text-green-400' : 'text-gray-400'}`}>
-                    <div className="text-sm font-medium">{label}</div>
+                  <div className={`flex-1 transition-all duration-300 ${loadingStatus.step >= step ? 'text-green-700' : 'text-gray-600'}`}>
+                    <div className="font-semibold">{label}</div>
                     <div className="text-xs opacity-75">{description}</div>
                   </div>
                 </div>
@@ -393,10 +399,10 @@ const AdminDashboard = () => {
             </div>
 
             {/* Loading Animation */}
-            <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 text-gray-400">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-rose-500"></div>
-                <span className="text-sm">Setting up your admin environment...</span>
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center gap-3 text-gray-600">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-transparent bg-gradient-to-r from-rose-500 to-pink-500 rounded-full"></div>
+                <span className="text-sm font-medium">Setting up your admin environment...</span>
               </div>
             </div>
           </div>

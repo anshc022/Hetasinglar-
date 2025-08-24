@@ -34,6 +34,24 @@ html {
   backdrop-filter: blur(24px);
 }
 
+/* Glass morphism effect */
+.glass-effect {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.backdrop-blur-20 {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.backdrop-blur-10 {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 .gradient-text {
   background: linear-gradient(to right, #ff3366, #ff6b6b);
   -webkit-background-clip: text;
