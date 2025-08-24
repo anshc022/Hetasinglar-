@@ -483,6 +483,13 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
 const AgentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState({
+    step: 0,
+    total: 6,
+    message: 'Initializing...',
+    details: 'Setting up dashboard components',
+    progress: 0
+  });
   const [stats, setStats] = useState({
     liveMessages: 0,
     totalReminders: 0,
@@ -503,182 +510,210 @@ const AgentDashboard = () => {
   
   const socketRef = useRef(null);
 
+  // Loading status helper
+  const updateLoadingStatus = (step, message, details) => {
+    const progress = Math.round((step / 6) * 100);
+    setLoadingStatus({
+      step,
+      total: 6,
+      message,
+      details,
+      progress
+    });
+    console.log(`📊 Loading Step ${step}/6: ${message} - ${details}`);
+  };
+
   // Initialize websocket connection
   useEffect(() => {
-    // Fetch agent profile data with cache
-    const fetchAgentProfile = async () => {
+    const initializeDashboard = async () => {
       try {
-        const agentData = await agentCache.getOrFetch(
-          CACHE_KEYS.AGENT_PROFILE,
-          () => agentAuth.getProfile(),
-          CACHE_DURATIONS.VERY_LONG
-        );
-        setAgent(agentData);
-      } catch (error) {
-        console.error('Failed to fetch agent profile:', error);
-      }
-    };
-    
-    fetchAgentProfile();
-
-    // Start notification monitoring for new customers
-    notificationService.startMonitoring(agentAuth);
-
-    // Create websocket connection for real-time updates
-    websocketService.connect();
-    websocketService.setUserId('agent');
-    socketRef.current = websocketService;
-    
-    // Set up message handlers
-    const messageHandler = (data) => {
-      console.log('Dashboard received WebSocket message:', data);
-      
-      if (data.type === 'queue:update' || data.type === 'live_queue_update') {
-        console.log('Received queue update:', data);
-        // Refresh live queue data
-        if (window.fetchLiveQueueData) {
-          window.fetchLiveQueueData();
-        }
-      }
-      
-      if (data.type === 'chat_message') {
-        // Update chat in real-time when new messages arrive
-        setChats(prevChats => {
-          return prevChats.map(chat => {
-            if (chat._id === data.chatId) {
-              const newMessage = {
-                sender: data.sender,
-                message: data.message,
-                messageType: data.messageType || 'text',
-                timestamp: data.timestamp,
-                readByAgent: data.readByAgent,
-                readByCustomer: data.readByCustomer,
-                imageData: data.imageData,
-                mimeType: data.mimeType,
-                filename: data.filename
-              };
-              
-              return {
-                ...chat,
-                messages: [...(chat.messages || []), newMessage],
-                updatedAt: data.timestamp
-              };
-            }
-            return chat;
-          });
-        });
-      }
-      
-      if (data.type === 'messages_read') {
-        // Update read status in real-time
-        setChats(prevChats => {
-          return prevChats.map(chat => {
-            if (chat._id === data.chatId) {
-              return {
-                ...chat,
-                messages: chat.messages.map(msg => ({
-                  ...msg,
-                  readByAgent: data.readBy === 'agent' ? true : msg.readByAgent,
-                  readByCustomer: data.readBy === 'customer' ? true : msg.readByCustomer
-                }))
-              };
-            }
-            return chat;
-          });
-        });
-      }
-      
-      if (data.type === 'notifications_update') {
-        setNotifications(prevNotifs => {
-          // Keep existing notifications that aren't in the new update
-          const oldNotifs = prevNotifs.filter(old => 
-            !data.notifications.find(n => n.chatId === old.chatId)
+        // Step 1: Initialize WebSocket
+        updateLoadingStatus(1, 'Connecting to Server', 'Establishing WebSocket connection for real-time updates');
+        
+        // Fetch agent profile data with cache
+        updateLoadingStatus(2, 'Loading Agent Profile', 'Fetching your agent information and permissions');
+        try {
+          const agentData = await agentCache.getOrFetch(
+            CACHE_KEYS.AGENT_PROFILE,
+            () => agentAuth.getProfile(),
+            CACHE_DURATIONS.VERY_LONG
           );
-          return [...oldNotifs, ...data.notifications];
-        });
-      }
-    };
+          setAgent(agentData);
+          console.log('✅ Agent profile loaded:', agentData.name);
+        } catch (error) {
+          console.error('Failed to fetch agent profile:', error);
+        }
 
-    // Handle presence updates
-    const presenceHandler = (data) => {
-      console.log('Presence update:', data);
-      
-      if (data.type === 'user_presence') {
-        setUserPresence(prev => {
-          const newPresence = new Map(prev);
-          newPresence.set(data.userId, {
-            isOnline: data.status === 'online',
-            lastSeen: data.timestamp,
-            status: data.status
-          });
-          return newPresence;
-        });
+        // Step 3: Initialize services
+        updateLoadingStatus(3, 'Starting Services', 'Initializing notification monitoring and WebSocket services');
+        
+        // Start notification monitoring for new customers
+        notificationService.startMonitoring(agentAuth);
 
-        // Update chat list to reflect user online status
-        setChats(prevChats => {
-          return prevChats.map(chat => {
-            if (chat.customerId?._id.toString() === data.userId) {
-              return {
-                ...chat,
-                isUserActive: data.status === 'online'
-              };
+        // Create websocket connection for real-time updates
+        websocketService.connect();
+        websocketService.setUserId('agent');
+        socketRef.current = websocketService;
+        
+        // Set up message handlers
+        const messageHandler = (data) => {
+          console.log('Dashboard received WebSocket message:', data);
+          
+          if (data.type === 'queue:update' || data.type === 'live_queue_update') {
+            console.log('Received queue update:', data);
+            // Invalidate cache when queue updates
+            agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
+            agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
+            
+            // Refresh live queue data
+            if (window.fetchLiveQueueData) {
+              window.fetchLiveQueueData();
             }
-            return chat;
-          });
-        });
-      }
-      
-      if (data.type === 'user_activity_update') {
-        setUserPresence(prev => {
-          const newPresence = new Map(prev);
-          const existing = newPresence.get(data.userId) || {};
-          newPresence.set(data.userId, {
-            ...existing,
-            isOnline: true,
-            lastSeen: data.timestamp
-          });
-          return newPresence;
+          }
+          
+          if (data.type === 'chat_message') {
+            // Update chat in real-time when new messages arrive
+            setChats(prevChats => {
+              return prevChats.map(chat => {
+                if (chat._id === data.chatId) {
+                  const newMessage = {
+                    sender: data.sender,
+                    message: data.message,
+                    messageType: data.messageType || 'text',
+                    timestamp: data.timestamp,
+                    readByAgent: data.readByAgent,
+                    readByCustomer: data.readByCustomer,
+                    imageData: data.imageData,
+                    mimeType: data.mimeType,
+                    filename: data.filename
+                  };
+                  
+                  return {
+                    ...chat,
+                    messages: [...(chat.messages || []), newMessage],
+                    updatedAt: data.timestamp
+                  };
+                }
+                return chat;
+              });
+            });
+          }
+          
+          if (data.type === 'notifications_update') {
+            setNotifications(prevNotifs => {
+              // Keep existing notifications that aren't in the new update
+              const oldNotifs = prevNotifs.filter(old => 
+                !data.notifications.find(n => n.chatId === old.chatId)
+              );
+              return [...oldNotifs, ...data.notifications];
+            });
+          }
+        };
+
+        // Handle presence updates
+        const presenceHandler = (data) => {
+          console.log('Presence update:', data);
+          
+          if (data.type === 'user_presence') {
+            setUserPresence(prev => {
+              const newPresence = new Map(prev);
+              newPresence.set(data.userId, {
+                isOnline: data.status === 'online',
+                lastSeen: data.timestamp,
+                status: data.status
+              });
+              return newPresence;
+            });
+
+            // Update chat list to reflect user online status
+            setChats(prevChats => {
+              return prevChats.map(chat => {
+                if (chat.customerId?._id.toString() === data.userId) {
+                  return {
+                    ...chat,
+                    isUserActive: data.status === 'online'
+                  };
+                }
+                return chat;
+              });
+            });
+          }
+          
+          if (data.type === 'user_activity_update') {
+            setUserPresence(prev => {
+              const newPresence = new Map(prev);
+              const existing = newPresence.get(data.userId) || {};
+              newPresence.set(data.userId, {
+                ...existing,
+                isOnline: true,
+                lastSeen: data.timestamp
+              });
+              return newPresence;
+            });
+          }
+        };
+        
+        // Subscribe to WebSocket messages
+        const unsubscribeMessage = websocketService.onMessage(messageHandler);
+        const unsubscribePresence = websocketService.onPresence(presenceHandler);
+        
+        console.log('✅ Connected to dashboard websockets');
+        
+        // Clean up on unmount
+        return () => {
+          unsubscribeMessage();
+          unsubscribePresence();
+          websocketService.disconnect();
+          notificationService.stopMonitoring();
+        };
+        
+      } catch (error) {
+        console.error('❌ Failed to initialize dashboard:', error);
+        setLoadingStatus({
+          step: 0,
+          total: 6,
+          message: 'Connection Failed',
+          details: 'Please refresh the page to try again',
+          progress: 0
         });
       }
     };
-    
-    // Subscribe to WebSocket messages
-    const unsubscribeMessage = websocketService.onMessage(messageHandler);
-    const unsubscribePresence = websocketService.onPresence(presenceHandler);
-    
-    console.log('Connected to dashboard websockets');
-    
-    // Clean up on unmount
-    return () => {
-      unsubscribeMessage();
-      unsubscribePresence();
-      websocketService.disconnect();
-      notificationService.stopMonitoring();
-    };
+
+    initializeDashboard();
   }, []);
 
   // Fetch initial dashboard data with cache
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Use cache for dashboard data
-        const [dashboardStats, liveQueue, escortData] = await Promise.all([
-          agentCache.getOrFetch(
-            CACHE_KEYS.DASHBOARD_STATS,
-            () => agentAuth.getDashboardStats(),
-            CACHE_DURATIONS.MEDIUM
-          ),
-          agentCache.getOrFetch(
-            CACHE_KEYS.LIVE_QUEUE,
-            () => agentAuth.getLiveQueue(),
-            CACHE_DURATIONS.SHORT
-          ),
-          agentCache.getOrFetch(
-            CACHE_KEYS.MY_ESCORTS,
-            () => agentAuth.getMyEscorts(),
-            CACHE_DURATIONS.LONG
-          )
-        ]);
+        // Step 4: Load Dashboard Data
+        updateLoadingStatus(4, 'Loading Dashboard Stats', 'Fetching dashboard statistics and metrics');
+        
+        const dashboardStats = await agentCache.getOrFetch(
+          CACHE_KEYS.DASHBOARD_STATS,
+          () => agentAuth.getDashboardStats(),
+          CACHE_DURATIONS.MEDIUM
+        );
+
+        // Step 5: Load Live Queue
+        updateLoadingStatus(5, 'Loading Live Queue', 'Fetching active chat conversations and customer queue');
+        
+        const liveQueue = await agentCache.getOrFetch(
+          CACHE_KEYS.LIVE_QUEUE,
+          () => agentAuth.getLiveQueue(),
+          CACHE_DURATIONS.SHORT
+        );
+
+        // Step 6: Load Escort Profiles
+        updateLoadingStatus(6, 'Loading Escort Profiles', 'Loading your assigned escort profiles and data');
+        
+        const escortData = await agentCache.getOrFetch(
+          CACHE_KEYS.MY_ESCORTS,
+          () => agentAuth.getMyEscorts(),
+          CACHE_DURATIONS.LONG
+        );
+
+        console.log('✅ All dashboard data loaded successfully');
 
         setStats({
           liveMessages: dashboardStats.totalLiveMessages || 0,
@@ -704,13 +739,33 @@ const AgentDashboard = () => {
         });
         setUserPresence(presenceMap);
 
+        // Mark loading as complete
+        setLoadingStatus({
+          step: 6,
+          total: 6,
+          message: 'Dashboard Ready',
+          details: 'All systems operational and ready to use',
+          progress: 100
+        });
+
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error('❌ Failed to fetch dashboard data:', error);
+        setLoadingStatus({
+          step: 0,
+          total: 6,
+          message: 'Failed to Load Data',
+          details: error.message || 'Please check your connection and try again',
+          progress: 0
+        });
+        
         if (error.response && error.response.status === 401) {
           navigate('/agent/login');
         }
       } finally {
-        setLoading(false);
+        // Complete loading after a short delay to show final status
+        setTimeout(() => {
+          setLoading(false);
+        }, 1000);
       }
     };
 
@@ -1013,10 +1068,97 @@ const AgentDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-100 via-rose-200 to-pink-100 flex items-center justify-center">
-        <div className="text-2xl text-rose-600 flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600"></div>
-          <div>Loading dashboard...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+        <div className="bg-gray-800 rounded-2xl p-8 shadow-2xl border border-gray-700 min-w-[400px] max-w-md mx-4">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Agent Dashboard</h2>
+            <p className="text-gray-400">Initializing your workspace...</p>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex justify-between text-sm text-gray-400 mb-2">
+              <span>Step {loadingStatus.step} of {loadingStatus.total}</span>
+              <span>{loadingStatus.progress}%</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 ease-out"
+                style={{ width: `${loadingStatus.progress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Current Status */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center">
+                {loadingStatus.step > 0 ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"/>
+                ) : (
+                  <div className="w-6 h-6 bg-gray-600 rounded-full"/>
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-semibold">{loadingStatus.message}</h3>
+                <p className="text-gray-400 text-sm">{loadingStatus.details}</p>
+              </div>
+            </div>
+
+            {/* Loading Steps Checklist */}
+            <div className="mt-6 space-y-2">
+              {[
+                { step: 1, label: 'Server Connection', desc: 'WebSocket & Real-time services' },
+                { step: 2, label: 'Agent Profile', desc: 'Your account & permissions' },
+                { step: 3, label: 'Services', desc: 'Notifications & monitoring' },
+                { step: 4, label: 'Dashboard Stats', desc: 'Metrics & analytics' },
+                { step: 5, label: 'Live Queue', desc: 'Active conversations' },
+                { step: 6, label: 'Escort Profiles', desc: 'Your assigned profiles' }
+              ].map((item) => (
+                <div key={item.step} className="flex items-center gap-3 text-sm">
+                  <div className="flex-shrink-0">
+                    {loadingStatus.step > item.step ? (
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : loadingStatus.step === item.step ? (
+                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                    ) : (
+                      <div className="w-5 h-5 border-2 border-gray-600 rounded-full"/>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <span className={`font-medium ${
+                      loadingStatus.step > item.step ? 'text-green-400' :
+                      loadingStatus.step === item.step ? 'text-blue-400' : 'text-gray-500'
+                    }`}>
+                      {item.label}
+                    </span>
+                    <div className={`text-xs ${
+                      loadingStatus.step >= item.step ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      {item.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              {loadingStatus.step === 6 ? '🎉 Ready to go!' : '⚡ Setting up your dashboard...'}
+            </p>
+          </div>
         </div>
       </div>
     );

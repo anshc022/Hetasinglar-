@@ -10,28 +10,56 @@ import './SubscriptionPlans.css';
 const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState({
+    step: 0,
+    total: 3,
+    message: 'Initializing...',
+    details: 'Setting up coin packages',
+    progress: 0
+  });
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
+  // Helper function to update loading status
+  const updateLoadingStatus = (step, message, details) => {
+    const progress = Math.round((step / 3) * 100);
+    setLoadingStatus({
+      step,
+      total: 3,
+      message,
+      details,
+      progress
+    });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        // Fetch coin packages
+        // Step 1: Initialize connection
+        updateLoadingStatus(1, 'Connecting to store...', 'Establishing connection to coin packages');
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Step 2: Fetch coin packages
+        updateLoadingStatus(2, 'Loading coin packages...', 'Retrieving available coin packages and pricing');
         const packagesRes = await axios.get(`${config.API_URL}/subscription/plans`);
         setPackages(packagesRes.data.filter(pkg => pkg.type === 'coin_package'));
 
-        // Fetch user's coin balance if logged in
+        // Step 3: Fetch user balance
+        updateLoadingStatus(3, 'Loading your balance...', 'Checking your current coin balance');
         if (user && token) {
           const headers = { Authorization: `Bearer ${token}` };
           const userRes = await axios.get(`${config.API_URL}/subscription/coins/balance`, { headers });
           setUserCoins(userRes.data.balance);
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+
       } catch (err) {
         setError('Failed to load coin packages. Please try again later.');
         console.error('Error:', err);
+        updateLoadingStatus(0, 'Error loading store', 'Failed to connect. Please refresh the page.');
       } finally {
         setLoading(false);
       }
@@ -77,9 +105,77 @@ const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading coin packages...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full mx-auto">
+          <div className="bg-white rounded-lg shadow-2xl p-8 border border-gray-200">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaCoins className="text-white text-2xl" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Coin Store</h2>
+              <p className="text-gray-600">Loading available coin packages...</p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Progress</span>
+                <span>{loadingStatus.progress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${loadingStatus.progress}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Current Status */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-800 font-medium">{loadingStatus.message}</span>
+              </div>
+              <p className="text-gray-600 text-sm ml-6">{loadingStatus.details}</p>
+            </div>
+
+            {/* Loading Steps Checklist */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Loading Steps:</h3>
+              
+              {[
+                { step: 1, label: 'Store Connection', description: 'Connecting to coin marketplace' },
+                { step: 2, label: 'Package Catalog', description: 'Loading available coin packages' },
+                { step: 3, label: 'Account Balance', description: 'Checking your current coins' }
+              ].map(({ step, label, description }) => (
+                <div key={step} className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                    loadingStatus.step >= step 
+                      ? 'bg-green-500 text-white' 
+                      : loadingStatus.step === step - 1 
+                        ? 'bg-blue-500 text-white animate-pulse' 
+                        : 'bg-gray-300 text-gray-600'
+                  }`}>
+                    {loadingStatus.step > step ? '✓' : step}
+                  </div>
+                  <div className={`flex-1 ${loadingStatus.step >= step ? 'text-green-600' : 'text-gray-600'}`}>
+                    <div className="text-sm font-medium">{label}</div>
+                    <div className="text-xs opacity-75">{description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Loading Animation */}
+            <div className="mt-6 text-center">
+              <div className="inline-flex items-center gap-2 text-gray-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                <span className="text-sm">Setting up your coin store...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
