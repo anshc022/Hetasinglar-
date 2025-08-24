@@ -1170,21 +1170,6 @@ const AgentDashboard = () => {
       </div>
     );
   }
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
-              {loadingStatus.step === 6 ? '🎉 Ready to go!' : '⚡ Setting up your dashboard...'}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen bg-gray-900">
