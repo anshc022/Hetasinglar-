@@ -1,8 +1,8 @@
 // Environment configuration utility
 const config = {
   // API Configuration
-  API_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-  WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:5000',
+  API_URL: process.env.REACT_APP_API_URL || 'https://apihetasinglar.duckdns.org/api',
+  WS_URL: process.env.REACT_APP_WS_URL || 'ws://apihetasinglar.duckdns.org',
   FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL || 'http://localhost:8000',
   
   // Environment info

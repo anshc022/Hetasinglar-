@@ -751,12 +751,12 @@ const AgentDashboard = () => {
 
     fetchDashboardData();
     
-    // Update stats and queue more frequently to keep them current
-    const interval = setInterval(() => {
-      fetchLiveQueueData();
-    }, 15000); // Poll every 15 seconds
+    // Remove auto-polling - use manual refresh button instead
+    // const interval = setInterval(() => {
+    //   fetchLiveQueueData();
+    // }, 15000); // Poll every 15 seconds
     
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, [navigate, activeTab]);
 
   // Add this to fetch panic room count
@@ -771,8 +771,9 @@ const AgentDashboard = () => {
 
   useEffect(() => {
     updatePanicRoomCount();
-    const interval = setInterval(updatePanicRoomCount, 60000); // Update every minute
-    return () => clearInterval(interval);
+    // Remove auto-update - use manual refresh button instead
+    // const interval = setInterval(updatePanicRoomCount, 60000); // Update every minute
+    // return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
@@ -892,6 +893,9 @@ const AgentDashboard = () => {
       setMyEscorts(escortData);
       setReminders(dashboardStats.reminders || []);
 
+      // Update panic room count
+      await updatePanicRoomCount();
+
       // Update user presence from fresh data
       const presenceMap = new Map();
       liveQueue.forEach(chat => {
@@ -929,9 +933,10 @@ const AgentDashboard = () => {
     };
 
     watchLiveQueue();
-    const interval = setInterval(watchLiveQueue, 30000); // Refresh every 30 seconds
+    // Remove auto-polling - use manual refresh button instead
+    // const interval = setInterval(watchLiveQueue, 30000); // Refresh every 30 seconds
 
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, []);
 
   // Calculate unread message count for sidebar badge (simplified - no reminders)

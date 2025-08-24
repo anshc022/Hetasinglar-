@@ -108,15 +108,6 @@ api.interceptors.response.use(
 );
 
 export const auth = {
-  async checkUsername(username) {
-    try {
-      const response = await api.post('/auth/check-username', { username });
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
-    }
-  },
-
   async register(userData) {
     try {
       const registrationData = {
@@ -208,7 +199,7 @@ export const escorts = {
 
   async getEscortProfile(id) {
     try {
-      const response = await api.get(`/agents/escorts/${id}/profile`);
+      const response = await api.get(`/escorts/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
