@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth, agentApi } from '../../services/agentApi';
+import { agentCache, CACHE_KEYS, CACHE_DURATIONS } from '../../utils/agentCache';
 import AgentEarnings from './AgentEarnings';
 import AffiliateView from './AffiliateView';
 import AffiliateManager from './AffiliateManager';
@@ -504,10 +505,14 @@ const AgentDashboard = () => {
 
   // Initialize websocket connection
   useEffect(() => {
-    // Fetch agent profile data
+    // Fetch agent profile data with cache
     const fetchAgentProfile = async () => {
       try {
-        const agentData = await agentAuth.getProfile();
+        const agentData = await agentCache.getOrFetch(
+          CACHE_KEYS.AGENT_PROFILE,
+          () => agentAuth.getProfile(),
+          CACHE_DURATIONS.VERY_LONG
+        );
         setAgent(agentData);
       } catch (error) {
         console.error('Failed to fetch agent profile:', error);
@@ -652,14 +657,27 @@ const AgentDashboard = () => {
     };
   }, []);
 
-  // Fetch initial dashboard data
+  // Fetch initial dashboard data with cache
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        // Use cache for dashboard data
         const [dashboardStats, liveQueue, escortData] = await Promise.all([
-          agentAuth.getDashboardStats(),
-          agentAuth.getLiveQueue(),
-          agentAuth.getMyEscorts()
+          agentCache.getOrFetch(
+            CACHE_KEYS.DASHBOARD_STATS,
+            () => agentAuth.getDashboardStats(),
+            CACHE_DURATIONS.MEDIUM
+          ),
+          agentCache.getOrFetch(
+            CACHE_KEYS.LIVE_QUEUE,
+            () => agentAuth.getLiveQueue(),
+            CACHE_DURATIONS.SHORT
+          ),
+          agentCache.getOrFetch(
+            CACHE_KEYS.MY_ESCORTS,
+            () => agentAuth.getMyEscorts(),
+            CACHE_DURATIONS.LONG
+          )
         ]);
 
         setStats({
@@ -757,7 +775,7 @@ const AgentDashboard = () => {
     // }, 15000); // Poll every 15 seconds
     
     // return () => clearInterval(interval);
-  }, [navigate, activeTab]);
+  }, [navigate]); // Removed activeTab dependency to prevent refetching on tab changes
 
   // Add this to fetch panic room count
   const updatePanicRoomCount = async () => {
@@ -784,6 +802,8 @@ const AgentDashboard = () => {
   const handleAssignChat = async (chatId) => {
     try {
       await agentAuth.assignChat(chatId);
+      // Invalidate cache since chat status changed
+      invalidateCacheOnAction('chat_action');
       // The websocket will handle updating the UI
     } catch (error) {
       console.error('Failed to assign chat:', error);
@@ -794,6 +814,8 @@ const AgentDashboard = () => {
     try {
       const hours = 2; // Default pushback time (2 hours)
       await agentAuth.pushBackChat(chatId, hours);
+      // Invalidate cache since chat status changed
+      invalidateCacheOnAction('chat_action');
       // The websocket will handle updating the UI
     } catch (error) {
       console.error('Failed to push back chat:', error);
@@ -869,16 +891,63 @@ const AgentDashboard = () => {
     setShowCreateFirstContact(true);
   };
 
+  // Cache management functions
+  const showCacheInfo = () => {
+    const info = agentCache.getInfo();
+    console.log('📊 Agent Cache Info:', info);
+    alert(`Cache Info:\nTotal Entries: ${info.totalEntries}\n\nEntries:\n${info.entries.map(e => 
+      `${e.key}: ${e.isExpired ? 'EXPIRED' : `${e.remaining}s remaining`}`
+    ).join('\n')}`);
+  };
+
+  const clearAllCache = () => {
+    agentCache.clear();
+    console.log('🧹 All cache cleared manually');
+  };
+
+  // Invalidate specific cache when actions occur
+  const invalidateCacheOnAction = (actionType) => {
+    switch (actionType) {
+      case 'agent_update':
+        agentCache.delete(CACHE_KEYS.AGENT_PROFILE);
+        break;
+      case 'escort_update':
+        agentCache.delete(CACHE_KEYS.MY_ESCORTS);
+        break;
+      case 'chat_action':
+        agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
+        agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
+        break;
+      case 'earnings_update':
+        agentCache.delete(CACHE_KEYS.EARNINGS);
+        agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
+        break;
+      default:
+        break;
+    }
+  };
+
   const refreshDashboard = async () => {
     try {
-      console.log('Refreshing dashboard...');
+      console.log('🔄 Manual dashboard refresh triggered - clearing cache');
       
-      // Fetch all dashboard data
+      // Clear relevant cache entries
+      agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
+      agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
+      agentCache.delete(CACHE_KEYS.MY_ESCORTS);
+      agentCache.delete(CACHE_KEYS.REMINDERS);
+
+      // Fetch fresh data
       const [dashboardStats, liveQueue, escortData] = await Promise.all([
         agentAuth.getDashboardStats(),
         agentAuth.getLiveQueue(),
         agentAuth.getMyEscorts()
       ]);
+
+      // Cache the fresh data
+      agentCache.set(CACHE_KEYS.DASHBOARD_STATS, dashboardStats, CACHE_DURATIONS.MEDIUM);
+      agentCache.set(CACHE_KEYS.LIVE_QUEUE, liveQueue, CACHE_DURATIONS.SHORT);
+      agentCache.set(CACHE_KEYS.MY_ESCORTS, escortData, CACHE_DURATIONS.LONG);
 
       // Update stats
       setStats({
@@ -909,9 +978,9 @@ const AgentDashboard = () => {
       });
       setUserPresence(presenceMap);
       
-      console.log('Dashboard refreshed successfully');
+      console.log('✅ Dashboard refreshed successfully with fresh data');
     } catch (error) {
-      console.error('Error refreshing dashboard:', error);
+      console.error('❌ Error refreshing dashboard:', error);
     }
   };
 
@@ -971,13 +1040,38 @@ const AgentDashboard = () => {
               <button
                 onClick={refreshDashboard}
                 className="p-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 flex items-center gap-2 text-sm"
-                title="Refresh Dashboard"
+                title="Refresh Dashboard (Force Fresh Data)"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span className="hidden sm:inline">Refresh</span>
               </button>
+              {/* Cache Debug Buttons - Only show in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <>
+                  <button
+                    onClick={showCacheInfo}
+                    className="p-2 text-white bg-gray-600 rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm"
+                    title="Show Cache Info"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden sm:inline">Cache</span>
+                  </button>
+                  <button
+                    onClick={clearAllCache}
+                    className="p-2 text-white bg-orange-600 rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm"
+                    title="Clear All Cache"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span className="hidden sm:inline">Clear</span>
+                  </button>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <NotificationPanel 
