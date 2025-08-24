@@ -46,7 +46,7 @@ export const adminAuth = {
 
   async getAgents() {
     try {
-      const response = await adminApi.get('/agents');
+      const response = await adminApi.get('/admin/agents');
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch agents' };
@@ -55,7 +55,7 @@ export const adminAuth = {
 
   async createAgent(agentData) {
     try {
-      const response = await adminApi.post('/agents', agentData);
+      const response = await adminApi.post('/admin/agents', agentData);
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to create agent' };
@@ -64,7 +64,7 @@ export const adminAuth = {
 
   async updateAgent(id, agentData) {
     try {
-      const response = await adminApi.put(`/agents/${id}`, agentData);
+      const response = await adminApi.put(`/admin/agents/${id}`, agentData);
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to update agent' };
@@ -73,7 +73,7 @@ export const adminAuth = {
 
   async deleteAgent(id) {
     try {
-      const response = await adminApi.delete(`/agents/${id}`);
+      const response = await adminApi.delete(`/admin/agents/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to delete agent' };
