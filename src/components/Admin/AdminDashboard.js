@@ -160,6 +160,9 @@ const AdminDashboard = () => {
   const [selectedPermissions, setSelectedPermissions] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  const [deletingAgent, setDeletingAgent] = useState(null);
+  const [undoTimer, setUndoTimer] = useState(null);
+  const [undoCountdown, setUndoCountdown] = useState(0);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -168,8 +171,24 @@ const AdminDashboard = () => {
   const fetchAgents = async () => {
     try {
       const data = await adminAuth.getAgents();
-      // Ensure data is always an array
-      const agentsArray = Array.isArray(data) ? data : [];
+      // Support multiple response shapes: array, {agents: [...]}, {data: {agents: [...]}}
+      let rawAgents = [];
+      if (Array.isArray(data)) {
+        rawAgents = data;
+      } else if (Array.isArray(data?.agents)) {
+        rawAgents = data.agents;
+      } else if (Array.isArray(data?.data?.agents)) {
+        rawAgents = data.data.agents;
+      } else if (data?.data && Array.isArray(data.data)) {
+        rawAgents = data.data;
+      }
+
+      // Normalize minimal fields (id) to be safe for rendering
+      const agentsArray = rawAgents.map(a => ({
+        ...a,
+        id: a.id || a._id || a.agentId || a.userId || a.uuid || a._uuid
+      }));
+
       setStats(prev => ({
         ...prev,
         agents: agentsArray
@@ -185,20 +204,48 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-    // Poll for updates every minute
-    const interval = setInterval(fetchDashboardData, 60000);
-    return () => clearInterval(interval);
+    // Initial load: fetch stats and agents in parallel
+    (async () => {
+      await Promise.all([
+        fetchDashboardData(),
+        fetchAgents()
+      ]);
+    })();
+
+    // Poll for updates every minute (stats + agents)
+    const interval = setInterval(() => {
+      fetchDashboardData(false);
+      fetchAgents();
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const fetchDashboardData = async (setLoadingState = true) => {
     try {
       const dashboardStats = await adminAuth.getDashboardStats();
-      setStats({
-        messageCounts: dashboardStats.messageCounts || { totalMessages: 0, liveMessages: 0 },
-        activeAgents: dashboardStats.activeAgents || 0,
-        agents: Array.isArray(dashboardStats.agentPerformance) ? dashboardStats.agentPerformance : [],
-        subscriptionStats: dashboardStats.subscriptionStats || null
+      // Prepare a normalized fallback list from dashboard agentPerformance
+      const dashboardAgents = Array.isArray(dashboardStats.agentPerformance)
+        ? dashboardStats.agentPerformance.map(a => ({
+            ...a,
+            id: a.id || a._id || a.agentId || a.userId || a.uuid || a._uuid
+          }))
+        : [];
+
+      // Only update stats-related fields; do not overwrite agents unless empty (fallback)
+      setStats(prev => {
+        const next = {
+          ...prev,
+          messageCounts: dashboardStats.messageCounts || { totalMessages: 0, liveMessages: 0 },
+          activeAgents: dashboardStats.activeAgents || 0,
+          subscriptionStats: dashboardStats.subscriptionStats || null
+        };
+        if (!Array.isArray(prev.agents) || prev.agents.length === 0) {
+          next.agents = dashboardAgents;
+        }
+        return next;
       });
       
       // Get admin profile
@@ -206,13 +253,13 @@ const AdminDashboard = () => {
       setAdmin(adminProfile);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      // Set safe default values on error
-      setStats({
+      // Set safe default values on error but preserve current agents
+      setStats(prev => ({
+        ...prev,
         messageCounts: { totalMessages: 0, liveMessages: 0 },
         activeAgents: 0,
-        agents: [],
         subscriptionStats: null
-      });
+      }));
     } finally {
       if (setLoadingState) {
         setLoading(false);
@@ -231,13 +278,61 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteAgent = async (agentId) => {
-    try {
-      // Mock deletion for now
-      console.log("Delete agent", agentId);
+    const agentToDelete = stats.agents.find(a => a.id === agentId);
+    if (!agentToDelete) return;
+
+    // Show confirmation dialog first
+    const confirmDelete = window.confirm(
+      `Delete agent "${agentToDelete.name}"?\n\n⚠️ This action will permanently remove the agent.\n⏰ You'll have 20 seconds to undo.\n\nContinue?`
+    );
+    
+    if (!confirmDelete) return;
+
+  try {
+      // Set deleting state
+      setDeletingAgent(agentToDelete);
+      setUndoCountdown(20);
+
+      // Remove from UI immediately (optimistic update)
       setStats(prev => ({
         ...prev,
         agents: prev.agents.filter(a => a.id !== agentId)
       }));
+
+  // Start countdown timer (does not trigger global polling)
+      const countdownInterval = setInterval(() => {
+        setUndoCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            // Perform actual deletion after countdown
+            performActualDeletion(agentId);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      setUndoTimer(countdownInterval);
+
+    } catch (error) {
+      console.error('Failed to delete agent:', error);
+      // Restore agent on error
+      setStats(prev => ({
+        ...prev,
+        agents: [...prev.agents, agentToDelete].sort((a, b) => a.name.localeCompare(b.name))
+      }));
+    }
+  };
+
+  const performActualDeletion = async (agentId) => {
+    try {
+      // Call real API to delete agent
+      await adminAuth.deleteAgent(agentId);
+      
+      // Clear undo state
+      setDeletingAgent(null);
+      setUndoTimer(null);
+      setUndoCountdown(0);
       
       // Refresh all dashboard data
       await fetchDashboardData(false);
@@ -245,14 +340,31 @@ const AdminDashboard = () => {
       // Increment refresh key to trigger re-fetch in child components
       setDataRefreshKey(prev => prev + 1);
       
-      // Uncomment for real API
-      // await adminAuth.deleteAgent(agentId);
-      // setStats(prev => ({
-      //   ...prev,
-      //   agents: prev.agents.filter(a => a.id !== agentId)
-      // }));
     } catch (error) {
-      console.error('Failed to delete agent:', error);
+      console.error('Failed to permanently delete agent:', error);
+      // Show error and restore agent
+      alert('Failed to delete agent. The agent has been restored.');
+      handleUndoDelete();
+    }
+  };
+
+  const handleUndoDelete = () => {
+    if (deletingAgent && undoTimer) {
+      // Clear timer
+      clearInterval(undoTimer);
+      setUndoTimer(null);
+      
+      // Restore agent to UI
+      setStats(prev => ({
+        ...prev,
+        agents: [...prev.agents, deletingAgent].sort((a, b) => a.name.localeCompare(b.name))
+      }));
+      
+      // Clear undo state
+      setDeletingAgent(null);
+      setUndoCountdown(0);
+      
+      console.log('Agent deletion cancelled:', deletingAgent.name);
     }
   };
 
@@ -260,8 +372,7 @@ const AdminDashboard = () => {
     try {
       await adminAuth.createAgent(agentData);
       // Refresh all dashboard data to ensure everything is up to date
-      await fetchDashboardData(false);
-      await fetchAgents();
+  await Promise.all([fetchDashboardData(false), fetchAgents()]);
       // Increment refresh key to trigger re-fetch in child components
       setDataRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -275,8 +386,7 @@ const AdminDashboard = () => {
       await adminAuth.updateAgent(selectedAgent.id, agentData);
       setSelectedAgent(null);
       // Refresh all dashboard data
-      await fetchDashboardData(false);
-      await fetchAgents();
+  await Promise.all([fetchDashboardData(false), fetchAgents()]);
       // Increment refresh key to trigger re-fetch in child components
       setDataRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -324,7 +434,7 @@ const AdminDashboard = () => {
       
       // Refresh agents list
       const updatedAgents = await adminAuth.getAgents();
-      setStats(prev => ({ ...prev, agents: updatedAgents }));
+  setStats(prev => ({ ...prev, agents: Array.isArray(updatedAgents) ? updatedAgents : prev.agents }));
       setShowPermissionsModal(false);
     } catch (error) {
       console.error('Failed to update permissions:', error);
@@ -438,9 +548,14 @@ const AdminDashboard = () => {
                               </button>
                               <button
                                 onClick={() => handleDeleteAgent(agent.id)}
-                                className="px-2 sm:px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs sm:text-sm"
+                                disabled={deletingAgent?.id === agent.id}
+                                className={`px-2 sm:px-3 py-1 text-white rounded text-xs sm:text-sm transition-all ${
+                                  deletingAgent?.id === agent.id 
+                                    ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                                    : 'bg-red-500 hover:bg-red-600'
+                                }`}
                               >
-                                Delete
+                                {deletingAgent?.id === agent.id ? 'Deleting...' : 'Delete'}
                               </button>
                             </div>
                           </td>
@@ -545,9 +660,14 @@ const AdminDashboard = () => {
                             </button>
                             <button
                               onClick={() => handleDeleteAgent(agent.id)}
-                              className="px-2 lg:px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs lg:text-sm"
+                              disabled={deletingAgent?.id === agent.id}
+                              className={`px-2 lg:px-3 py-1 text-white rounded transition-colors text-xs lg:text-sm ${
+                                deletingAgent?.id === agent.id 
+                                  ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                                  : 'bg-red-500 hover:bg-red-600'
+                              }`}
                             >
-                              Delete
+                              {deletingAgent?.id === agent.id ? 'Deleting...' : 'Delete'}
                             </button>
                           </div>
                         </td>
@@ -574,13 +694,13 @@ const AdminDashboard = () => {
                 </div>
                 <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                   <div className="text-xl lg:text-2xl font-bold text-purple-400">
-                    {stats.agents?.reduce((sum, agent) => sum + (agent.stats?.totalMessages || 0), 0) || 0}
+                    {Array.isArray(stats.agents) ? stats.agents.reduce((sum, agent) => sum + (agent.stats?.totalMessages || 0), 0) : 0}
                   </div>
                   <div className="text-sm text-gray-400">Total Messages</div>
                 </div>
                 <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
                   <div className="text-xl lg:text-2xl font-bold text-orange-400">
-                    {stats.agents?.reduce((sum, agent) => sum + (agent.stats?.activeCustomers || 0), 0) || 0}
+                    {Array.isArray(stats.agents) ? stats.agents.reduce((sum, agent) => sum + (agent.stats?.activeCustomers || 0), 0) : 0}
                   </div>
                   <div className="text-sm text-gray-400">Active Customers</div>
                 </div>
@@ -890,6 +1010,50 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                 </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Undo Delete Notification */}
+          <AnimatePresence>
+            {deletingAgent && undoCountdown > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                className="fixed bottom-6 right-6 bg-red-900/95 backdrop-blur-sm border border-red-600 rounded-lg p-3 shadow-2xl z-50 max-w-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {undoCountdown}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium">
+                      Deleting {deletingAgent.name}
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <motion.button
+                        onClick={handleUndoDelete}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-white text-red-900 px-3 py-1 rounded text-xs font-semibold hover:bg-gray-100 transition-colors"
+                      >
+                        Undo
+                      </motion.button>
+                      <motion.button
+                        onClick={() => {
+                          clearInterval(undoTimer);
+                          performActualDeletion(deletingAgent.id);
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-red-700 text-white px-3 py-1 rounded text-xs font-medium hover:bg-red-800 transition-colors"
+                      >
+                        Delete Now
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
