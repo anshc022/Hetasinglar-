@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FaCoins, FaDollarSign, FaUsers, FaGift, FaChartLine, FaCalendar, FaUser, FaTrophy } from 'react-icons/fa';
+import { FaCoins, FaDollarSign, FaUsers, FaGift, FaChartLine, FaCalendar, FaTrophy } from 'react-icons/fa';
 import { adminAuth } from '../../services/adminApi';
 
 const CoinPurchaseStats = () => {

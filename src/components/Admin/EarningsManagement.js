@@ -148,7 +148,7 @@ const EarningsManagement = () => {
 
   const fetchCommissionOverview = async () => {
     try {
-      const response = await axios.get('/api/commission/overview', {
+      await axios.get('/api/commission/overview', {
         params: {
           startDate: filters.startDate,
           endDate: filters.endDate

@@ -1413,7 +1413,7 @@ const EscortManagement = () => {
                           <img
                             key={index}
                             src={image}
-                            alt={`Profile image ${index + 1}`}
+                            alt={`Profile ${index + 1}`}
                             className="w-full h-20 object-cover rounded-lg border border-gray-600"
                           />
                         ))}

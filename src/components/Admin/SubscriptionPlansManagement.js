@@ -3,20 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaEdit, FaTrash, FaPlus, FaCoins } from 'react-icons/fa';
 import { adminAuth } from '../../services/adminApi';
 
-const PlanTypeTab = ({ active, type, icon: Icon, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`flex items-center gap-2 px-6 py-3 rounded-t-lg font-medium transition-all ${
-      active 
-        ? 'bg-gray-800 text-rose-500 border-t-2 border-rose-500' 
-        : 'bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-    }`}
-  >
-    <Icon className={active ? 'text-rose-500' : 'text-gray-500'} />
-    {type}
-  </button>
-);
-
 const StatBadge = ({ label, value, color = 'blue' }) => (
   <div className="flex items-center gap-2 bg-gray-900/50 px-3 py-1.5 rounded-lg">
     <span className="text-gray-400 text-sm">{label}:</span>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { FaLink, FaUsers, FaChartLine, FaEye, FaCheckCircle, FaTimes, FaUserTie, FaCalendar, FaExternalLinkAlt, FaCopy } from 'react-icons/fa';
 import { adminAuth } from '../../services/adminApi';
 

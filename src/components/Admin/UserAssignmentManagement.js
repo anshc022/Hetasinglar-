@@ -4,14 +4,8 @@ import {
   FaUsers, 
   FaUserCheck, 
   FaUserTimes, 
-  FaUserPlus, 
   FaChartLine, 
   FaCalendar, 
-  FaUser, 
-  FaCog,
-  FaSearch,
-  FaFilter,
-  FaExchangeAlt,
   FaShieldAlt,
   FaTrophy
 } from 'react-icons/fa';
@@ -23,8 +17,7 @@ const UserAssignmentManagement = () => {
   const [assignments, setAssignments] = useState([]);
   const [unassignedUsers, setUnassignedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [selectedAgent, setSelectedAgent] = useState('');  const [activeTab, setActiveTab] = useState('all-users');
+  const [activeTab, setActiveTab] = useState('all-users');
 
   useEffect(() => {
     fetchUsers();

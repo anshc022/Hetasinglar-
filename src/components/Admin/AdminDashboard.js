@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { adminAuth } from '../../services/adminApi';
-import AgentManagement from './AgentManagement';
-import SubscriptionStats from './SubscriptionStats';
 import CoinPurchaseStats from './CoinPurchaseStats';
 import SubscriptionPlansManagement from './SubscriptionPlansManagement';
 import EarningsManagement from './EarningsManagement';
 import UserAssignmentManagement from './UserAssignmentManagement';
 import EscortManagement from './EscortManagement';
 import AffiliateLinksOverview from './AffiliateLinksOverview';
-import { FaEye, FaUser, FaBell, FaEnvelope, FaUsers, FaClock, FaPlus, FaComments, FaUserCog, FaUserShield, FaDollarSign, FaCog, FaHeart, FaLink, FaBars, FaTimes } from 'react-icons/fa';
+import { FaEye, FaUser, FaBell, FaEnvelope, FaUsers, FaPlus, FaComments, FaUserCog, FaUserShield, FaDollarSign, FaHeart, FaLink, FaBars, FaTimes } from 'react-icons/fa';
 import AddAgentModal from './AddAgentModal';
 
 const Sidebar = ({ activeTab, setActiveTab, admin, isOpen, toggleSidebar }) => (
@@ -232,17 +230,6 @@ const AdminDashboard = () => {
       // }));
     } catch (error) {
       console.error('Failed to delete agent:', error);
-    }
-  };
-
-  const handleUpdatePermissions = async (agentId, permissions) => {
-    try {
-      await adminAuth.updateAgentPermissions(agentId, permissions);
-      // Refresh agents list
-      const updatedAgents = await adminAuth.getAgents();
-      setStats(prev => ({ ...prev, agents: updatedAgents }));
-    } catch (error) {
-      console.error('Failed to update permissions:', error);
     }
   };
 
