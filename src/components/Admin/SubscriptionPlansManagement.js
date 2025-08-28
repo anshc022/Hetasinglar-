@@ -229,6 +229,11 @@ const SubscriptionPlansManagement = () => {
       // Ensure type is always coin_package
       planData.type = 'coin_package';
       
+      // Add default description if not provided (temporary workaround)
+      if (!planData.description) {
+        planData.description = `${planData.coins} coins + ${planData.bonusCoins} bonus coins for $${planData.price}`;
+      }
+      
       if (selectedPlan) {
         // Update existing plan
         const updatedPlan = await adminAuth.updateSubscriptionPlan(selectedPlan._id, planData);
