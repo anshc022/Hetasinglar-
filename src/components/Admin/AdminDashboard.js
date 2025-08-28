@@ -159,6 +159,7 @@ const AdminDashboard = () => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -184,38 +185,40 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const dashboardStats = await adminAuth.getDashboardStats();
-        setStats({
-          messageCounts: dashboardStats.messageCounts || { totalMessages: 0, liveMessages: 0 },
-          activeAgents: dashboardStats.activeAgents || 0,
-          agents: Array.isArray(dashboardStats.agentPerformance) ? dashboardStats.agentPerformance : [],
-          subscriptionStats: dashboardStats.subscriptionStats || null
-        });
-        
-        // Get admin profile
-        const adminProfile = await adminAuth.getProfile();
-        setAdmin(adminProfile);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        // Set safe default values on error
-        setStats({
-          messageCounts: { totalMessages: 0, liveMessages: 0 },
-          activeAgents: 0,
-          agents: [],
-          subscriptionStats: null
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
     // Poll for updates every minute
     const interval = setInterval(fetchDashboardData, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchDashboardData = async (setLoadingState = true) => {
+    try {
+      const dashboardStats = await adminAuth.getDashboardStats();
+      setStats({
+        messageCounts: dashboardStats.messageCounts || { totalMessages: 0, liveMessages: 0 },
+        activeAgents: dashboardStats.activeAgents || 0,
+        agents: Array.isArray(dashboardStats.agentPerformance) ? dashboardStats.agentPerformance : [],
+        subscriptionStats: dashboardStats.subscriptionStats || null
+      });
+      
+      // Get admin profile
+      const adminProfile = await adminAuth.getProfile();
+      setAdmin(adminProfile);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      // Set safe default values on error
+      setStats({
+        messageCounts: { totalMessages: 0, liveMessages: 0 },
+        activeAgents: 0,
+        agents: [],
+        subscriptionStats: null
+      });
+    } finally {
+      if (setLoadingState) {
+        setLoading(false);
+      }
+    }
+  };
 
   const handleLogout = () => {
     adminAuth.logout();
@@ -236,6 +239,12 @@ const AdminDashboard = () => {
         agents: prev.agents.filter(a => a.id !== agentId)
       }));
       
+      // Refresh all dashboard data
+      await fetchDashboardData(false);
+      await fetchAgents();
+      // Increment refresh key to trigger re-fetch in child components
+      setDataRefreshKey(prev => prev + 1);
+      
       // Uncomment for real API
       // await adminAuth.deleteAgent(agentId);
       // setStats(prev => ({
@@ -250,8 +259,11 @@ const AdminDashboard = () => {
   const handleCreateAgent = async (agentData) => {
     try {
       await adminAuth.createAgent(agentData);
-      // Refresh the agent list
-      fetchAgents();
+      // Refresh all dashboard data to ensure everything is up to date
+      await fetchDashboardData(false);
+      await fetchAgents();
+      // Increment refresh key to trigger re-fetch in child components
+      setDataRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Failed to create agent:', error);
       throw error; // Propagate error back to the modal form
@@ -262,8 +274,11 @@ const AdminDashboard = () => {
     try {
       await adminAuth.updateAgent(selectedAgent.id, agentData);
       setSelectedAgent(null);
-      // Refresh the agent list
-      fetchAgents();
+      // Refresh all dashboard data
+      await fetchDashboardData(false);
+      await fetchAgents();
+      // Increment refresh key to trigger re-fetch in child components
+      setDataRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Failed to update agent:', error);
       throw error; // Propagate error back to the modal form
@@ -271,10 +286,18 @@ const AdminDashboard = () => {
   };
 
   const handleAgentSubmit = async (agentData) => {
-    if (selectedAgent) {
-      return handleUpdateAgent(agentData);
-    } else {
-      return handleCreateAgent(agentData);
+    try {
+      if (selectedAgent) {
+        await handleUpdateAgent(agentData);
+      } else {
+        await handleCreateAgent(agentData);
+      }
+      // Close modal only after successful operation
+      setShowAgentModal(false);
+      setSelectedAgent(null);
+    } catch (error) {
+      // Don't close modal on error, let the modal handle the error display
+      throw error;
     }
   };
 
@@ -709,11 +732,11 @@ const AdminDashboard = () => {
           )}
 
           {activeTab === 'earnings' && (
-            <EarningsManagement />
+            <EarningsManagement key={dataRefreshKey} />
           )}
 
           {activeTab === 'user assignments' && (
-            <UserAssignmentManagement />
+            <UserAssignmentManagement key={dataRefreshKey} />
           )}
 
           {activeTab === 'escorts' && (
