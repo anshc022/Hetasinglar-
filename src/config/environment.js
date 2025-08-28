@@ -1,8 +1,10 @@
 // Environment configuration utility
+const isDev = (process.env.NODE_ENV || 'development') === 'development';
+
 const config = {
-  // API Configuration
-  API_URL: process.env.REACT_APP_API_URL || 'https://apihetasinglar.duckdns.org/api',
-  WS_URL: process.env.REACT_APP_WS_URL || 'ws://apihetasinglar.duckdns.org',
+  // API Configuration (prefer localhost in development if not explicitly set)
+  API_URL: process.env.REACT_APP_API_URL || (isDev ? 'http://localhost:5000/api' : 'https://apihetasinglar.duckdns.org/api'),
+  WS_URL: process.env.REACT_APP_WS_URL || (isDev ? 'ws://localhost:5000' : 'ws://apihetasinglar.duckdns.org'),
   FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL || 'http://localhost:8000',
   
   // Environment info
@@ -11,7 +13,7 @@ const config = {
   // Platform detection
   isVercel: () => process.env.VERCEL === '1',
   isProduction: () => process.env.NODE_ENV === 'production',
-  isDevelopment: () => process.env.NODE_ENV === 'development',
+  isDevelopment: () => (process.env.NODE_ENV || 'development') === 'development',
   
   // Get WebSocket URL based on API URL if WS_URL is not explicitly set
   getWebSocketUrl: () => {

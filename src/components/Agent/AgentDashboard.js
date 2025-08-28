@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth, agentApi } from '../../services/agentApi';
-import { agentCache, CACHE_KEYS, CACHE_DURATIONS } from '../../utils/agentCache';
 import AgentEarnings from './AgentEarnings';
 import AffiliateView from './AffiliateView';
 import AffiliateManager from './AffiliateManager';
@@ -241,12 +240,17 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
   // Filter chats to show only those with unread messages
   // Include panic room chats at the top, but exclude them from automatic queue
   const unreadsOnly = chats.filter(chat => {
-    const unreadCount = chat.messages?.filter(msg => 
+    // Check multiple sources for unread messages
+    const messageBasedUnreadCount = chat.messages?.filter(msg => 
       msg.sender === 'customer' && !msg.readByAgent
     ).length || 0;
     
+    // Use the unreadCount property set by WebSocket updates if available
+    const webSocketUnreadCount = chat.unreadCount || 0;
+    const hasNewMessages = chat.hasNewMessages || false;
+    
     // Show panic room chats or regular chats with unread messages
-    return chat.isInPanicRoom || unreadCount > 0;
+    return chat.isInPanicRoom || messageBasedUnreadCount > 0 || webSocketUnreadCount > 0 || hasNewMessages;
   });
 
   // Sort chats with panic room chats at the top, then by unread count
@@ -261,8 +265,8 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
         return new Date(b.panicRoomMovedAt || 0) - new Date(a.panicRoomMovedAt || 0);
       }
       
-      const aUnread = a.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
-      const bUnread = b.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
+      const aUnread = a.unreadCount || a.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
+      const bUnread = b.unreadCount || b.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
       
       // Sort by unread count (highest first)
       if (bUnread !== aUnread) return bUnread - aUnread;
@@ -355,10 +359,13 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
           </thead>
           <tbody className="text-gray-300 divide-y divide-gray-700">
             {unreadsOnly.length > 0 ? unreadsOnly.map((chat) => {
-              const unreadCount = chat.messages?.filter(msg => 
+              // Use consistent unread count calculation
+              const messageBasedUnreadCount = chat.messages?.filter(msg => 
                 msg.sender === 'customer' && !msg.readByAgent
               ).length || 0;
-              const lastMessage = chat.messages?.[chat.messages.length - 1];
+              const unreadCount = chat.unreadCount || messageBasedUnreadCount;
+              
+              const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
               const userPresence = getUserPresence(chat.customerId?._id);
               
               return (
@@ -483,13 +490,6 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
 const AgentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [loadingStatus, setLoadingStatus] = useState({
-    step: 0,
-    total: 6,
-    message: 'Initializing...',
-    details: 'Setting up dashboard components',
-    progress: 0
-  });
   const [stats, setStats] = useState({
     liveMessages: 0,
     totalReminders: 0,
@@ -510,210 +510,249 @@ const AgentDashboard = () => {
   
   const socketRef = useRef(null);
 
-  // Loading status helper
-  const updateLoadingStatus = (step, message, details) => {
-    const progress = Math.round((step / 6) * 100);
-    setLoadingStatus({
-      step,
-      total: 6,
-      message,
-      details,
-      progress
-    });
-    console.log(`📊 Loading Step ${step}/6: ${message} - ${details}`);
-  };
-
   // Initialize websocket connection
   useEffect(() => {
-    const initializeDashboard = async () => {
+    // Fetch agent profile data
+    const fetchAgentProfile = async () => {
       try {
-        // Step 1: Initialize WebSocket
-        updateLoadingStatus(1, 'Connecting to Server', 'Establishing WebSocket connection for real-time updates');
-        
-        // Fetch agent profile data with cache
-        updateLoadingStatus(2, 'Loading Agent Profile', 'Fetching your agent information and permissions');
-        try {
-          const agentData = await agentCache.getOrFetch(
-            CACHE_KEYS.AGENT_PROFILE,
-            () => agentAuth.getProfile(),
-            CACHE_DURATIONS.VERY_LONG
-          );
-          setAgent(agentData);
-          console.log('✅ Agent profile loaded:', agentData.name);
-        } catch (error) {
-          console.error('Failed to fetch agent profile:', error);
-        }
-
-        // Step 3: Initialize services
-        updateLoadingStatus(3, 'Starting Services', 'Initializing notification monitoring and WebSocket services');
-        
-        // Start notification monitoring for new customers
-        notificationService.startMonitoring(agentAuth);
-
-        // Create websocket connection for real-time updates
-        websocketService.connect();
-        websocketService.setUserId('agent');
-        socketRef.current = websocketService;
-        
-        // Set up message handlers
-        const messageHandler = (data) => {
-          console.log('Dashboard received WebSocket message:', data);
-          
-          if (data.type === 'queue:update' || data.type === 'live_queue_update') {
-            console.log('Received queue update:', data);
-            // Invalidate cache when queue updates
-            agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
-            agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
-            
-            // Refresh live queue data
-            if (window.fetchLiveQueueData) {
-              window.fetchLiveQueueData();
-            }
-          }
-          
-          if (data.type === 'chat_message') {
-            // Update chat in real-time when new messages arrive
-            setChats(prevChats => {
-              return prevChats.map(chat => {
-                if (chat._id === data.chatId) {
-                  const newMessage = {
-                    sender: data.sender,
-                    message: data.message,
-                    messageType: data.messageType || 'text',
-                    timestamp: data.timestamp,
-                    readByAgent: data.readByAgent,
-                    readByCustomer: data.readByCustomer,
-                    imageData: data.imageData,
-                    mimeType: data.mimeType,
-                    filename: data.filename
-                  };
-                  
-                  return {
-                    ...chat,
-                    messages: [...(chat.messages || []), newMessage],
-                    updatedAt: data.timestamp
-                  };
-                }
-                return chat;
-              });
-            });
-          }
-          
-          if (data.type === 'notifications_update') {
-            setNotifications(prevNotifs => {
-              // Keep existing notifications that aren't in the new update
-              const oldNotifs = prevNotifs.filter(old => 
-                !data.notifications.find(n => n.chatId === old.chatId)
-              );
-              return [...oldNotifs, ...data.notifications];
-            });
-          }
-        };
-
-        // Handle presence updates
-        const presenceHandler = (data) => {
-          console.log('Presence update:', data);
-          
-          if (data.type === 'user_presence') {
-            setUserPresence(prev => {
-              const newPresence = new Map(prev);
-              newPresence.set(data.userId, {
-                isOnline: data.status === 'online',
-                lastSeen: data.timestamp,
-                status: data.status
-              });
-              return newPresence;
-            });
-
-            // Update chat list to reflect user online status
-            setChats(prevChats => {
-              return prevChats.map(chat => {
-                if (chat.customerId?._id.toString() === data.userId) {
-                  return {
-                    ...chat,
-                    isUserActive: data.status === 'online'
-                  };
-                }
-                return chat;
-              });
-            });
-          }
-          
-          if (data.type === 'user_activity_update') {
-            setUserPresence(prev => {
-              const newPresence = new Map(prev);
-              const existing = newPresence.get(data.userId) || {};
-              newPresence.set(data.userId, {
-                ...existing,
-                isOnline: true,
-                lastSeen: data.timestamp
-              });
-              return newPresence;
-            });
-          }
-        };
-        
-        // Subscribe to WebSocket messages
-        const unsubscribeMessage = websocketService.onMessage(messageHandler);
-        const unsubscribePresence = websocketService.onPresence(presenceHandler);
-        
-        console.log('✅ Connected to dashboard websockets');
-        
-        // Clean up on unmount
-        return () => {
-          unsubscribeMessage();
-          unsubscribePresence();
-          websocketService.disconnect();
-          notificationService.stopMonitoring();
-        };
-        
+        const agentData = await agentAuth.getProfile();
+        setAgent(agentData);
       } catch (error) {
-        console.error('❌ Failed to initialize dashboard:', error);
-        setLoadingStatus({
-          step: 0,
-          total: 6,
-          message: 'Connection Failed',
-          details: 'Please refresh the page to try again',
-          progress: 0
+        console.error('Failed to fetch agent profile:', error);
+      }
+    };
+    
+    fetchAgentProfile();
+
+    // Start notification monitoring for new customers
+    notificationService.startMonitoring(agentAuth);
+
+    // Create websocket connection for real-time updates
+    websocketService.connect();
+    websocketService.setUserId('agent');
+    socketRef.current = websocketService;
+    
+    // Set up message handlers
+    const messageHandler = (data) => {
+      console.log('Dashboard received WebSocket message:', data);
+      
+      if (data.type === 'queue:update' || data.type === 'live_queue_update') {
+        console.log('Received queue update:', data);
+        // Refresh live queue data
+        if (window.fetchLiveQueueData) {
+          window.fetchLiveQueueData();
+        }
+      }
+      
+      if (data.type === 'chat_message') {
+        // Update chat in real-time when new messages arrive
+        setChats(prevChats => {
+          return prevChats.map(chat => {
+            if (chat._id === data.chatId) {
+              const newMessage = {
+                sender: data.sender,
+                message: data.message,
+                messageType: data.messageType || 'text',
+                timestamp: data.timestamp,
+                readByAgent: data.readByAgent || false,
+                readByCustomer: data.readByCustomer || false,
+                imageData: data.imageData,
+                mimeType: data.mimeType,
+                filename: data.filename
+              };
+              
+              const updatedMessages = [...(chat.messages || []), newMessage];
+              
+              // Calculate unread count for customer messages
+              const unreadCount = updatedMessages.filter(msg => 
+                msg.sender === 'customer' && !msg.readByAgent
+              ).length;
+              
+              const updatedChat = {
+                ...chat,
+                messages: updatedMessages,
+                updatedAt: data.timestamp,
+                lastActive: data.timestamp,
+                // Update fields that the table displays
+                unreadCount: unreadCount,
+                hasNewMessages: unreadCount > 0,
+                lastMessage: {
+                  message: newMessage.messageType === 'image' ? '📷 Image' : newMessage.message,
+                  messageType: newMessage.messageType,
+                  sender: newMessage.sender,
+                  timestamp: newMessage.timestamp,
+                  readByAgent: newMessage.readByAgent
+                },
+                // Update last customer response if message is from customer
+                ...(data.sender === 'customer' && {
+                  lastCustomerResponse: data.timestamp
+                }),
+                // Update last agent response if message is from agent
+                ...(data.sender === 'agent' && {
+                  lastAgentResponse: data.timestamp
+                })
+              };
+              
+              console.log(`💬 Updated chat ${chat._id} with new message from ${data.sender}:`, {
+                chatId: updatedChat._id,
+                unreadCount: updatedChat.unreadCount,
+                hasNewMessages: updatedChat.hasNewMessages,
+                messagesLength: updatedChat.messages?.length,
+                lastMessage: updatedChat.lastMessage
+              });
+              return updatedChat;
+            }
+            return chat;
+          });
+        });
+        
+        // Also refresh the live queue to ensure consistency
+        console.log('🔄 Refreshing live queue due to new message');
+        if (window.fetchLiveQueueData) {
+          setTimeout(() => window.fetchLiveQueueData(), 500); // Small delay to avoid conflicts
+        }
+      }
+      
+      if (data.type === 'messages_read') {
+        // Update read status in real-time
+        setChats(prevChats => {
+          return prevChats.map(chat => {
+            if (chat._id === data.chatId) {
+              const updatedMessages = chat.messages.map(msg => ({
+                ...msg,
+                readByAgent: data.readBy === 'agent' ? true : msg.readByAgent,
+                readByCustomer: data.readBy === 'customer' ? true : msg.readByCustomer
+              }));
+              
+              // Recalculate unread count after read status update
+              const unreadCount = updatedMessages.filter(msg => 
+                msg.sender === 'customer' && !msg.readByAgent
+              ).length;
+              
+              const updatedChat = {
+                ...chat,
+                messages: updatedMessages,
+                unreadCount: unreadCount,
+                hasNewMessages: unreadCount > 0
+              };
+              
+              console.log(`👁️ Updated read status for chat ${chat._id}, unread count: ${unreadCount}`);
+              return updatedChat;
+            }
+            return chat;
+          });
+        });
+      }
+      
+      if (data.type === 'notifications_update') {
+        setNotifications(prevNotifs => {
+          // Keep existing notifications that aren't in the new update
+          const oldNotifs = prevNotifs.filter(old => 
+            !data.notifications.find(n => n.chatId === old.chatId)
+          );
+          return [...oldNotifs, ...data.notifications];
         });
       }
     };
 
-    initializeDashboard();
+    // Handle presence updates
+    const presenceHandler = (data) => {
+      console.log('Presence update:', data);
+      
+      if (data.type === 'user_presence') {
+        setUserPresence(prev => {
+          const newPresence = new Map(prev);
+          newPresence.set(data.userId, {
+            isOnline: data.status === 'online',
+            lastSeen: data.timestamp,
+            status: data.status
+          });
+          return newPresence;
+        });
+
+        // Update chat list to reflect user online status
+        setChats(prevChats => {
+          return prevChats.map(chat => {
+            if (chat.customerId?._id.toString() === data.userId) {
+              return {
+                ...chat,
+                isUserActive: data.status === 'online'
+              };
+            }
+            return chat;
+          });
+        });
+      }
+      
+      if (data.type === 'user_activity_update') {
+        setUserPresence(prev => {
+          const newPresence = new Map(prev);
+          const existing = newPresence.get(data.userId) || {};
+          newPresence.set(data.userId, {
+            ...existing,
+            isOnline: true,
+            lastSeen: data.timestamp
+          });
+          return newPresence;
+        });
+      }
+    };
+    
+    // Subscribe to WebSocket messages
+    const unsubscribeMessage = websocketService.onMessage(messageHandler);
+    const unsubscribePresence = websocketService.onPresence(presenceHandler);
+    
+    console.log('Connected to dashboard websockets');
+    
+    // Clean up on unmount
+    return () => {
+      unsubscribeMessage();
+      unsubscribePresence();
+      websocketService.disconnect();
+      notificationService.stopMonitoring();
+    };
   }, []);
 
-  // Fetch initial dashboard data with cache
+  // Fetch initial dashboard data - OPTIMIZED with caching
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Step 4: Load Dashboard Data
-        updateLoadingStatus(4, 'Loading Dashboard Stats', 'Fetching dashboard statistics and metrics');
+        // Check cache first for faster loading
+        const cacheService = window.agentCacheService || { get: () => null, set: () => {} };
         
-        const dashboardStats = await agentCache.getOrFetch(
-          CACHE_KEYS.DASHBOARD_STATS,
-          () => agentAuth.getDashboardStats(),
-          CACHE_DURATIONS.MEDIUM
-        );
+        const cachedDashboard = cacheService.get('dashboard_stats');
+        const cachedQueue = cacheService.get('live_queue');
+        const cachedEscorts = cacheService.get('my_escorts');
 
-        // Step 5: Load Live Queue
-        updateLoadingStatus(5, 'Loading Live Queue', 'Fetching active chat conversations and customer queue');
-        
-        const liveQueue = await agentCache.getOrFetch(
-          CACHE_KEYS.LIVE_QUEUE,
-          () => agentAuth.getLiveQueue(),
-          CACHE_DURATIONS.SHORT
-        );
+        // If we have cached data, use it immediately for fast UI
+        if (cachedDashboard && cachedQueue && cachedEscorts) {
+          console.log('🚀 Using cached dashboard data for instant loading');
+          
+          setStats({
+            liveMessages: cachedDashboard.totalLiveMessages || 0,
+            totalReminders: cachedDashboard.reminders?.length || 0,
+            sentMessages: cachedDashboard.agentStats.totalMessagesSent || 0,
+            onlineMembers: cachedDashboard.onlineCustomers || 0
+          });
+          setChats(cachedQueue);
+          setMyEscorts(cachedEscorts);
+          setReminders(cachedDashboard.reminders || []);
+          
+          setLoading(false); // Show UI immediately with cached data
+        }
 
-        // Step 6: Load Escort Profiles
-        updateLoadingStatus(6, 'Loading Escort Profiles', 'Loading your assigned escort profiles and data');
-        
-        const escortData = await agentCache.getOrFetch(
-          CACHE_KEYS.MY_ESCORTS,
-          () => agentAuth.getMyEscorts(),
-          CACHE_DURATIONS.LONG
-        );
+        // Fetch fresh data (this will update the UI if data has changed)
+  const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
+          agentAuth.getDashboardStats(),
+          agentAuth.getLiveQueue(),
+          agentAuth.getMyEscorts()
+        ]);
+  const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 
-        console.log('✅ All dashboard data loaded successfully');
+        // Cache the fresh data
+        cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000); // 2 min cache
+        cacheService.set('live_queue', liveQueue, 1 * 60 * 1000); // 1 min cache
+        cacheService.set('my_escorts', escortData, 5 * 60 * 1000); // 5 min cache
 
         setStats({
           liveMessages: dashboardStats.totalLiveMessages || 0,
@@ -739,33 +778,13 @@ const AgentDashboard = () => {
         });
         setUserPresence(presenceMap);
 
-        // Mark loading as complete
-        setLoadingStatus({
-          step: 6,
-          total: 6,
-          message: 'Dashboard Ready',
-          details: 'All systems operational and ready to use',
-          progress: 100
-        });
-
       } catch (error) {
-        console.error('❌ Failed to fetch dashboard data:', error);
-        setLoadingStatus({
-          step: 0,
-          total: 6,
-          message: 'Failed to Load Data',
-          details: error.message || 'Please check your connection and try again',
-          progress: 0
-        });
-        
+        console.error('Failed to fetch dashboard data:', error);
         if (error.response && error.response.status === 401) {
           navigate('/agent/login');
         }
       } finally {
-        // Complete loading after a short delay to show final status
-        setTimeout(() => {
-          setLoading(false);
-        }, 1000);
+        setLoading(false);
       }
     };
 
@@ -830,7 +849,7 @@ const AgentDashboard = () => {
     // }, 15000); // Poll every 15 seconds
     
     // return () => clearInterval(interval);
-  }, [navigate]); // Removed activeTab dependency to prevent refetching on tab changes
+  }, [navigate, activeTab]);
 
   // Add this to fetch panic room count
   const updatePanicRoomCount = async () => {
@@ -857,8 +876,6 @@ const AgentDashboard = () => {
   const handleAssignChat = async (chatId) => {
     try {
       await agentAuth.assignChat(chatId);
-      // Invalidate cache since chat status changed
-      invalidateCacheOnAction('chat_action');
       // The websocket will handle updating the UI
     } catch (error) {
       console.error('Failed to assign chat:', error);
@@ -869,8 +886,6 @@ const AgentDashboard = () => {
     try {
       const hours = 2; // Default pushback time (2 hours)
       await agentAuth.pushBackChat(chatId, hours);
-      // Invalidate cache since chat status changed
-      invalidateCacheOnAction('chat_action');
       // The websocket will handle updating the UI
     } catch (error) {
       console.error('Failed to push back chat:', error);
@@ -892,6 +907,10 @@ const AgentDashboard = () => {
         escort._id === updatedProfile._id ? updatedProfile : escort
       )
     );
+  };
+
+  const handleDeleteProfile = (deletedId) => {
+    setMyEscorts(prev => prev.filter(e => e._id !== deletedId));
   };
 
   const handleMarkReminderComplete = async (chatId) => {
@@ -946,63 +965,17 @@ const AgentDashboard = () => {
     setShowCreateFirstContact(true);
   };
 
-  // Cache management functions
-  const showCacheInfo = () => {
-    const info = agentCache.getInfo();
-    console.log('📊 Agent Cache Info:', info);
-    alert(`Cache Info:\nTotal Entries: ${info.totalEntries}\n\nEntries:\n${info.entries.map(e => 
-      `${e.key}: ${e.isExpired ? 'EXPIRED' : `${e.remaining}s remaining`}`
-    ).join('\n')}`);
-  };
-
-  const clearAllCache = () => {
-    agentCache.clear();
-    console.log('🧹 All cache cleared manually');
-  };
-
-  // Invalidate specific cache when actions occur
-  const invalidateCacheOnAction = (actionType) => {
-    switch (actionType) {
-      case 'agent_update':
-        agentCache.delete(CACHE_KEYS.AGENT_PROFILE);
-        break;
-      case 'escort_update':
-        agentCache.delete(CACHE_KEYS.MY_ESCORTS);
-        break;
-      case 'chat_action':
-        agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
-        agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
-        break;
-      case 'earnings_update':
-        agentCache.delete(CACHE_KEYS.EARNINGS);
-        agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
-        break;
-      default:
-        break;
-    }
-  };
-
   const refreshDashboard = async () => {
     try {
-      console.log('🔄 Manual dashboard refresh triggered - clearing cache');
+      console.log('Refreshing dashboard...');
       
-      // Clear relevant cache entries
-      agentCache.delete(CACHE_KEYS.DASHBOARD_STATS);
-      agentCache.delete(CACHE_KEYS.LIVE_QUEUE);
-      agentCache.delete(CACHE_KEYS.MY_ESCORTS);
-      agentCache.delete(CACHE_KEYS.REMINDERS);
-
-      // Fetch fresh data
-      const [dashboardStats, liveQueue, escortData] = await Promise.all([
+      // Fetch all dashboard data
+  const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
         agentAuth.getDashboardStats(),
         agentAuth.getLiveQueue(),
         agentAuth.getMyEscorts()
       ]);
-
-      // Cache the fresh data
-      agentCache.set(CACHE_KEYS.DASHBOARD_STATS, dashboardStats, CACHE_DURATIONS.MEDIUM);
-      agentCache.set(CACHE_KEYS.LIVE_QUEUE, liveQueue, CACHE_DURATIONS.SHORT);
-      agentCache.set(CACHE_KEYS.MY_ESCORTS, escortData, CACHE_DURATIONS.LONG);
+  const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 
       // Update stats
       setStats({
@@ -1033,9 +1006,9 @@ const AgentDashboard = () => {
       });
       setUserPresence(presenceMap);
       
-      console.log('✅ Dashboard refreshed successfully with fresh data');
+      console.log('Dashboard refreshed successfully');
     } catch (error) {
-      console.error('❌ Error refreshing dashboard:', error);
+      console.error('Error refreshing dashboard:', error);
     }
   };
 
@@ -1049,8 +1022,9 @@ const AgentDashboard = () => {
   useEffect(() => {
     const watchLiveQueue = async () => {
       try {
-        const response = await agentApi.get('/chats/live-queue');
-        setChats(response.data);
+  const response = await agentAuth.getLiveQueue();
+  const liveQueue = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+        setChats(liveQueue);
       } catch (error) {
         console.error('Error fetching live queue:', error);
       }
@@ -1068,103 +1042,20 @@ const AgentDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 flex items-center justify-center relative overflow-hidden">
-        {/* Floating background shapes matching website */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white via-rose-50/60 to-pink-100/70"></div>
-        <div className="absolute w-96 h-96 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-15 -top-48 -left-48 animate-pulse"></div>
-        <div className="absolute w-80 h-80 bg-gradient-to-r from-pink-300 to-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 top-1/3 -right-40 animate-pulse"></div>
-        <div className="absolute w-64 h-64 bg-gradient-to-r from-purple-300 to-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 bottom-20 left-1/4 animate-pulse"></div>
-
-        <div className="max-w-md w-full mx-auto relative z-10">
-          <div className="glass-effect bg-white/20 backdrop-filter backdrop-blur-20 rounded-3xl shadow-2xl p-8 border border-white/30">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-pink-900 to-red-900 bg-clip-text text-transparent mb-2">Agent Dashboard</h2>
-              <p className="text-gray-600">Initializing your workspace...</p>
+      <div className="min-h-screen bg-gradient-to-br from-red-100 via-rose-200 to-pink-100 flex items-center justify-center">
+        <div className="text-2xl text-rose-600 flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-rose-200 border-t-rose-600"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-8 w-8 bg-rose-600 rounded-full animate-pulse"></div>
             </div>
-
-            {/* Progress Bar */}
-            <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span className="font-medium">Step {loadingStatus.step} of {loadingStatus.total}</span>
-                <span className="font-bold text-rose-600">{loadingStatus.progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200/50 rounded-full h-3 shadow-inner">
-                <div 
-                  className="bg-gradient-to-r from-rose-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
-                  style={{ width: `${loadingStatus.progress}%` }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Current Status */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-3 h-3 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full animate-pulse shadow-lg"></div>
-                <span className="text-gray-800 font-semibold">{loadingStatus.message}</span>
-              </div>
-              <p className="text-gray-600 text-sm ml-6 italic">{loadingStatus.details}</p>
-            </div>
-
-            {/* Loading Steps Checklist */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Loading Steps:</h3>
-              
-              {[
-                { step: 1, label: 'Server Connection', desc: 'WebSocket & Real-time services', icon: '🔗' },
-                { step: 2, label: 'Agent Profile', desc: 'Your account & permissions', icon: '👤' },
-                { step: 3, label: 'Services', desc: 'Notifications & monitoring', icon: '🔔' },
-                { step: 4, label: 'Dashboard Stats', desc: 'Metrics & analytics', icon: '📊' },
-                { step: 5, label: 'Live Queue', desc: 'Active conversations', icon: '💬' },
-                { step: 6, label: 'Escort Profiles', desc: 'Your assigned profiles', icon: '👥' }
-              ].map((item) => (
-                <div key={item.step} className="flex items-center gap-3 p-2 rounded-lg bg-white/30 backdrop-filter backdrop-blur-10 border border-white/20">
-                  <div className="flex-shrink-0">
-                    {loadingStatus.step > item.step ? (
-                      <div className="w-6 h-6 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    ) : loadingStatus.step === item.step ? (
-                      <div className="w-6 h-6 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center animate-pulse shadow-lg text-white text-xs">
-                        {item.icon}
-                      </div>
-                    ) : (
-                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-gray-600 text-xs">
-                        {item.icon}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <span className={`font-semibold text-sm ${
-                      loadingStatus.step > item.step ? 'text-green-700' :
-                      loadingStatus.step === item.step ? 'text-gray-800' : 'text-gray-500'
-                    }`}>
-                      {item.label}
-                    </span>
-                    <div className={`text-xs ${
-                      loadingStatus.step >= item.step ? 'text-gray-600' : 'text-gray-500'
-                    }`}>
-                      {item.desc}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Loading Animation */}
-            <div className="mt-8 text-center">
-              <div className="inline-flex items-center gap-3 text-gray-600">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-transparent bg-gradient-to-r from-rose-500 to-pink-500 rounded-full"></div>
-                <span className="text-sm font-medium">Preparing your agent environment...</span>
-              </div>
-            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xl font-semibold mb-2">Loading Agent Dashboard</div>
+            <div className="text-sm text-rose-500 animate-pulse">Fetching your latest data...</div>
+          </div>
+          <div className="w-64 bg-rose-200 rounded-full h-2">
+            <div className="bg-rose-600 h-2 rounded-full animate-pulse" style={{width: '70%'}}></div>
           </div>
         </div>
       </div>
@@ -1189,38 +1080,13 @@ const AgentDashboard = () => {
               <button
                 onClick={refreshDashboard}
                 className="p-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 flex items-center gap-2 text-sm"
-                title="Refresh Dashboard (Force Fresh Data)"
+                title="Refresh Dashboard"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span className="hidden sm:inline">Refresh</span>
               </button>
-              {/* Cache Debug Buttons - Only show in development */}
-              {process.env.NODE_ENV === 'development' && (
-                <>
-                  <button
-                    onClick={showCacheInfo}
-                    className="p-2 text-white bg-gray-600 rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm"
-                    title="Show Cache Info"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="hidden sm:inline">Cache</span>
-                  </button>
-                  <button
-                    onClick={clearAllCache}
-                    className="p-2 text-white bg-orange-600 rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm"
-                    title="Clear All Cache"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    <span className="hidden sm:inline">Clear</span>
-                  </button>
-                </>
-              )}
             </div>
             <div className="flex items-center gap-3">
               <NotificationPanel 
@@ -1265,6 +1131,7 @@ const AgentDashboard = () => {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             onUpdateProfile={handleUpdateProfile}
+            onDeleteProfile={handleDeleteProfile}
           />
         )}
 

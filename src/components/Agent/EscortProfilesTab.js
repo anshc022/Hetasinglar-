@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth } from '../../services/agentApi';
 import imageCompression from 'browser-image-compression';
+import config from '../../config/environment';
 import { 
   FaEye, 
   FaImages, 
@@ -25,7 +26,8 @@ const EscortProfilesTab = ({
   setSelectedEscortForImages, 
   searchTerm, 
   setSearchTerm,
-  onUpdateProfile
+  onUpdateProfile,
+  onDeleteProfile
 }) => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
@@ -36,6 +38,15 @@ const EscortProfilesTab = ({
   const [imagePreview, setImagePreview] = useState(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
+
+  // Normalize image src (supports base64, absolute URLs, or relative paths)
+  const getImageSrc = (src) => {
+    if (!src) return null;
+    if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) return src;
+    const base = (config.API_URL || '').replace(/\/$/, '').replace('/api', '');
+    const path = src.startsWith('/') ? src : `/${src}`;
+    return `${base}${path}`;
+  };
 
   const filteredEscorts = escorts.filter(escort => {
     const matchesSearch = !searchTerm || 
@@ -276,9 +287,9 @@ const EscortProfilesTab = ({
                     {/* Profile Image - Hidden on mobile */}
                     <td className="px-2 py-2 hidden sm:table-cell">
                       <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden flex-shrink-0">
-                        {profile.profileImage ? (
+            {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
                           <img
-                            src={profile.profileImage}
+              src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
                             alt={profile.firstName}
                             className="w-full h-full object-cover"
                           />
@@ -295,9 +306,9 @@ const EscortProfilesTab = ({
                       <div className="flex items-center space-x-2 sm:space-x-0 sm:block">
                         {/* Mobile profile image */}
                         <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 sm:hidden">
-                          {profile.profileImage ? (
+              {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
                             <img
-                              src={profile.profileImage}
+                src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
                               alt={profile.firstName}
                               className="w-full h-full object-cover"
                             />
@@ -333,7 +344,9 @@ const EscortProfilesTab = ({
                       <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                         profile.status === 'active' 
                           ? 'bg-green-900 text-green-200' 
-                          : 'bg-gray-900 text-gray-200'
+                          : profile.status === 'pending'
+                            ? 'bg-yellow-900 text-yellow-200'
+                            : 'bg-gray-900 text-gray-200'
                       }`}>
                         {profile.status || 'Active'}
                       </span>
@@ -394,6 +407,24 @@ const EscortProfilesTab = ({
                         >
                           <FaEdit className="text-xs" />
                           <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const confirmDelete = window.confirm('Delete this escort profile? This will deactivate it and hide from lists.');
+                            if (!confirmDelete) return;
+                            try {
+                              await agentAuth.deleteEscortProfile(profile._id);
+                              if (onDeleteProfile) onDeleteProfile(profile._id);
+                            } catch (err) {
+                              console.error('Delete escort failed', err);
+                              alert(err?.message || 'Failed to delete profile');
+                            }
+                          }}
+                          className="px-1.5 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
+                          title="Delete Profile"
+                        >
+                          <FaTrash className="text-xs" />
+                          <span className="hidden sm:inline">Delete</span>
                         </button>
                       </div>
                     </td>
@@ -706,6 +737,7 @@ const EscortProfilesTab = ({
                       >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
+                        <option value="pending">Pending</option>
                       </select>
                     ) : (
                       <span className={`px-2 py-1 rounded text-sm font-medium ${
@@ -772,6 +804,102 @@ const EscortProfilesTab = ({
                     )}
                   </div>
                 </div>
+
+                {/* Additional Details (from model) */}
+                <div className="md:col-span-2 space-y-4">
+                  <h3 className="text-lg font-semibold text-white border-b border-gray-700 pb-2">
+                    Additional Details
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Relationship Status
+                      </label>
+                      {isEditMode ? (
+                        <input
+                          type="text"
+                          value={editForm.relationshipStatus || ''}
+                          onChange={(e) => setEditForm({...editForm, relationshipStatus: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., Single, In a relationship"
+                        />
+                      ) : (
+                        <p className="text-white">{selectedProfile.relationshipStatus || 'N/A'}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Profession
+                      </label>
+                      {isEditMode ? (
+                        <input
+                          type="text"
+                          value={editForm.profession || ''}
+                          onChange={(e) => setEditForm({...editForm, profession: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter profession"
+                        />
+                      ) : (
+                        <p className="text-white">{selectedProfile.profession || 'N/A'}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Height (cm)
+                      </label>
+                      {isEditMode ? (
+                        <input
+                          type="number"
+                          value={editForm.height || ''}
+                          onChange={(e) => setEditForm({...editForm, height: e.target.valueAsNumber || ''})}
+                          className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter height"
+                        />
+                      ) : (
+                        <p className="text-white">{selectedProfile.height ? `${selectedProfile.height} cm` : 'N/A'}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Serial Number
+                      </label>
+                      <p className="text-white">{selectedProfile.serialNumber || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Mass Mail Active
+                      </label>
+                      {isEditMode ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            id="massMailActive"
+                            type="checkbox"
+                            checked={!!editForm.massMailActive}
+                            onChange={(e) => setEditForm({...editForm, massMailActive: e.target.checked})}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="massMailActive" className="text-sm text-gray-300">Enable</label>
+                        </div>
+                      ) : (
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${selectedProfile.massMailActive ? 'bg-green-900 text-green-200' : 'bg-gray-900 text-gray-200'}`}>
+                          {selectedProfile.massMailActive ? 'Enabled' : 'Disabled'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Created At
+                      </label>
+                      <p className="text-white">{selectedProfile.createdAt ? new Date(selectedProfile.createdAt).toLocaleString() : 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               {/* Action Buttons */}
@@ -795,23 +923,14 @@ const EscortProfilesTab = ({
                             ...editForm,
                             profileImage: imagePreview || editForm.profileImage
                           };
-                          
                           const updatedProfile = await agentAuth.updateEscortProfile(
                             selectedProfile._id,
                             updatedProfileData
                           );
-                          
-                          // Update the parent component's state
-                          if (onUpdateProfile) {
-                            onUpdateProfile(updatedProfile);
-                          }
-                          
+                          if (onUpdateProfile) onUpdateProfile(updatedProfile);
                           setIsEditMode(false);
                           setSelectedProfile(null);
                           setImagePreview(null);
-                          
-                          // Show success message
-                          console.log('Profile updated successfully');
                         } catch (error) {
                           console.error('Error updating profile:', error);
                           alert('Failed to update profile. Please try again.');
@@ -824,13 +943,34 @@ const EscortProfilesTab = ({
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => setIsEditMode(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <FaEdit />
-                    <span>Edit Profile</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsEditMode(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <FaEdit />
+                      <span>Edit Profile</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const confirmDelete = window.confirm('Delete this escort profile? This will deactivate it and hide from lists.');
+                        if (!confirmDelete) return;
+                        try {
+                          await agentAuth.deleteEscortProfile(selectedProfile._id);
+                          if (onDeleteProfile) onDeleteProfile(selectedProfile._id);
+                          setSelectedProfile(null);
+                          setIsEditMode(false);
+                        } catch (err) {
+                          console.error('Delete escort failed', err);
+                          alert(err?.message || 'Failed to delete profile');
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                    >
+                      <FaTrash />
+                      <span>Delete</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

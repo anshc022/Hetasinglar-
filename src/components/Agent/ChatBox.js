@@ -41,9 +41,10 @@ const ChatActions = ({
   onTogglePanicNotes,
   customerName,
   escortName,
-  isInPanicRoom
+  isInPanicRoom,
+  isMobile = false
 }) => (
-  <div className="flex gap-2 flex-wrap">
+  <div className={`flex gap-2 ${isMobile ? 'flex-wrap justify-center' : 'flex-wrap'}`}>
     {/* First Contact Button */}
     <FirstContactButton
       onSendFirstContact={onFirstContact}
@@ -54,10 +55,10 @@ const ChatActions = ({
     {/* Push Back Button */}
     <button
       onClick={onPushBack}
-      className="p-2 text-yellow-400 hover:text-yellow-300 rounded-lg hover:bg-yellow-900/30 transition-colors"
+      className={`${isMobile ? 'p-1.5' : 'p-2'} text-yellow-400 hover:text-yellow-300 rounded-lg hover:bg-yellow-900/30 transition-colors`}
       title="Push Back Chat"
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     </button>
@@ -65,10 +66,10 @@ const ChatActions = ({
     {/* Unassign Button */}
     <button
       onClick={onUnassign}
-      className="p-2 text-orange-400 hover:text-orange-300 rounded-lg hover:bg-orange-900/30 transition-colors"
+      className={`${isMobile ? 'p-1.5' : 'p-2'} text-orange-400 hover:text-orange-300 rounded-lg hover:bg-orange-900/30 transition-colors`}
       title="Unassign Me"
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
       </svg>
     </button>
@@ -77,20 +78,20 @@ const ChatActions = ({
     {isInPanicRoom ? (
       <button
         onClick={onRemoveFromPanicRoom}
-        className="p-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors"
+        className={`${isMobile ? 'p-1.5' : 'p-2'} text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors`}
         title="Remove from Panic Room"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
         </svg>
       </button>
     ) : (
       <button
         onClick={onMoveToPanicRoom}
-        className="p-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors"
+        className={`${isMobile ? 'p-1.5' : 'p-2'} text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors`}
         title="Move to Panic Room"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
         </svg>
       </button>
@@ -100,10 +101,10 @@ const ChatActions = ({
     {isInPanicRoom && (
       <button
         onClick={onTogglePanicNotes}
-        className="p-2 text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors"
+        className={`${isMobile ? 'p-1.5' : 'p-2'} text-red-400 hover:text-red-300 rounded-lg hover:bg-red-900/30 transition-colors`}
         title="Panic Room Notes"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       </button>
@@ -113,31 +114,31 @@ const ChatActions = ({
 
     <button
       onClick={onToggleGeneralNotes}
-      className={`p-2 rounded-lg transition-colors ${showGeneralNotes 
+      className={`${isMobile ? 'p-1.5' : 'p-2'} rounded-lg transition-colors ${showGeneralNotes 
         ? 'text-blue-300 hover:text-blue-200 bg-blue-900/30 hover:bg-blue-900/50' 
         : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'}`}
       title={showGeneralNotes ? "Hide General Notes" : "Show General Notes"}
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     </button>
     <button
       onClick={onToggleNotes}
-      className="p-2 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-700/50"
+      className={`${isMobile ? 'p-1.5' : 'p-2'} text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-700/50`}
       title="Add Notes"
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
       </svg>
     </button>
     <button
       onClick={onQuit}
-      className="p-2 text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-700/50"
+      className={`${isMobile ? 'p-1.5' : 'p-2'} text-gray-400 hover:text-gray-300 rounded-lg hover:bg-gray-700/50`}
       title="Close Chat"
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
@@ -299,9 +300,12 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
-    // State for general notes
+  // State for general notes
   const [generalNote, setGeneralNote] = useState('');
   const [showGeneralNotes, setShowGeneralNotes] = useState(true);
+  // Mobile sidebar states
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [mobileSidebarType, setMobileSidebarType] = useState(''); // 'chats', 'user', 'escort'
   // State for the current agent
   const [currentAgent, setCurrentAgent] = useState(null);
   // New state for the additional components
@@ -524,6 +528,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
 
     setSelectedChat(chat);
+    setShowMobileSidebar(false); // Close mobile sidebar when chat is selected
     const customerInfo = chat.customerId || {};
     setUserDetails({
       username: customerInfo.username || chat.customerName || 'N/A',
@@ -573,8 +578,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           setError('No escort profile selected. Please select an escort profile to view their live queue.');
           return;
         }
-        const data = await agentAuth.getLiveQueue(escortId);
-        setChats(data);
+  const data = await agentAuth.getLiveQueue(escortId);
+  const normalized = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+  setChats(normalized);
         setError(null);
         
         // Fetch escort profile information
@@ -612,10 +618,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               // Fallback: Try to refetch the queue with the specific chatId
               try {
                 const refreshedData = await agentAuth.getLiveQueue(escortId, chatId);
-                const refreshedChat = refreshedData.find(c => c._id === chatId);
+                const normalized = Array.isArray(refreshedData) ? refreshedData : (Array.isArray(refreshedData?.data) ? refreshedData.data : []);
+                const refreshedChat = normalized.find(c => c._id === chatId);
                 
                 if (refreshedChat) {
-                  setChats(refreshedData);
+                  setChats(normalized);
                   await handleChatSelection(refreshedChat);
                   setTimeout(() => scrollToBottom(), 100);
                 } else {
@@ -1641,9 +1648,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-2 h-screen bg-gray-900 p-2">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-2 h-screen bg-gray-900 p-2 overflow-hidden">
       {/* Chat List and Escort Profile */}
-      <div className="col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700">
+      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
             <button
@@ -1738,7 +1745,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* Active Chat */}
-      <div className="col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-[calc(100vh-1rem)] border border-gray-700">
+      <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full max-h-[calc(100vh-1rem)] border border-gray-700">
         {error && (
           <div className="p-4 bg-red-500/20 text-red-100 text-sm border-b border-red-500/30">
             <div className="flex items-start justify-between">
@@ -1765,9 +1772,94 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             </div>
           </div>
         )}
+        
+        {/* Mobile Header - Show on mobile/tablet */}
+        <div className="lg:hidden p-3 sm:p-4 border-b border-gray-700 bg-gray-800/50">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => navigate('/agent/dashboard')}
+              className="p-2 text-white hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <h2 className="text-lg font-semibold text-white">Chat Box</h2>
+            <div className="w-10"></div> {/* Spacer for centering */}
+          </div>
+          
+          {selectedChat && (
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                {(selectedChat.customerId?.username || selectedChat.customerName).charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-medium truncate">
+                    {selectedChat.customerId?.username || selectedChat.customerName}
+                  </h3>
+                  {selectedChat.isInPanicRoom && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
+                      </svg>
+                      PANIC
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className={selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}>
+                    {selectedChat.isUserActive ? 'Online' : 'Offline'}
+                  </span>
+                  {selectedChat.customerId?.coins?.balance !== undefined && (
+                    <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                      </svg>
+                      {selectedChat.customerId.coins.balance}
+                    </span>
+                  )}
+                  {(() => {
+                    const { inCount, outCount } = getMessageCounts();
+                    return (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400">In: {inCount}</span>
+                        <span className="text-blue-400">Out: {outCount}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Mobile Actions */}
+          {selectedChat && (
+            <div className="mt-2 sm:mt-3 flex gap-1 sm:gap-2 flex-wrap justify-center">
+              <ChatActions
+                onQuit={handleQuitChat}
+                onToggleNotes={handleToggleNotes}
+                onToggleGeneralNotes={() => setShowGeneralNotes(!showGeneralNotes)}
+                showGeneralNotes={showGeneralNotes}
+                onPushBack={handlePushBackDialog}
+                onFirstContact={handleFirstContactMessage}
+                onUnassign={handleUnassignChat}
+                onMoveToPanicRoom={handleMoveToPanicRoom}
+                onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
+                onTogglePanicNotes={handleTogglePanicRoomNotes}
+                customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
+                escortName={escortProfile?.firstName || 'Escort'}
+                isInPanicRoom={selectedChat.isInPanicRoom || false}
+                isMobile={true}
+              />
+            </div>
+          )}
+        </div>
         {selectedChat ? (
           <>
-            <div className="p-4 border-b border-gray-700 bg-gray-800/50 sticky top-0 z-10">
+            {/* Desktop Header - Hidden on mobile */}
+            <div className="hidden lg:block p-4 border-b border-gray-700 bg-gray-800/50 sticky top-0 z-10">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
@@ -1838,7 +1930,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-3 bg-gray-900/30" style={{ overflow: 'visible' }}>
+            <div className="flex-1 overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {/* General Notes Section - Using Sticky Component */}
               <StickyGeneralNotes 
                 notes={notes} 
@@ -1912,38 +2004,16 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                       {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
                     </div>
                   )}
-                  <div className="flex flex-col max-w-[70%] relative overflow-visible">
+                  <div className="flex flex-col max-w-[85%] sm:max-w-[70%] relative overflow-visible">
                     <div
                       className={`px-4 py-2 rounded-xl relative group overflow-visible ${
                         msg.sender === 'agent'
                           ? 'bg-blue-600 text-white ml-2 hover:bg-blue-700'
                           : 'bg-gray-700 text-gray-100 hover:bg-gray-600'
                       } ${msg.isDeleted ? 'opacity-50 bg-gray-600' : ''}`}
+                      style={{ wordBreak: 'break-word' }}
                     >
-                      {/* Fixed Edit/Delete buttons - always visible for agent's own messages */}
-                      {!msg.isDeleted && msg.sender === 'agent' && (
-                        <div className="absolute -top-10 -right-2 bg-white rounded-lg flex shadow-xl border-2 border-gray-400 z-[9999]">
-                          <button
-                            onClick={() => handleStartEditMessage(idx, msg.message)}
-                            className="p-2 text-gray-800 hover:text-blue-600 hover:bg-blue-50 transition-colors rounded-l-lg"
-                            title="Edit your message"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <div className="w-px bg-gray-400"></div>
-                          <button
-                            onClick={() => handleDeleteMessage(idx)}
-                            className="p-2 text-gray-800 hover:text-red-600 hover:bg-red-50 transition-colors rounded-r-lg"
-                            title="Delete your message"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
+                      {/* Inline controls are shown on hover in the meta row below */}
 
                       {/* Message content - show edit input or regular message */}
                       {editingMessage === idx ? (
@@ -1979,7 +2049,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                                 <img
                                   src={msg.imageData || `/uploads/chat/${msg.filename}`}
                                   alt={msg.filename || 'Sent image'}
-                                  className="max-w-full max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-600"
+                                  className="max-w-full max-h-32 sm:max-h-48 md:max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-600"
                                   onClick={() => {
                                     const newWindow = window.open();
                                     newWindow.document.write(`
@@ -2023,14 +2093,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                           ) : (
                             <p className="whitespace-pre-wrap">{msg.message}</p>
                           )}
-                          <div className="flex justify-between items-center mt-1 opacity-75 text-xs">
-                            <div className="flex items-center gap-1">
-                              <span>{msg.senderName}</span>
+                          <div className={`flex items-center mt-1 opacity-75 text-xs ${msg.sender === 'agent' ? 'justify-end' : 'justify-between'}`}>
+                            <div className={`flex items-center gap-1 ${msg.sender === 'agent' ? 'order-2 ml-2' : ''}`}>
+                              <span>{msg.sender === 'agent' ? 'You' : msg.senderName}</span>
                               {msg.isEdited && (
                                 <span className="text-xs text-gray-400 italic">(edited)</span>
                               )}
                             </div>
-                            <div className="flex items-center">
+                            <div className={`flex items-center ${msg.sender === 'agent' ? 'order-1' : ''}`}>
                               {/* Remove edit icon for image messages */}
                               {!msg.isDeleted && msg.sender === 'agent' && msg.messageType !== 'image' && (
                                 <div className="flex mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -2095,13 +2165,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-3 border-t border-gray-700 bg-gray-800/50">
+            <div className="p-3 lg:p-4 border-t border-gray-700 bg-gray-800/50 space-y-3">
               {/* Add general note box at the top of the chat input area */}
               <GeneralNoteBox
                 value={generalNote}
                 onChange={(e) => setGeneralNote(e.target.value)}
                 onAddNote={handleAddGeneralNote}
-              />                {/* Message Composer - Single instance only */}
+              />
+              {/* Message Composer - Single instance only */}
               <MessageComposer
                 key={`composer-${selectedChat?._id}`}
                 {...messageComposerProps}
@@ -2119,7 +2190,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* User Details Panel */}
-      <div className="col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700">
+      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
         {selectedChat ? (
           <div className="p-4">
             <div className="flex justify-between items-center mb-4">
@@ -2295,6 +2366,225 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           </div>
         )}
       </div>
+      
+      {/* Mobile Floating Action Buttons */}
+      <div className="fixed bottom-4 right-4 lg:hidden flex flex-col gap-2 z-40">
+        {/* User Details Button */}
+        <button
+          onClick={() => {
+            setMobileSidebarType('user');
+            setShowMobileSidebar(true);
+          }}
+          className="w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+          title="User Details"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </button>
+        
+        {/* Chat List Button */}
+        <button
+          onClick={() => {
+            setMobileSidebarType('chats');
+            setShowMobileSidebar(true);
+          }}
+          className="w-12 h-12 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+          title="Chat List"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+        
+        {/* Escort Profile Button (only if escort chat) */}
+        {params.escortId && (
+          <button
+            onClick={() => {
+              setMobileSidebarType('escort');
+              setShowMobileSidebar(true);
+            }}
+            className="w-12 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+            title="Escort Profile"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
+          <div className="fixed inset-y-0 left-0 w-80 max-w-[90vw] bg-gray-800 shadow-xl overflow-y-auto touch-pan-y">
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800/80 backdrop-blur sticky top-0">
+              <h3 className="text-white font-semibold">
+                {mobileSidebarType === 'user' && 'User Details'}
+                {mobileSidebarType === 'chats' && 'Chat List'}
+                {mobileSidebarType === 'escort' && 'Escort Profile'}
+              </h3>
+              <button
+                onClick={() => setShowMobileSidebar(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors touch-manipulation"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Sidebar Content */}
+            <div className="p-4">
+              {mobileSidebarType === 'chats' && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <button
+                      onClick={() => {
+                        navigate('/agent/dashboard');
+                        setShowMobileSidebar(false);
+                      }}
+                      className="p-2 text-white hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                    </button>
+                    <h2 className="text-lg font-semibold text-white">Chats</h2>
+                    <div className="w-10"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="space-y-3">
+                      {chatListItems}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {mobileSidebarType === 'user' && selectedChat && (
+                <div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Username</label>
+                      <p className="text-white">{userDetails.username}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Email</label>
+                      <p className="text-white">{userDetails.email}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Gender</label>
+                      <p className="text-white">{userDetails.gender}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Age</label>
+                      <p className="text-white">{userDetails.age}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Member Since</label>
+                      <p className="text-white">{userDetails.memberSince}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300">Coins Balance</label>
+                      <p className="flex items-center text-white">
+                        <span className="inline-block mr-2 text-yellow-400">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                        {userDetails.coins !== 'N/A' ? userDetails.coins : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Chat Statistics */}
+                  <div className="mt-6 bg-gray-800/50 rounded-lg p-4">
+                    <h3 className="text-white text-lg font-semibold mb-4">Chat Statistics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300">Total Messages</label>
+                        <p className="text-white">{selectedChat.messages?.length || 0}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300">Messages In</label>
+                        <p className="text-white text-green-400 flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                          </svg>
+                          {getMessageCounts().inCount}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300">Messages Out</label>
+                        <p className="text-white text-blue-400 flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                          {getMessageCounts().outCount}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-300">Chat Started</label>
+                        <p className="text-white text-sm">
+                          {new Date(selectedChat.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {mobileSidebarType === 'escort' && params.escortId && (
+                <div>
+                  <div className="space-y-3">
+                    <div className="flex justify-center mb-4">
+                      {selectedChat?.escortId?.profileImage ? (
+                        <img 
+                          src={selectedChat.escortId.profileImage} 
+                          alt="Profile" 
+                          className="w-24 h-24 rounded-full object-cover border-2 border-blue-500"
+                        />
+                      ) : (
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-2xl">
+                          {selectedChat?.escortId?.firstName?.[0] || '?'}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm">Name</label>
+                      <p className="text-white">{selectedChat?.escortId?.firstName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm">Gender</label>
+                      <p className="text-white">{selectedChat?.escortId?.gender || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm">Location</label>
+                      <p className="text-white">{selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm">Profession</label>
+                      <p className="text-white">{selectedChat?.escortId?.profession || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-sm">Interests</label>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {selectedChat?.escortId?.interests?.map((interest, index) => (
+                          <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                            {interest}
+                          </span>
+                        )) || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Push Back Dialog */}
       <PushBackDialog

@@ -10,56 +10,28 @@ import './SubscriptionPlans.css';
 const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingStatus, setLoadingStatus] = useState({
-    step: 0,
-    total: 3,
-    message: 'Initializing...',
-    details: 'Setting up coin packages',
-    progress: 0
-  });
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
   const { user, token } = useAuth();
   const navigate = useNavigate();
 
-  // Helper function to update loading status
-  const updateLoadingStatus = (step, message, details) => {
-    const progress = Math.round((step / 3) * 100);
-    setLoadingStatus({
-      step,
-      total: 3,
-      message,
-      details,
-      progress
-    });
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Step 1: Initialize connection
-        updateLoadingStatus(1, 'Connecting to store...', 'Establishing connection to coin packages');
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // Step 2: Fetch coin packages
-        updateLoadingStatus(2, 'Loading coin packages...', 'Retrieving available coin packages and pricing');
+        setLoading(true);
+        // Fetch coin packages
         const packagesRes = await axios.get(`${config.API_URL}/subscription/plans`);
         setPackages(packagesRes.data.filter(pkg => pkg.type === 'coin_package'));
 
-        // Step 3: Fetch user balance
-        updateLoadingStatus(3, 'Loading your balance...', 'Checking your current coin balance');
+        // Fetch user's coin balance if logged in
         if (user && token) {
           const headers = { Authorization: `Bearer ${token}` };
           const userRes = await axios.get(`${config.API_URL}/subscription/coins/balance`, { headers });
           setUserCoins(userRes.data.balance);
         }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-
       } catch (err) {
         setError('Failed to load coin packages. Please try again later.');
         console.error('Error:', err);
-        updateLoadingStatus(0, 'Error loading store', 'Failed to connect. Please refresh the page.');
       } finally {
         setLoading(false);
       }
@@ -105,83 +77,9 @@ const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Floating background shapes matching website */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white via-rose-50/60 to-pink-100/70"></div>
-        <div className="absolute w-96 h-96 bg-gradient-to-r from-rose-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-15 -top-48 -left-48 animate-pulse"></div>
-        <div className="absolute w-80 h-80 bg-gradient-to-r from-pink-300 to-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 top-1/3 -right-40 animate-pulse"></div>
-        <div className="absolute w-64 h-64 bg-gradient-to-r from-purple-300 to-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-15 bottom-20 left-1/4 animate-pulse"></div>
-
-        <div className="max-w-md w-full mx-auto relative z-10">
-          <div className="glass-effect bg-white/20 backdrop-filter backdrop-blur-20 rounded-3xl shadow-2xl p-8 border border-white/30">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                <FaCoins className="text-white text-2xl" />
-              </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-pink-900 to-red-900 bg-clip-text text-transparent mb-2">Coin Store</h2>
-              <p className="text-gray-600">Loading available coin packages...</p>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span className="font-medium">Progress</span>
-                <span className="font-bold text-rose-600">{loadingStatus.progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200/50 rounded-full h-3 shadow-inner">
-                <div 
-                  className="bg-gradient-to-r from-rose-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
-                  style={{ width: `${loadingStatus.progress}%` }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Current Status */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-3 h-3 bg-gradient-to-r from-rose-500 to-pink-500 rounded-full animate-pulse shadow-lg"></div>
-                <span className="text-gray-800 font-semibold">{loadingStatus.message}</span>
-              </div>
-              <p className="text-gray-600 text-sm ml-6 italic">{loadingStatus.details}</p>
-            </div>
-
-            {/* Loading Steps Checklist */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Loading Steps:</h3>
-              
-              {[
-                { step: 1, label: 'Store Connection', description: 'Connecting to coin marketplace', icon: '🛒' },
-                { step: 2, label: 'Package Catalog', description: 'Loading available coin packages', icon: '💰' },
-                { step: 3, label: 'Account Balance', description: 'Checking your current coins', icon: '💎' }
-              ].map(({ step, label, description, icon }) => (
-                <div key={step} className="flex items-center gap-4 p-3 rounded-xl bg-white/40 backdrop-filter backdrop-blur-10 border border-white/20">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                    loadingStatus.step >= step 
-                      ? 'bg-gradient-to-r from-green-400 to-green-500 text-white shadow-lg scale-110' 
-                      : loadingStatus.step === step - 1 
-                        ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white animate-pulse shadow-lg' 
-                        : 'bg-gray-300 text-gray-600'
-                  }`}>
-                    {loadingStatus.step > step ? '✓' : icon}
-                  </div>
-                  <div className={`flex-1 transition-all duration-300 ${loadingStatus.step >= step ? 'text-green-700' : 'text-gray-600'}`}>
-                    <div className="font-semibold">{label}</div>
-                    <div className="text-xs opacity-75">{description}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Loading Animation */}
-            <div className="mt-8 text-center">
-              <div className="inline-flex items-center gap-3 text-gray-600">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-transparent bg-gradient-to-r from-rose-500 to-pink-500 rounded-full"></div>
-                <span className="text-sm font-medium">Setting up your coin store...</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading coin packages...</p>
       </div>
     );
   }

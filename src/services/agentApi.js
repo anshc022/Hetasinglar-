@@ -131,15 +131,19 @@ export const agentAuth = {
 
   async getLiveQueue(escortId, chatId) {
     try {
-      let url = '/chats/live-queue';
+      // Use optimized agent-scoped endpoint
+      let url = '/agents/chats/live-queue';
       if (escortId) {
-        url = `/chats/live-queue/${escortId}`;
-        if (chatId) {
-          url += `/${chatId}`;
-        }
+        url = `/agents/chats/live-queue/${escortId}`;
+        // Note: backend currently doesn't support chatId on this route; keep simple
       }
       const response = await agentApi.get(url);
-      return response.data;
+  const payload = response?.data;
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.chats)) return payload.chats;
+  // Some older endpoints returned raw array in response; fallback to [] if shape is unexpected
+  return Array.isArray(payload) ? payload : [];
     } catch (error) {
       throw error.response?.data || error;
     }
@@ -198,7 +202,7 @@ export const agentAuth = {
 
   async getEscortProfile(id) {
     try {
-      const response = await agentApi.get(`/agents/escorts/${id}`);
+  const response = await agentApi.get(`/agents/escorts/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -217,6 +221,15 @@ export const agentAuth = {
   async updateEscortProfile(escortId, profileData) {
     try {
       const response = await agentApi.put(`/agents/escorts/${escortId}`, profileData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  async deleteEscortProfile(escortId) {
+    try {
+      const response = await agentApi.delete(`/agents/escorts/${escortId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;

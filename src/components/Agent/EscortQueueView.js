@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaEye, FaUser, FaClock, FaComments, FaHeart, FaFilter, FaSearch } from 'react-icons/fa';
-import agentApi, { agentAuth } from '../../services/agentApi';
+import { agentAuth } from '../../services/agentApi';
 
 const EscortQueueView = () => {
   const navigate = useNavigate();
@@ -27,9 +27,10 @@ const EscortQueueView = () => {
       const escort = escortResponse.find(e => e._id === escortId);
       setEscortProfile(escort);
       
-      // Load chats for this escort profile using the chat API endpoint
-      const chatsResponse = await agentApi.get(`/chats/live-queue/${escortId}`);
-      setEscortChats(chatsResponse.data || []);
+  // Load chats for this escort profile using the optimized agent endpoint
+  const chatsResponse = await agentAuth.getLiveQueue(escortId);
+  const normalized = Array.isArray(chatsResponse) ? chatsResponse : (Array.isArray(chatsResponse?.data) ? chatsResponse.data : []);
+  setEscortChats(normalized);
       
     } catch (error) {
       console.error('Error loading escort queue:', error);
@@ -41,7 +42,10 @@ const EscortQueueView = () => {
   const filteredChats = escortChats.filter(chat => {
     const matchesSearch = !searchTerm || 
       (chat.customerName && chat.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (chat.customerId && chat.customerId.toLowerCase().includes(searchTerm.toLowerCase()));
+      (chat.customerId && (typeof chat.customerId === 'string' 
+        ? chat.customerId.toLowerCase().includes(searchTerm.toLowerCase())
+        : (chat.customerId?._id || '').toString().toLowerCase().includes(searchTerm.toLowerCase())
+      ));
     
     const matchesFilter = filter === 'all' || chat.status === filter;
     
@@ -96,11 +100,15 @@ const EscortQueueView = () => {
             {escortProfile && (
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-3">
-                  {escortProfile.profileImage && (
+                  {(
+                    escortProfile.profileImage || 
+                    escortProfile.profilePicture || 
+                    escortProfile.imageUrl
+                  ) && (
                     <img
-                      src={escortProfile.profileImage}
+                      src={escortProfile.profileImage || escortProfile.profilePicture || escortProfile.imageUrl}
                       alt={escortProfile.firstName}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover border border-gray-700"
                     />
                   )}
                   <div>
@@ -225,7 +233,12 @@ const EscortQueueView = () => {
                           
                           <div>
                             <h3 className="text-lg font-semibold text-white">
-                              {chat.customerName || `Customer ${chat.customerId?.slice(-4)}`}
+                              {chat.customerName || (() => {
+                                const idStr = typeof chat.customerId === 'string' 
+                                  ? chat.customerId 
+                                  : (chat.customerId?._id || '').toString();
+                                return `Customer ${idStr ? idStr.slice(-4) : '----'}`;
+                              })()}
                             </h3>
                             <div className="flex items-center space-x-4 mt-1">
                               <div className="flex items-center space-x-1 text-gray-400">
