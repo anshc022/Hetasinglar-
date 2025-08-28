@@ -188,10 +188,12 @@ const SubscriptionPlansManagement = () => {
     const fetchPlans = async () => {
       try {
         const plansData = await adminAuth.getSubscriptionPlans();
-        // Filter to only show coin packages
-        setPlans(plansData.filter(plan => plan.type === 'coin_package'));
+        // Ensure plansData is an array and filter to only show coin packages
+        const plansArray = Array.isArray(plansData) ? plansData : [];
+        setPlans(plansArray.filter(plan => plan && plan.type === 'coin_package'));
       } catch (error) {
         console.error('Failed to fetch coin packages:', error);
+        setPlans([]); // Set empty array on error
       } finally {
         setLoading(false);
       }

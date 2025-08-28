@@ -130,7 +130,9 @@ const EarningsManagement = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
       });
       
-      setEarnings(response.data.earnings || []);
+      // Ensure earnings is always an array
+      const earningsData = Array.isArray(response.data?.earnings) ? response.data.earnings : [];
+      setEarnings(earningsData);
       setSummary(response.data.summary || {
         totalAmount: 0,
         adminEarnings: 0,
@@ -166,8 +168,9 @@ const EarningsManagement = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
       });
       
-      // Enhanced agent stats with earnings data
-      const agentsWithStats = response.data.agents?.map(agent => ({
+      // Enhanced agent stats with earnings data - ensure response.data.agents is an array
+      const agentsArray = Array.isArray(response.data?.agents) ? response.data.agents : [];
+      const agentsWithStats = agentsArray.map(agent => ({
         ...agent,
         chatsHandled: agent.totalChats || 0,
         coinsUsed: agent.totalCoinsUsed || 0,
@@ -175,7 +178,7 @@ const EarningsManagement = () => {
         commissionRate: agent.commissionSettings?.chatCommissionPercentage || 30,
         lastPayment: agent.lastPayment || agent.earnings?.lastPayoutDate || null,
         payoutStatus: agent.payoutStatus || (agent.earnings?.pendingEarnings > 0 ? 'pending' : 'paid')
-      })) || [];
+      }));
       
       setAgentStats(agentsWithStats);
     } catch (error) {
@@ -197,7 +200,8 @@ const EarningsManagement = () => {
   };
 
   const generateChartData = () => {
-    if (!earnings || earnings.length === 0) {
+    // Ensure earnings is an array before processing
+    if (!earnings || !Array.isArray(earnings) || earnings.length === 0) {
       return [];
     }
 
@@ -250,9 +254,13 @@ const EarningsManagement = () => {
       const response = await axios.get('/api/admin/agents', {
         headers: { Authorization: `Bearer ${localStorage.getItem('adminToken')}` }
       });
-      setAgents(response.data.agents || []);
+      // Ensure agents is always an array
+      const agentsArray = Array.isArray(response.data?.agents) ? response.data.agents : [];
+      setAgents(agentsArray);
     } catch (error) {
       console.error('Error fetching agents:', error);
+      // Set empty array on error
+      setAgents([]);
     }
   };
 
@@ -1124,7 +1132,7 @@ const EarningsManagement = () => {
                 </tr>
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {earnings.slice(0, 20).map((earning) => (
+                {Array.isArray(earnings) ? earnings.slice(0, 20).map((earning) => (
                   <tr key={earning._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
@@ -1183,7 +1191,13 @@ const EarningsManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-4 text-center text-gray-400">
+                      No transactions found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -1294,11 +1308,11 @@ const EarningsManagement = () => {
             className="border border-gray-600 bg-gray-700 text-white rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Agents</option>
-            {agents.map((agent) => (
+            {Array.isArray(agents) ? agents.map((agent) => (
               <option key={agent._id} value={agent._id}>
                 {agent.name}
               </option>
-            ))}
+            )) : null}
           </select>
         </div>
         
@@ -1715,7 +1729,7 @@ const EarningsManagement = () => {
                 
                 {/* Mobile Card View */}
                 <div className="block lg:hidden">
-                  {earnings.length > 0 ? earnings.slice(0, 10).map((earning) => (
+                  {Array.isArray(earnings) && earnings.length > 0 ? earnings.slice(0, 10).map((earning) => (
                     <div key={earning._id} className="p-4 border-b border-gray-700 last:border-b-0">
                       <div className="flex justify-between items-start mb-2">
                         <div>
@@ -1769,7 +1783,7 @@ const EarningsManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-gray-800 divide-y divide-gray-700">
-                      {earnings.length > 0 ? earnings.slice(0, 10).map((earning) => (
+                      {Array.isArray(earnings) && earnings.length > 0 ? earnings.slice(0, 10).map((earning) => (
                         <tr key={earning._id} className="hover:bg-gray-700 transition-colors duration-200">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                             {earning.transactionId?.substring(0, 8) || 'N/A'}...

@@ -167,12 +167,19 @@ const AdminDashboard = () => {
   const fetchAgents = async () => {
     try {
       const data = await adminAuth.getAgents();
+      // Ensure data is always an array
+      const agentsArray = Array.isArray(data) ? data : [];
       setStats(prev => ({
         ...prev,
-        agents: data
+        agents: agentsArray
       }));
     } catch (error) {
       console.error('Failed to fetch agents:', error);
+      // Set empty array on error
+      setStats(prev => ({
+        ...prev,
+        agents: []
+      }));
     }
   };
 
@@ -181,10 +188,10 @@ const AdminDashboard = () => {
       try {
         const dashboardStats = await adminAuth.getDashboardStats();
         setStats({
-          messageCounts: dashboardStats.messageCounts,
-          activeAgents: dashboardStats.activeAgents,
-          agents: dashboardStats.agentPerformance,
-          subscriptionStats: dashboardStats.subscriptionStats
+          messageCounts: dashboardStats.messageCounts || { totalMessages: 0, liveMessages: 0 },
+          activeAgents: dashboardStats.activeAgents || 0,
+          agents: Array.isArray(dashboardStats.agentPerformance) ? dashboardStats.agentPerformance : [],
+          subscriptionStats: dashboardStats.subscriptionStats || null
         });
         
         // Get admin profile
@@ -192,6 +199,13 @@ const AdminDashboard = () => {
         setAdmin(adminProfile);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        // Set safe default values on error
+        setStats({
+          messageCounts: { totalMessages: 0, liveMessages: 0 },
+          activeAgents: 0,
+          agents: [],
+          subscriptionStats: null
+        });
       } finally {
         setLoading(false);
       }
