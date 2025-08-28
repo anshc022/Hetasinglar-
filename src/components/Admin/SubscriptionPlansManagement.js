@@ -88,14 +88,41 @@ const PlanEditModal = ({ plan, onClose, onSave }) => {
   const [formData, setFormData] = useState(plan || {
     name: '',
     type: 'coin_package',
-    price: 0,
-    coins: 0,
-    bonusCoins: 0
+    price: '',
+    coins: '',
+    bonusCoins: ''
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(formData);
+    
+    // Validate form
+    if (!formData.name.trim()) {
+      alert('Please enter a package name');
+      return;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      alert('Please enter a valid price greater than 0');
+      return;
+    }
+    if (!formData.coins || parseInt(formData.coins) <= 0) {
+      alert('Please enter a valid number of coins greater than 0');
+      return;
+    }
+    if (parseInt(formData.bonusCoins) < 0) {
+      alert('Bonus coins cannot be negative');
+      return;
+    }
+    
+    // Convert strings to numbers for submission
+    const planData = {
+      ...formData,
+      price: parseFloat(formData.price),
+      coins: parseInt(formData.coins),
+      bonusCoins: parseInt(formData.bonusCoins) || 0
+    };
+    
+    onSave(planData);
   };
 
   return (
@@ -137,9 +164,10 @@ const PlanEditModal = ({ plan, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 className="w-full pl-8 pr-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                min="0"
+                placeholder="9.99"
+                min="0.01"
                 step="0.01"
                 required
               />
@@ -152,10 +180,22 @@ const PlanEditModal = ({ plan, onClose, onSave }) => {
               <input
                 type="number"
                 value={formData.coins}
-                onChange={(e) => setFormData({ ...formData, coins: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, coins: e.target.value })}
                 className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-                min="0"
+                placeholder="50"
+                min="1"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-gray-300 mb-2 font-medium">Bonus Coins</label>
+              <input
+                type="number"
+                value={formData.bonusCoins}
+                onChange={(e) => setFormData({ ...formData, bonusCoins: e.target.value })}
+                className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                placeholder="10"
+                min="0"
               />
             </div>
             <div>
