@@ -593,33 +593,66 @@ const EarningsManagement = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="flex space-x-1 bg-gray-800 p-1 rounded-lg mb-6 border border-gray-700"
+      className="bg-gray-800 p-1 rounded-lg mb-6 border border-gray-700"
     >
-      {[
-        { id: 'overview', label: 'Overview', icon: FaChartLine },
-        { id: 'agents', label: 'Agent Earnings', icon: FaUsers },
-        { id: 'affiliates', label: 'Affiliates', icon: FaHandshake },
-        { id: 'payouts', label: 'Payout Management', icon: FaDollarSign },
-        { id: 'settings', label: 'Commission Settings', icon: FaCog }
-      ].map((tab) => {
-        const Icon = tab.icon;
-        return (
-          <motion.button
-            key={tab.id}
-            onClick={() => setActiveView(tab.id)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-              activeView === tab.id
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {tab.label}
-          </motion.button>
-        );
-      })}
+      {/* Desktop Navigation */}
+      <div className="hidden lg:flex space-x-1">
+        {[
+          { id: 'overview', label: 'Overview', icon: FaChartLine },
+          { id: 'agents', label: 'Agent Earnings', icon: FaUsers },
+          { id: 'affiliates', label: 'Affiliates', icon: FaHandshake },
+          { id: 'payouts', label: 'Payout Management', icon: FaDollarSign },
+          { id: 'settings', label: 'Commission Settings', icon: FaCog }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <motion.button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                activeView === tab.id
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-700'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Mobile Navigation - Scrollable horizontal tabs */}
+      <div className="lg:hidden overflow-x-auto">
+        <div className="flex space-x-1 min-w-max">
+          {[
+            { id: 'overview', label: 'Overview', icon: FaChartLine },
+            { id: 'agents', label: 'Agents', icon: FaUsers },
+            { id: 'affiliates', label: 'Affiliates', icon: FaHandshake },
+            { id: 'payouts', label: 'Payouts', icon: FaDollarSign },
+            { id: 'settings', label: 'Settings', icon: FaCog }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <motion.button
+                key={tab.id}
+                onClick={() => setActiveView(tab.id)}
+                whileTap={{ scale: 0.95 }}
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
+                  activeView === tab.id
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs">{tab.label}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
     </motion.div>
   );
 
@@ -634,20 +667,20 @@ const EarningsManagement = () => {
     const adminPercentage = totalAmount > 0 ? ((adminEarnings / totalAmount) * 100) : 0;
     
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-6 mb-4 lg:mb-8">
         <motion.div 
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-blue-900/50 to-blue-800/50 p-6 rounded-xl shadow-lg border border-blue-700/50 backdrop-blur-sm"
+          className="bg-gradient-to-br from-blue-900/50 to-blue-800/50 p-3 lg:p-6 rounded-lg lg:rounded-xl shadow-lg border border-blue-700/50 backdrop-blur-sm"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-300 text-sm font-medium">Total Earnings</p>
-              <p className="text-2xl font-bold text-white">${totalAmount.toFixed(2)}</p>
-              <p className="text-blue-400 text-xs mt-1">{totalCoins.toLocaleString()} coins used</p>
+          <div className="text-center lg:flex lg:items-center lg:justify-between">
+            <div className="lg:flex-1">
+              <p className="text-blue-300 text-xs font-medium">Total</p>
+              <p className="text-lg lg:text-2xl font-bold text-white">${totalAmount.toFixed(0)}</p>
+              <p className="text-blue-400 text-xs mt-0.5 lg:mt-1 hidden lg:block">{totalCoins.toLocaleString()} coins</p>
             </div>
-            <div className="p-3 bg-blue-700/50 rounded-lg">
-              <FaDollarSign className="text-blue-300 text-xl" />
+            <div className="hidden lg:block p-2 lg:p-3 bg-blue-700/50 rounded-lg">
+              <FaDollarSign className="text-blue-300 text-lg lg:text-xl" />
             </div>
           </div>
         </motion.div>
@@ -656,16 +689,16 @@ const EarningsManagement = () => {
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-green-900/50 to-green-800/50 p-6 rounded-xl shadow-lg border border-green-700/50 backdrop-blur-sm"
+          className="bg-gradient-to-br from-green-900/50 to-green-800/50 p-3 lg:p-6 rounded-lg lg:rounded-xl shadow-lg border border-green-700/50 backdrop-blur-sm"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-300 text-sm font-medium">Admin Share</p>
-              <p className="text-2xl font-bold text-white">${adminEarnings.toFixed(2)}</p>
-              <p className="text-green-400 text-xs mt-1">{adminPercentage.toFixed(1)}% of total</p>
+          <div className="text-center lg:flex lg:items-center lg:justify-between">
+            <div className="lg:flex-1">
+              <p className="text-green-300 text-xs font-medium">Admin</p>
+              <p className="text-lg lg:text-2xl font-bold text-white">${adminEarnings.toFixed(0)}</p>
+              <p className="text-green-400 text-xs mt-0.5 lg:mt-1 hidden lg:block">{adminPercentage.toFixed(1)}%</p>
             </div>
-            <div className="p-3 bg-green-700/50 rounded-lg">
-              <FaChartLine className="text-green-300 text-xl" />
+            <div className="hidden lg:block p-2 lg:p-3 bg-green-700/50 rounded-lg">
+              <FaChartLine className="text-green-300 text-lg lg:text-xl" />
             </div>
           </div>
         </motion.div>
@@ -674,16 +707,16 @@ const EarningsManagement = () => {
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-gradient-to-br from-purple-900/50 to-purple-800/50 p-6 rounded-xl shadow-lg border border-purple-700/50 backdrop-blur-sm"
+          className="bg-gradient-to-br from-purple-900/50 to-purple-800/50 p-3 lg:p-6 rounded-lg lg:rounded-xl shadow-lg border border-purple-700/50 backdrop-blur-sm"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-300 text-sm font-medium">Agent Payouts</p>
-              <p className="text-2xl font-bold text-white">${agentEarnings.toFixed(2)}</p>
-              <p className="text-purple-400 text-xs mt-1">{agentStats.length} active agents</p>
+          <div className="text-center lg:flex lg:items-center lg:justify-between">
+            <div className="lg:flex-1">
+              <p className="text-purple-300 text-xs font-medium">Agents</p>
+              <p className="text-lg lg:text-2xl font-bold text-white">${agentEarnings.toFixed(0)}</p>
+              <p className="text-purple-400 text-xs mt-0.5 lg:mt-1 hidden lg:block">{agentStats.length} active</p>
             </div>
-            <div className="p-3 bg-purple-700/50 rounded-lg">
-              <FaUsers className="text-purple-300 text-xl" />
+            <div className="hidden lg:block p-2 lg:p-3 bg-purple-700/50 rounded-lg">
+              <FaUsers className="text-purple-300 text-lg lg:text-xl" />
             </div>
           </div>
         </motion.div>
@@ -692,16 +725,16 @@ const EarningsManagement = () => {
           initial={{ opacity: 0, y: 20 }} 
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-gradient-to-br from-orange-900/50 to-orange-800/50 p-6 rounded-xl shadow-lg border border-orange-700/50 backdrop-blur-sm"
+          className="bg-gradient-to-br from-orange-900/50 to-orange-800/50 p-3 lg:p-6 rounded-lg lg:rounded-xl shadow-lg border border-orange-700/50 backdrop-blur-sm"
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-300 text-sm font-medium">Affiliate Commissions</p>
-              <p className="text-2xl font-bold text-white">${affiliateEarnings.toFixed(2)}</p>
-              <p className="text-orange-400 text-xs mt-1">{affiliateStats.length} affiliates</p>
+          <div className="text-center lg:flex lg:items-center lg:justify-between">
+            <div className="lg:flex-1">
+              <p className="text-orange-300 text-xs font-medium">Affiliates</p>
+              <p className="text-lg lg:text-2xl font-bold text-white">${affiliateEarnings.toFixed(0)}</p>
+              <p className="text-orange-400 text-xs mt-0.5 lg:mt-1 hidden lg:block">{affiliateStats.length} active</p>
             </div>
-            <div className="p-3 bg-orange-700/50 rounded-lg">
-              <FaHandshake className="text-orange-300 text-xl" />
+            <div className="hidden lg:block p-2 lg:p-3 bg-orange-700/50 rounded-lg">
+              <FaHandshake className="text-orange-300 text-lg lg:text-xl" />
             </div>
           </div>
         </motion.div>
@@ -1632,22 +1665,22 @@ const EarningsManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-900 p-3 lg:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
         >
           <div>
-            <h1 className="text-3xl font-bold text-white">Earnings & Commission Panel</h1>
-            <p className="text-gray-400 mt-1">Comprehensive platform revenue management and commission tracking</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">Earnings & Commission Panel</h1>
+            <p className="text-gray-400 mt-1 text-sm lg:text-base">Comprehensive platform revenue management and commission tracking</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-sm text-gray-400">Total Platform Revenue</div>
-              <div className="text-2xl font-bold text-green-400">${(summary.totalAmount || 0).toFixed(2)}</div>
+            <div className="text-center lg:text-right">
+              <div className="text-xs lg:text-sm text-gray-400">Total Platform Revenue</div>
+              <div className="text-xl lg:text-2xl font-bold text-green-400">${(summary.totalAmount || 0).toFixed(2)}</div>
             </div>
           </div>
         </motion.div>
@@ -1675,11 +1708,55 @@ const EarningsManagement = () => {
                 transition={{ delay: 0.3 }}
                 className="bg-gray-800 rounded-xl shadow-lg border border-gray-700"
               >
-                <div className="p-6 border-b border-gray-700">
+                <div className="p-4 lg:p-6 border-b border-gray-700">
                   <h3 className="text-lg font-semibold text-white">Recent Transactions</h3>
                   <p className="text-gray-400 text-sm">Latest earnings and commission activity</p>
                 </div>
-                <div className="overflow-x-auto">
+                
+                {/* Mobile Card View */}
+                <div className="block lg:hidden">
+                  {earnings.length > 0 ? earnings.slice(0, 10).map((earning) => (
+                    <div key={earning._id} className="p-4 border-b border-gray-700 last:border-b-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {earning.transactionId?.substring(0, 8) || 'N/A'}...
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {earning.agentId?.name || 'Unknown'}
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(earning.paymentStatus)}`}>
+                          {getStatusIcon(earning.paymentStatus)}
+                          {earning.paymentStatus}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-400">Coins:</span>
+                          <div className="text-white font-medium">{earning.coinsUsed || 0}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Amount:</span>
+                          <div className="text-white font-medium">${(earning.totalAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Date:</span>
+                          <div className="text-white font-medium">
+                            {earning.transactionDate ? new Date(earning.transactionDate).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="p-8 text-center text-gray-400">
+                      No transactions found
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gray-700">
                       <tr>
@@ -1745,5 +1822,6 @@ const EarningsManagement = () => {
     </div>
   );
 };
+
 
 export default EarningsManagement;
