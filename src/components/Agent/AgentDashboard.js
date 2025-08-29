@@ -78,21 +78,18 @@ const Sidebar = ({ activeTab, setActiveTab, agent, reminderCount = 0, panicRoomC
         {/* Navigation Menu */}
         <div className="flex-1 p-3 space-y-1 overflow-y-auto">
           {[
-            { name: 'Dashboard', icon: FaEye },
-            { name: 'Escort Profiles', icon: FaUsers },
-            { name: 'Chat Queue', icon: FaComments },
             { 
-              name: 'Panic Room', 
-              icon: FaExclamationTriangle, 
-              badge: panicRoomCount,
-              badgeColor: 'bg-red-500'
+              name: 'Dashboard', 
+              icon: FaEye,
+              badge: panicRoomCount + reminderCount,
+              badgeColor: panicRoomCount > 0 ? 'bg-red-500' : 'bg-blue-500'
             },
+            { name: 'Escort Profiles', icon: FaUsers },
             { name: 'Earnings', icon: FaDollarSign },
             { name: 'Affiliates', icon: FaUserTie },
             { name: 'Affiliate Links', icon: FaLink },
             { name: 'My Assigned Customers', icon: FaUserFriends },
-            { name: 'Chat Statistics', icon: FaChartBar },
-            { name: 'Reminders', icon: FaBell, badge: reminderCount }
+            { name: 'Chat Statistics', icon: FaChartBar }
           ].map((item) => {
             const Icon = item.icon;
             const showBadge = item.badge > 0;
@@ -233,42 +230,68 @@ const StatCard = ({ title, value, icon, color }) => (
   </motion.div>
 );
 
-const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map() }) => {
+const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), reminders = [] }) => {
   // Store the current chat index for sequential viewing
   const [currentChatIndex, setCurrentChatIndex] = useState(0);
+  const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'reminders', 'queue'
   
-  // Filter chats to show only those with unread messages
-  // Include panic room chats at the top, but exclude them from automatic queue
-  const unreadsOnly = chats.filter(chat => {
-    // Check multiple sources for unread messages
-    const messageBasedUnreadCount = chat.messages?.filter(msg => 
-      msg.sender === 'customer' && !msg.readByAgent
-    ).length || 0;
+  // Filter chats based on current filter - using chatType from backend
+  const filteredChats = useMemo(() => {
+    let allChats = [...chats];
     
-    // Use the unreadCount property set by WebSocket updates if available
-    const webSocketUnreadCount = chat.unreadCount || 0;
-    const hasNewMessages = chat.hasNewMessages || false;
+    // The backend now sends chatType field, so we don't need to manually process reminders
+    // Just use the chats as they come from the backend
     
-    // Show panic room chats or regular chats with unread messages
-    return chat.isInPanicRoom || messageBasedUnreadCount > 0 || webSocketUnreadCount > 0 || hasNewMessages;
-  });
+    // Apply filter type based on chatType from backend
+    switch (filterType) {
+      case 'panic':
+        return allChats.filter(chat => chat.chatType === 'panic' || chat.isInPanicRoom);
+      case 'reminders':
+        return allChats.filter(chat => chat.chatType === 'reminder' || chat.isReminder || 
+          !chat.reminderHandled || chat.requiresFollowUp || chat.reminderSnoozedUntil);
+      case 'queue':
+        return allChats.filter(chat => chat.chatType === 'queue' && !chat.isInPanicRoom && 
+          chat.chatType !== 'reminder');
+      case 'unread':
+        return allChats.filter(chat => {
+          const unreadCount = chat.unreadCount || chat.messages?.filter(msg => 
+            msg.sender === 'customer' && !msg.readByAgent
+          ).length || 0;
+          return unreadCount > 0;
+        });
+      default:
+        return allChats; // Show all chats
+    }
+  }, [chats, filterType]);
 
-  // Sort chats with panic room chats at the top, then by unread count
+  // Sort chats using backend priority and chatType
   const sortedChats = useMemo(() => {
-    return [...unreadsOnly].sort((a, b) => {
-      // Panic room chats always come first
+    return [...filteredChats].sort((a, b) => {
+      // Use backend priority if available, otherwise use frontend logic
+      if (a.priority && b.priority) {
+        if (a.priority !== b.priority) {
+          return b.priority - a.priority; // Higher priority first
+        }
+      }
+      
+      // Fallback to chatType-based sorting
+      if (a.chatType === 'panic' && b.chatType !== 'panic') return -1;
+      if (a.chatType !== 'panic' && b.chatType === 'panic') return 1;
+      
+      if (a.chatType === 'reminder' && b.chatType === 'queue') return -1;
+      if (a.chatType === 'queue' && b.chatType === 'reminder') return 1;
+      
+      // Legacy fallback for isInPanicRoom and isReminder
       if (a.isInPanicRoom && !b.isInPanicRoom) return -1;
       if (!a.isInPanicRoom && b.isInPanicRoom) return 1;
       
-      // If both are panic room chats, sort by moved date (newest first)
-      if (a.isInPanicRoom && b.isInPanicRoom) {
-        return new Date(b.panicRoomMovedAt || 0) - new Date(a.panicRoomMovedAt || 0);
-      }
+      if (a.isReminder && !b.isReminder && !b.isInPanicRoom) return -1;
+      if (!a.isReminder && b.isReminder && !a.isInPanicRoom) return 1;
       
+      // Then sort by unread count (descending)
       const aUnread = a.unreadCount || a.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
       const bUnread = b.unreadCount || b.messages?.filter(msg => msg.sender === 'customer' && !msg.readByAgent).length || 0;
       
-      // Sort by unread count (highest first)
       if (bUnread !== aUnread) return bUnread - aUnread;
       
       // Finally sort by last message time (newest first)
@@ -276,7 +299,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
       const bLastMessage = b.messages?.[b.messages.length - 1]?.timestamp;
       return new Date(bLastMessage) - new Date(aLastMessage);
     });
-  }, [unreadsOnly]);
+  }, [filteredChats]);
 
   // Function to get user presence status
   const getUserPresence = (userId) => {
@@ -285,10 +308,11 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
     return presence || { isOnline: false, lastSeen: null };
   };
 
-  // Function to handle Watch Live click
+  // Function to handle Watch Live click - only for regular queue items (not panic room or reminders)
   const handleWatchLiveClick = () => {
-    // Filter out panic room chats from automatic queue
-    const autoQueueChats = sortedChats.filter(chat => !chat.isInPanicRoom);
+    const autoQueueChats = sortedChats.filter(chat => 
+      chat.chatType === 'queue' && !chat.isInPanicRoom && chat.chatType !== 'reminder'
+    );
     if (autoQueueChats.length === 0) return;
     
     const currentChat = autoQueueChats[currentChatIndex];
@@ -297,10 +321,123 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
     }
   };
 
+  // Function to assign current agent to a chat
+  const handleAssignAgent = async (chatId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/agent/chats/${chatId}/assign`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Agent assigned successfully:', result);
+        
+        // Refresh the live queue data to show the updated assignment
+        if (window.fetchLiveQueueData) {
+          window.fetchLiveQueueData();
+        }
+        
+        // Show success message
+        alert('You have been assigned to this chat successfully!');
+      } else {
+        const error = await response.json();
+        console.error('Failed to assign agent:', error);
+        alert('Failed to assign agent: ' + error.message);
+      }
+    } catch (error) {
+      console.error('Error assigning agent:', error);
+      alert('Error assigning agent. Please try again.');
+    }
+  };
+
+  // Count different types of chats using both new chatType and legacy fields
+  const panicRoomCount = sortedChats.filter(chat => chat.chatType === 'panic' || chat.isInPanicRoom).length;
+  const reminderCount = sortedChats.filter(chat => chat.chatType === 'reminder' || chat.isReminder || 
+    !chat.reminderHandled || chat.requiresFollowUp).length;
+  const queueCount = sortedChats.filter(chat => 
+    (chat.chatType === 'queue' || (!chat.chatType && !chat.isInPanicRoom && !chat.isReminder)) &&
+    !chat.isInPanicRoom && chat.chatType !== 'panic' && chat.chatType !== 'reminder'
+  ).length;
+  const unreadCount = sortedChats.filter(chat => {
+    const unread = chat.unreadCount || chat.messages?.filter(msg => 
+      msg.sender === 'customer' && !msg.readByAgent
+    ).length || 0;
+    return unread > 0;
+  }).length;
+
   return (
     <div className="bg-gray-800 rounded-lg p-2 md:p-4 shadow-lg overflow-x-auto">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
-        <h2 className="text-lg md:text-xl font-semibold text-white">Live Queue</h2>
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg md:text-xl font-semibold text-white">Live Dashboard</h2>
+          
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setFilterType('all')}
+              className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors ${
+                filterType === 'all' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              All ({sortedChats.length})
+            </button>
+            {panicRoomCount > 0 && (
+              <button 
+                onClick={() => setFilterType('panic')}
+                className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors shadow-sm ${
+                  filterType === 'panic' 
+                    ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/25' 
+                    : 'bg-gradient-to-r from-red-900/30 to-red-800/20 text-red-300 hover:from-red-800/40 hover:to-red-700/30 border border-red-500/30'
+                }`}
+              >
+                🚨 Panic Room ({panicRoomCount})
+              </button>
+            )}
+            {reminderCount > 0 && (
+              <button 
+                onClick={() => setFilterType('reminders')}
+                className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors shadow-sm ${
+                  filterType === 'reminders' 
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-white shadow-amber-500/25' 
+                    : 'bg-gradient-to-r from-amber-900/30 to-yellow-800/20 text-amber-300 hover:from-amber-800/40 hover:to-yellow-700/30 border border-amber-500/30'
+                }`}
+              >
+                ⏰ Reminders ({reminderCount})
+              </button>
+            )}
+            {queueCount > 0 && (
+              <button 
+                onClick={() => setFilterType('queue')}
+                className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors shadow-sm ${
+                  filterType === 'queue' 
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-cyan-500/25' 
+                    : 'bg-gradient-to-r from-cyan-900/25 to-blue-800/15 text-cyan-300 hover:from-cyan-800/35 hover:to-blue-700/25 border border-cyan-500/30'
+                }`}
+              >
+                💬 Queue ({queueCount})
+              </button>
+            )}
+            {unreadCount > 0 && (
+              <button 
+                onClick={() => setFilterType('unread')}
+                className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors shadow-sm ${
+                  filterType === 'unread' 
+                    ? 'bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-purple-500/25' 
+                    : 'bg-gradient-to-r from-purple-900/25 to-violet-800/15 text-purple-300 hover:from-purple-800/35 hover:to-violet-700/25 border border-purple-500/30'
+                }`}
+              >
+                📨 Unread ({unreadCount})
+              </button>
+            )}
+          </div>
+        </div>
+        
         <div className="flex flex-col sm:flex-row gap-2">
           <button 
             onClick={onCreateFirstContact}
@@ -309,39 +446,19 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
             <FaPlus />
             <span>Create First Contact</span>
           </button>
-          {sortedChats.length > 0 && (
-            <div className="flex items-center gap-2">
-              {(() => {
-                const panicRoomCount = sortedChats.filter(chat => chat.isInPanicRoom).length;
-                const autoQueueCount = sortedChats.length - panicRoomCount;
-                return (
-                  <div className="text-gray-400 text-xs md:text-sm flex items-center gap-3">
-                    <span>
-                      {autoQueueCount} in queue
-                    </span>
-                    {panicRoomCount > 0 && (
-                      <span className="text-red-400">
-                        {panicRoomCount} in panic room
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-              {sortedChats.filter(chat => !chat.isInPanicRoom).length > 0 && (
-                <button 
-                  onClick={handleWatchLiveClick}
-                  className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 text-xs md:text-base"
-                >
-                  <FaEye />
-                  <span>Watch Live Queue</span>
-                  {sortedChats.filter(chat => !chat.isInPanicRoom).length > 1 && (
-                    <span className="text-xs bg-blue-600 px-2 py-1 rounded-full">
-                      {currentChatIndex + 1}/{sortedChats.filter(chat => !chat.isInPanicRoom).length}
-                    </span>
-                  )}
-                </button>
+          {queueCount > 0 && (
+            <button 
+              onClick={handleWatchLiveClick}
+              className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 text-xs md:text-base"
+            >
+              <FaEye />
+              <span>Watch Live Queue</span>
+              {queueCount > 1 && (
+                <span className="text-xs bg-blue-600 px-2 py-1 rounded-full">
+                  {currentChatIndex + 1}/{queueCount}
+                </span>
               )}
-            </div>
+            </button>
           )}
         </div>
       </div>
@@ -351,6 +468,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
             <tr>
               <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">User / Last Message</th>
               <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Escort Profile</th>
+              <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Assigned Agent</th>
               <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Status</th>
               <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Unread Messages</th>
               <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Last Active</th>
@@ -358,7 +476,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
             </tr>
           </thead>
           <tbody className="text-gray-300 divide-y divide-gray-700">
-            {unreadsOnly.length > 0 ? unreadsOnly.map((chat) => {
+            {sortedChats.length > 0 ? sortedChats.map((chat) => {
               // Use consistent unread count calculation
               const messageBasedUnreadCount = chat.messages?.filter(msg => 
                 msg.sender === 'customer' && !msg.readByAgent
@@ -368,12 +486,19 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
               const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
               const userPresence = getUserPresence(chat.customerId?._id);
               
+              // Determine row styling based on chat type - use both new chatType and legacy fields
+              let rowStyling = 'border-l-4 hover:bg-gray-700/30 transition-colors';
+              if (chat.chatType === 'panic' || chat.isInPanicRoom) {
+                rowStyling += ' border-red-400 bg-gradient-to-r from-red-900/30 to-red-800/20';
+              } else if (chat.chatType === 'reminder' || chat.isReminder || 
+                         !chat.reminderHandled || chat.requiresFollowUp) {
+                rowStyling += ' border-amber-400 bg-gradient-to-r from-amber-900/30 to-yellow-800/20';
+              } else {
+                rowStyling += ' border-cyan-400 bg-gradient-to-r from-cyan-900/25 to-blue-800/15';
+              }
+              
               return (
-                <tr key={chat._id} className={`${
-                  chat.isInPanicRoom 
-                    ? 'border-l-4 border-red-500 bg-red-900/20' 
-                    : 'border-l-4 border-blue-500 bg-blue-900/10'
-                } hover:bg-gray-700/30 transition-colors`}>
+                <tr key={chat._id} className={rowStyling}>
                   <td className="px-2 py-2 md:px-4 md:py-3 min-w-[160px] align-top">
                     <div className="flex items-start gap-2 md:gap-3 flex-col md:flex-row">
                       <div className="flex items-center gap-2">
@@ -383,17 +508,43 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                         )}
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className={`font-medium ${chat.isInPanicRoom ? 'text-red-300' : 'text-white'}`}>
+                        <span className={`font-medium ${
+                          chat.isInPanicRoom ? 'text-red-300 drop-shadow-sm' : 
+                          chat.isReminder ? 'text-amber-300 drop-shadow-sm' : 
+                          'text-cyan-100'
+                        }`}>
                           {chat.customerId?.username || chat.customerName}
                         </span>
-                        {chat.isInPanicRoom && (
-                          <span className="ml-0 md:ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full mt-1">PANIC ROOM</span>
-                        )}
-                        {chat.isInPanicRoom && chat.panicRoomReason && (
-                          <span className="text-xs text-red-400 mt-1">
+                        
+                        {/* Status badges */}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(chat.chatType === 'panic' || chat.isInPanicRoom) && (
+                            <span className="bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2 py-1 rounded-full shadow-lg shadow-red-500/30 animate-pulse">
+                              🚨 PANIC ROOM
+                            </span>
+                          )}
+                          {(chat.chatType === 'reminder' || chat.isReminder || !chat.reminderHandled || chat.requiresFollowUp) && (
+                            <span className="bg-gradient-to-r from-amber-500 to-yellow-600 text-white text-xs px-2 py-1 rounded-full shadow-md shadow-amber-500/30">
+                              ⏰ REMINDER
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Additional info for panic room */}
+                        {(chat.chatType === 'panic' || chat.isInPanicRoom) && chat.panicRoomReason && (
+                          <span className="text-xs text-red-400 mt-1 font-medium">
                             Reason: {chat.panicRoomReason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </span>
                         )}
+                        
+                        {/* Additional info for reminders */}
+                        {(chat.chatType === 'reminder' || chat.isReminder) && chat.reminderDue && (
+                          <span className="text-xs text-amber-400 mt-1 font-medium">
+                            Due: {formatDistanceToNow(new Date(chat.reminderDue), { addSuffix: true })}
+                          </span>
+                        )}
+                        
+                        {/* Message status indicators */}
                         {unreadCount > 0 && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-xs text-blue-400">New messages</span>
@@ -405,6 +556,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                             )}
                           </div>
                         )}
+                        
                         {lastMessage && (
                           <span className="block text-xs text-gray-400 mt-1 max-w-[180px] truncate">
                             {lastMessage.messageType === 'image' ? '📷 Image' : lastMessage.message}
@@ -417,6 +569,37 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                     <span className="block font-semibold text-white truncate">
                       {chat.escortId?.firstName || chat.escortId?.name || chat.escortName || 'N/A'}
                     </span>
+                  </td>
+                  <td className="px-2 py-2 md:px-4 md:py-3 min-w-[100px] align-top">
+                    <div className="flex flex-col">
+                      {chat.assignedAgent ? (
+                        <>
+                          <span className={`block font-medium truncate text-xs ${
+                            chat.assignedAgent.isFromMessage 
+                              ? 'text-amber-300' 
+                              : 'text-cyan-200'
+                          }`}>
+                            {chat.assignedAgent.name}
+                          </span>
+                          {chat.assignedAgent.agentId && chat.assignedAgent.agentId !== 'Unknown' && (
+                            <span className="text-xs text-gray-400 truncate">
+                              ID: {chat.assignedAgent.agentId}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-red-400">Unassigned</span>
+                          <button
+                            onClick={() => handleAssignAgent(chat._id)}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+                            title="Assign to me"
+                          >
+                            Assign to me
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3 align-top">
                     <div className="flex flex-col gap-1">
@@ -434,7 +617,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3 align-top">
                     {unreadCount > 0 && (
-                      <span className="px-2 py-1 bg-blue-500 text-white rounded-full text-xs w-fit">
+                      <span className="px-2 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full text-xs w-fit shadow-sm">
                         {unreadCount} unread
                       </span>
                     )}
@@ -456,26 +639,32 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span className="hidden md:inline">
-                          {unreadCount > 0 ? 'View Messages' : 'Open Chat'}
+                          {chat.isReminder ? 'Handle Reminder' : unreadCount > 0 ? 'View Messages' : 'Open Chat'}
                         </span>
                       </button>
-                      <button 
-                        onClick={() => onPushBack(chat._id)}
-                        className="p-2 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-xs md:text-sm"
-                        title="Push Back Chat"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </button>
+                      {!chat.isReminder && (
+                        <button 
+                          onClick={() => onPushBack(chat._id)}
+                          className="p-2 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-xs md:text-sm"
+                          title="Push Back Chat"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               );
             }) : (
               <tr>
-                <td colSpan="6" className="px-2 py-8 text-center text-gray-400">
-                  No unread messages at the moment
+                <td colSpan="7" className="px-2 py-8 text-center text-gray-400">
+                  {filterType === 'panic' && 'No panic room chats'}
+                  {filterType === 'reminders' && 'No pending reminders'}
+                  {filterType === 'queue' && 'No unread messages in queue'}
+                  {filterType === 'unread' && 'No unread messages'}
+                  {filterType === 'all' && 'No active chats, reminders, or panic room items'}
                 </td>
               </tr>
             )}
@@ -1110,10 +1299,11 @@ const AgentDashboard = () => {
 
           {/* Statistics Grid - Removed as requested */}
           
-        {/* Live Queue Table */}
+        {/* Live Dashboard - shows all chats, reminders, and panic room in one table */}
         {activeTab === 'dashboard' && (
           <LiveQueueTable 
             chats={chats}
+            reminders={reminders}
             onAssign={handleAssignChat}
             onPushBack={handlePushBack}
             onOpenChat={handleOpenChat}
@@ -1135,17 +1325,6 @@ const AgentDashboard = () => {
           />
         )}
 
-        {activeTab === 'chat queue' && (
-          <div className="bg-gray-800 rounded-lg p-4 lg:p-6">
-            <ChatQueueTab 
-              chats={chats} 
-              onOpenChat={handleOpenChat}
-              navigate={navigate}
-              userPresence={userPresence}
-            />
-          </div>
-        )}
-        
         {activeTab === 'earnings' && (
           <AgentEarnings agentId={agent?._id} />
         )}
@@ -1169,25 +1348,6 @@ const AgentDashboard = () => {
 
         {activeTab === 'chat statistics' && (
           <ChatStatistics agentId={agent?._id || agent?.id} />
-        )}
-
-        {activeTab === 'reminders' && (
-          <ReminderSystem
-            chats={chats}
-            navigate={navigate}
-            onMarkReminder={handleMarkReminderComplete}
-            onSnoozeReminder={handleSnoozeReminder}
-          />
-        )}
-        
-        {activeTab === 'panic room' && (
-          <PanicRoomTab 
-            chats={chats}
-            onAssign={handleAssignChat}
-            onPushBack={handlePushBack}
-            onOpenChat={handleOpenChat}
-            navigate={navigate}
-          />
         )}
 
         {activeTab === 'my assigned customers' && agent && (
