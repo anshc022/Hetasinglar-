@@ -322,36 +322,115 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
   };
 
   // Function to assign current agent to a chat
+  // Function to request assignment to a customer
   const handleAssignAgent = async (chatId) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/agent/chats/${chatId}/assign`, {
+      // Get customer ID from the chat
+      const chat = chats.find(c => c._id === chatId);
+      if (!chat || !chat.customerId) {
+        alert('Customer information not found');
+        return;
+      }
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/agent/assignment-request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          customerId: chat.customerId._id || chat.customerId
+        })
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        const result = await response.json();
-        console.log('Agent assigned successfully:', result);
+        alert('Assignment request submitted successfully! Waiting for admin approval.');
         
-        // Refresh the live queue data to show the updated assignment
+        // Refresh the live queue data to show the updated status
         if (window.fetchLiveQueueData) {
           window.fetchLiveQueueData();
         }
-        
-        // Show success message
-        alert('You have been assigned to this chat successfully!');
       } else {
-        const error = await response.json();
-        console.error('Failed to assign agent:', error);
-        alert('Failed to assign agent: ' + error.message);
+        alert('Failed to submit assignment request: ' + (result.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error assigning agent:', error);
-      alert('Error assigning agent. Please try again.');
+      console.error('Error requesting assignment:', error);
+      alert('Network error while submitting assignment request');
     }
+  };
+
+  // Function to cancel assignment request
+  const handleCancelAssignmentRequest = async (customerId) => {
+    try {
+      // First, find the pending request for this customer
+      const requestsResponse = await fetch(`${process.env.REACT_APP_API_URL}/agent/assignment-requests`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (requestsResponse.ok) {
+        const { requests } = await requestsResponse.json();
+        const pendingRequest = requests.find(req => 
+          req.customer._id === customerId && req.status === 'pending'
+        );
+
+        if (pendingRequest) {
+          const cancelResponse = await fetch(`${process.env.REACT_APP_API_URL}/agent/assignment-request/${pendingRequest._id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+
+          if (cancelResponse.ok) {
+            alert('Assignment request cancelled successfully');
+            
+            // Refresh the live queue data
+            if (window.fetchLiveQueueData) {
+              window.fetchLiveQueueData();
+            }
+          } else {
+            const result = await cancelResponse.json();
+            alert('Failed to cancel assignment request: ' + (result.error || 'Unknown error'));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error cancelling assignment request:', error);
+      alert('Network error while cancelling assignment request');
+    }
+  };
+
+  // Enhanced function to get assignment status and display appropriate buttons
+  const getAssignmentStatus = (chat) => {
+    // Check if there's an official admin assignment (highest priority)
+    if (chat.customerAssignment && chat.customerAssignment.length > 0) {
+      const assignment = chat.customerAssignment[0];
+      if (assignment.assignedAgentInfo) {
+        return {
+          type: 'admin_assigned',
+          agentName: assignment.assignedAgentInfo.name,
+          status: 'active'
+        };
+      }
+    }
+    
+    // Check if this agent is handling the chat (from last agent message)
+    if (chat.lastAgentMessage && chat.lastAgentMessage.agentId) {
+      return {
+        type: 'message_based',
+        agentName: chat.lastAgentMessage.agentName || 'Agent',
+        status: 'handling'
+      };
+    }
+
+    return {
+      type: 'unassigned',
+      status: 'available'
+    };
   };
 
   // Count different types of chats using both new chatType and legacy fields
@@ -572,33 +651,49 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3 min-w-[100px] align-top">
                     <div className="flex flex-col">
-                      {chat.assignedAgent ? (
-                        <>
-                          <span className={`block font-medium truncate text-xs ${
-                            chat.assignedAgent.isFromMessage 
-                              ? 'text-amber-300' 
-                              : 'text-cyan-200'
-                          }`}>
-                            {chat.assignedAgent.name}
-                          </span>
-                          {chat.assignedAgent.agentId && chat.assignedAgent.agentId !== 'Unknown' && (
-                            <span className="text-xs text-gray-400 truncate">
-                              ID: {chat.assignedAgent.agentId}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs text-red-400">Unassigned</span>
-                          <button
-                            onClick={() => handleAssignAgent(chat._id)}
-                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                            title="Assign to me"
-                          >
-                            Assign to me
-                          </button>
-                        </div>
-                      )}
+                      {(() => {
+                        const assignmentStatus = getAssignmentStatus(chat);
+                        
+                        switch (assignmentStatus.type) {
+                          case 'admin_assigned':
+                            return (
+                              <>
+                                <span className="block font-medium truncate text-xs text-cyan-200">
+                                  {assignmentStatus.agentName}
+                                </span>
+                                <span className="text-xs bg-cyan-500/20 text-cyan-300 px-1 py-0.5 rounded mt-1">
+                                  Admin Assigned
+                                </span>
+                              </>
+                            );
+                          
+                          case 'message_based':
+                            return (
+                              <>
+                                <span className="block font-medium truncate text-xs text-amber-300">
+                                  {assignmentStatus.agentName}
+                                </span>
+                                <span className="text-xs bg-amber-500/20 text-amber-300 px-1 py-0.5 rounded mt-1">
+                                  Handling
+                                </span>
+                              </>
+                            );
+                          
+                          default:
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-red-400">Unassigned</span>
+                                <button
+                                  onClick={() => handleAssignAgent(chat._id)}
+                                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"
+                                  title="Request assignment to this customer"
+                                >
+                                  Request Assignment
+                                </button>
+                              </div>
+                            );
+                        }
+                      })()}
                     </div>
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3 align-top">

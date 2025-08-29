@@ -1553,7 +1553,7 @@ const EarningsManagement = () => {
         });
 
         if (response.data.success) {
-          setCommissionSettings(tempSettings);
+          await fetchCommissionSettings();
           setShowCommissionModal(false);
           alert('Commission settings updated successfully!');
         }
