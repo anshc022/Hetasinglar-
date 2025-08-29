@@ -16,7 +16,6 @@ const UserAssignmentManagement = () => {
   const [agents, setAgents] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [unassignedUsers, setUnassignedUsers] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all-users');
 
@@ -24,7 +23,6 @@ const UserAssignmentManagement = () => {
     fetchUsers();
     fetchAgents();
     fetchAssignments();
-    fetchPendingRequests();
   }, []);
 
   useEffect(() => {
@@ -65,45 +63,6 @@ const UserAssignmentManagement = () => {
       setLoading(false);
     }
   };
-
-  const fetchPendingRequests = async () => {
-    try {
-      const response = await adminApi.get('/admin/assignment-requests');
-      setPendingRequests(response.data.requests || []);
-    } catch (error) {
-      console.error('Error fetching pending requests:', error);
-    }
-  };
-
-  const handleApproveRequest = async (requestId, notes = '') => {
-    try {
-      await adminApi.post(`/admin/assignment-requests/${requestId}/approve`, {
-        notes: notes
-      });
-      
-      alert('Assignment request approved successfully');
-      fetchPendingRequests();
-      fetchAssignments(); // Refresh assignments list
-    } catch (error) {
-      console.error('Error approving request:', error);
-      alert('Failed to approve request: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
-  const handleDeclineRequest = async (requestId, notes = '') => {
-    try {
-      await adminApi.post(`/admin/assignment-requests/${requestId}/decline`, {
-        notes: notes
-      });
-      
-      alert('Assignment request declined');
-      fetchPendingRequests();
-    } catch (error) {
-      console.error('Error declining request:', error);
-      alert('Failed to decline request: ' + (error.response?.data?.error || error.message));
-    }
-  };
-
   const handleAssignUser = async (userId, agentId) => {
     if (!userId || !agentId) {
       alert('Please select both a user and an agent');
@@ -246,18 +205,6 @@ const UserAssignmentManagement = () => {
             }`}
           >
             Unassigned ({unassignedUsers.length})
-          </motion.button>
-          
-          <motion.button
-            whileHover={{ y: -2 }}
-            onClick={() => setActiveTab('pending')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'pending'
-                ? 'border-yellow-500 text-yellow-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
-            }`}
-          >
-            Pending Requests ({pendingRequests.length})
           </motion.button>
         </nav>
       </div>
@@ -580,114 +527,6 @@ const UserAssignmentManagement = () => {
                               </option>
                             ))}
                           </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Pending Requests Tab */}
-        {activeTab === 'pending' && (
-          <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-            <div className="p-4 bg-yellow-500/10">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-300 flex items-center">
-                  <FaShieldAlt className="mr-2" />
-                  Pending Assignment Requests
-                </h3>
-                <span className="bg-yellow-500 text-black px-3 py-1 rounded-full text-sm font-medium">
-                  {pendingRequests.length} Pending
-                </span>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
-                <p className="text-gray-400 mt-4">Loading pending requests...</p>
-              </div>
-            ) : pendingRequests.length === 0 ? (
-              <div className="text-center py-12">
-                <FaTrophy className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-gray-400">No pending assignment requests</p>
-                <p className="text-gray-500 text-sm">All requests have been processed</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
-                  <thead className="bg-gray-900">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Requesting Agent
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Request Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-gray-800 divide-y divide-gray-700">
-                    {pendingRequests.map((request) => (
-                      <tr key={request._id} className="hover:bg-gray-700 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div>
-                              <div className="text-sm font-medium text-white">
-                                {request.customer?.username || 'Unknown'}
-                              </div>
-                              <div className="text-sm text-gray-400">
-                                {request.customer?.email || 'No email'}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-white">
-                              {request.agent?.name || 'Unknown Agent'}
-                            </div>
-                            <div className="text-sm text-gray-400">
-                              ID: {request.agent?.agentId || 'Unknown'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {new Date(request.requestedAt).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => {
-                                const notes = prompt('Add approval notes (optional):');
-                                if (notes !== null) {
-                                  handleApproveRequest(request._id, notes);
-                                }
-                              }}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-xs transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => {
-                                const notes = prompt('Add decline reason (optional):');
-                                if (notes !== null) {
-                                  handleDeclineRequest(request._id, notes);
-                                }
-                              }}
-                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs transition-colors"
-                            >
-                              Decline
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))}
