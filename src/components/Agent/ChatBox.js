@@ -371,35 +371,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       const chatId = selectedChat._id;
       
-      // Send image message using the same endpoint as text messages
-      await agentApi.post(`/chats/${chatId}/message`, { 
-        message: '',
-        messageType: 'image',
-        imageData: image.imageData,
-        mimeType: image.mimeType,
-        filename: image.filename
-      });
-      
-      // Mark messages as read
-      await agentApi.post(`/chats/${chatId}/mark-read`);
-      
-      showNotification('Image sent successfully', 'success');
-      
-      // Send via WebSocket for real-time updates
-      websocketService.sendMessage(selectedChat._id, {
-        type: 'chat_message',
-        chatId: selectedChat._id,
-        message: '',
-        sender: 'agent',
-        messageType: 'image',
-        imageData: image.imageData,
-        mimeType: image.mimeType,
-        filename: image.filename,
-        timestamp: new Date()
-      });
-
-      // Update local state immediately for better UX
-      const newMessage = {
+      // ⚡ OPTIMISTIC UPDATE: Add image message immediately
+      const optimisticImageMessage = {
         message: '',
         messageType: 'image',
         imageData: image.imageData,
@@ -409,18 +382,59 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         sender: 'agent',
         senderName: currentAgent?.name || 'Agent',
         readByAgent: true,
-        readByCustomer: false
+        readByCustomer: false,
+        status: 'sending',
+        isOptimistic: true
       };
 
       setSelectedChat(prev => ({
         ...prev,
-        messages: [...prev.messages, newMessage],
+        messages: [...prev.messages, optimisticImageMessage],
         lastMessage: `📷 Image`,
         updatedAt: new Date()
       }));
 
       // Scroll to bottom after adding the image
       setTimeout(scrollToBottom, 100);
+      
+      // Send image message via API
+      try {
+        await agentApi.post(`/chats/${chatId}/message`, { 
+          message: '',
+          messageType: 'image',
+          imageData: image.imageData,
+          mimeType: image.mimeType,
+          filename: image.filename
+        });
+        
+        // Mark messages as read
+        await agentApi.post(`/chats/${chatId}/mark-read`);
+        
+        // ✅ Update optimistic message to sent
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.filename === image.filename 
+              ? { ...msg, status: 'sent', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        showNotification('Image sent successfully', 'success');
+        
+      } catch (sendError) {
+        // ❌ Mark image message as failed
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.filename === image.filename 
+              ? { ...msg, status: 'failed', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        throw sendError;
+      }
       
     } catch (error) {
       console.error('Error sending image:', error);
@@ -469,34 +483,77 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         onMessageSent(messageText);
       }
 
-      // Send via WebSocket for real-time updates
-      websocketService.sendMessage(selectedChat._id, {
-        type: 'chat_message',
-        chatId: selectedChat._id,
-        message: messageText,
-        sender: 'agent',
-        isFollowUp: isFollowUp, // Include follow-up flag
-        timestamp: new Date()
-      });
-
-      // Update local state immediately for better UX
-      const newMessage = {
+      // ⚡ INSTANT MESSAGING: Optimistic update first
+      const optimisticMessage = {
         message: messageText,
         timestamp: new Date(),
         sender: 'agent',
         senderName: currentAgent?.name || 'Agent',
         readByAgent: true,
-        readByCustomer: false
+        readByCustomer: false,
+        status: 'sending',
+        isOptimistic: true
       };
 
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: [...prev.messages, newMessage],
-        lastMessage: messageText,
-        updatedAt: new Date()
-      }));
-
+      // Add optimistic message immediately
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), optimisticMessage]
+        };
+      });
+      
       scrollToBottom();
+      
+      // Send via API only (fast response)
+      try {
+        let messageResponse;
+        try {
+          messageResponse = await agentApi.post(`/chats/${chatId}/message`, { 
+            message: messageText,
+            messageType: messageType 
+          });
+        } catch (messageError) {
+          // Fallback to first-contact endpoint for agents
+          messageResponse = await agentApi.post(`/chats/${chatId}/first-contact`, { 
+            message: messageText
+          });
+        }
+        
+        await agentApi.post(`/chats/${chatId}/mark-read`);
+        
+        // ✅ Update optimistic message to sent
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.message === messageText 
+              ? { ...msg, status: 'sent', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        // Call the parent's onMessageSent callback if provided (for auto-redirect)
+        if (onMessageSent) {
+          onMessageSent(messageText);
+        }
+        
+      } catch (sendError) {
+        // ❌ Mark message as failed
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.message === messageText 
+              ? { ...msg, status: 'failed', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        throw sendError;
+      }
+
+      // Note: Removed WebSocket sendMessage call to prevent duplication
+
     } catch (error) {
       // Still call onMessageSent even if there's an error, so the redirect works
       if (onMessageSent) {
@@ -657,12 +714,32 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           messageType: data.messageType,
           imageData: data.imageData,
           mimeType: data.mimeType,
-          filename: data.filename
+          filename: data.filename,
+          status: 'sent' // Real messages from WebSocket are already sent
         };
 
         setChats(prevChats => {
           return prevChats.map(chat => {
             if (chat._id === data.chatId) {
+              // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
+              const updatedMessages = [...chat.messages];
+              
+              // Find matching optimistic message (same content and sender)
+              const optimisticIndex = updatedMessages.findIndex(msg => 
+                msg.isOptimistic && 
+                msg.sender === data.sender && 
+                ((data.messageType === 'image' && msg.filename === data.filename) ||
+                 (data.messageType !== 'image' && msg.message === data.message))
+              );
+              
+              if (optimisticIndex !== -1) {
+                // Replace optimistic message with real one
+                updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+              } else {
+                // Add new message (not from this client's optimistic update)
+                updatedMessages.push(newMessage);
+              }
+              
               // Show appropriate last message for image messages (no filename)
               const lastMessage = data.messageType === 'image' 
                 ? `📷 Image`
@@ -670,7 +747,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               
               return {
                 ...chat,
-                messages: [...chat.messages, newMessage],
+                messages: updatedMessages,
                 lastMessage: lastMessage,
                 updatedAt: new Date(data.timestamp)
               };
@@ -685,12 +762,35 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             ? `📷 Image`
             : data.message;
             
-          setSelectedChat(prev => ({
-            ...prev,
-            messages: [...prev.messages, newMessage],
-            lastMessage: lastMessage,
-            updatedAt: new Date(data.timestamp)
-          }));
+          setSelectedChat(prev => {
+            if (!prev) return prev;
+            
+            // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
+            const updatedMessages = [...prev.messages];
+            
+            // Find matching optimistic message (same content and sender)
+            const optimisticIndex = updatedMessages.findIndex(msg => 
+              msg.isOptimistic && 
+              msg.sender === data.sender && 
+              ((data.messageType === 'image' && msg.filename === data.filename) ||
+               (data.messageType !== 'image' && msg.message === data.message))
+            );
+            
+            if (optimisticIndex !== -1) {
+              // Replace optimistic message with real one
+              updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+            } else {
+              // Add new message (not from this client's optimistic update)
+              updatedMessages.push(newMessage);
+            }
+            
+            return {
+              ...prev,
+              messages: updatedMessages,
+              lastMessage: lastMessage,
+              updatedAt: new Date(data.timestamp)
+            };
+          });
           scrollToBottom();
         }
       }

@@ -144,12 +144,35 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
           filename: data.filename
         };
         
-        setSelectedChat(prev => ({
-          ...prev,
-          messages: [...(prev?.messages || []), newMessage],
-          lastMessage: data.messageType === 'image' ? '📷 Image' : data.message,
-          time: new Date(data.timestamp).toLocaleString()
-        }));
+        setSelectedChat(prev => {
+          if (!prev) return prev;
+          
+          // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
+          const updatedMessages = [...prev.messages];
+          
+          // Find matching optimistic message (same content and sender)
+          const optimisticIndex = updatedMessages.findIndex(msg => 
+            msg.isOptimistic && 
+            msg.sender === data.sender && 
+            ((data.messageType === 'image' && msg.filename === data.filename) ||
+             (data.messageType !== 'image' && msg.text === data.message))
+          );
+          
+          if (optimisticIndex !== -1) {
+            // Replace optimistic message with real one
+            updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+          } else {
+            // Add new message (not from this client's optimistic update)
+            updatedMessages.push(newMessage);
+          }
+          
+          return {
+            ...prev,
+            messages: updatedMessages,
+            lastMessage: data.messageType === 'image' ? '📷 Image' : data.message,
+            time: new Date(data.timestamp).toLocaleString()
+          };
+        });
 
         scrollToBottom();
       }
@@ -299,32 +322,63 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       setNewMessage('');
       setError(null);
 
-      // Send the message
-      websocketService.sendMessage(selectedChat.id, messageText);
-      await chats.sendMessage(selectedChat.id, messageText);
-      
-      const message = {
+      // ⚡ OPTIMISTIC UPDATE: Add message immediately for instant feel
+      const optimisticMessage = {
         text: messageText,
         time: new Date().toLocaleString(),
         isSent: true,
+        status: 'sending', // Show as sending until confirmed
         sender: 'customer',
-        status: 'sent'
+        messageType: 'text',
+        readByAgent: false,
+        readByCustomer: true,
+        isOptimistic: true // Flag to identify optimistic messages
       };
 
+      // Add optimistic message to UI immediately
       setSelectedChat(prev => ({
         ...prev,
-        messages: [...(prev?.messages || []), message],
+        messages: [...(prev?.messages || []), optimisticMessage],
         lastMessage: messageText,
         time: new Date().toLocaleString()
       }));
 
-      // Update coin balance after sending
-      const coinResponse = await axios.get(`${config.API_URL}/subscription/coins/balance`, { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-      setUserCoins(coinResponse.data.balance);
-      
       scrollToBottom();
+
+      // Send the message via REST API (now in background)
+      try {
+        await chats.sendMessage(selectedChat.id, messageText);
+        
+        // ✅ Message sent successfully - update status
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.text === messageText 
+              ? { ...msg, status: 'sent', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        // Update coin balance after sending
+        const coinResponse = await axios.get(`${config.API_URL}/subscription/coins/balance`, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        setUserCoins(coinResponse.data.balance);
+        
+      } catch (sendError) {
+        // ❌ Message failed - mark as failed and show retry option
+        setSelectedChat(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg => 
+            msg.isOptimistic && msg.text === messageText 
+              ? { ...msg, status: 'failed', isOptimistic: false }
+              : msg
+          )
+        }));
+        
+        throw sendError; // Re-throw to be caught by outer catch
+      }
+      
     } catch (err) {
       console.error('Failed to send message:', err);
       const errorMessage = err.response?.data?.message || 'Failed to send message';
@@ -501,6 +555,38 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
                     <div className="flex items-center gap-1">
                       {msg.isEdited && (
                         <span className="text-xs italic">(edited)</span>
+                      )}
+                      {/* ⚡ INSTANT MESSAGING: Status indicators */}
+                      {msg.isSent && (
+                        <span className="flex items-center gap-1">
+                          {msg.status === 'sending' && (
+                            <>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                              <span className="text-gray-400">Sending...</span>
+                            </>
+                          )}
+                          {msg.status === 'sent' && (
+                            <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          {msg.status === 'read' && (
+                            <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          {msg.status === 'failed' && (
+                            <>
+                              <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-red-500 text-xs cursor-pointer hover:underline" onClick={() => {
+                                // Retry sending the message
+                                chats.sendMessage(selectedChat.id, msg.text).catch(console.error);
+                              }}>Retry</span>
+                            </>
+                          )}
+                        </span>
                       )}
                       <span>{msg.time}</span>
                     </div>
