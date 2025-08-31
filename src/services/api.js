@@ -229,12 +229,13 @@ export const chats = {
     }
   },
 
-  async sendMessage(chatId, message) {
+  async sendMessage(chatId, message, options = {}) {
     try {
       console.log('Sending message to chat:', chatId, message);
       
       const response = await api.post(`/chats/${chatId}/message`, { 
-        message: message 
+        message: message,
+        ...(options.clientId ? { clientId: options.clientId } : {})
       });
       
       console.log('Message sent response:', response.data);

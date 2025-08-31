@@ -9,6 +9,7 @@ class WebSocketService {
     this.notificationCallbacks = new Set();
     this.presenceCallbacks = new Set();
     this.liveQueueCallbacks = new Set();
+  this.outgoingCallbacks = new Set();
     this.activityInterval = null;
     this.userId = null;
     this.currentChatId = null;
@@ -160,31 +161,40 @@ class WebSocketService {
   }
 
   sendMessage(chatId, data) {
+    let messageData;
+
+    if (typeof data === 'string') {
+      // Simple text message
+      messageData = {
+        type: 'chat_message',
+        chatId,
+        message: data,
+        sender: this.isAgent ? 'agent' : 'customer',
+  timestamp: new Date().toISOString(),
+  clientId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      };
+    } else {
+      // Complex message object (could include image data)
+      messageData = {
+        type: 'chat_message',
+        chatId,
+        message: data.message,
+        messageType: data.messageType || 'text',
+        sender: this.isAgent ? 'agent' : 'customer',
+  timestamp: new Date().toISOString(),
+  clientId: data.clientId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ...data // Spread to include any additional fields like imageData, mimeType, filename
+      };
+    }
+
+    // Notify outgoing subscribers immediately for optimistic UI updates
+    try {
+      this.outgoingCallbacks.forEach(cb => {
+        try { cb(messageData); } catch (e) { console.error('Outgoing callback error:', e); }
+      });
+    } catch {}
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      let messageData;
-      
-      if (typeof data === 'string') {
-        // Simple text message
-        messageData = {
-          type: 'chat_message',
-          chatId,
-          message: data,
-          sender: this.isAgent ? 'agent' : 'customer',
-          timestamp: new Date().toISOString()
-        };
-      } else {
-        // Complex message object (could include image data)
-        messageData = {
-          type: 'chat_message',
-          chatId,
-          message: data.message,
-          messageType: data.messageType || 'text',
-          sender: this.isAgent ? 'agent' : 'customer',
-          timestamp: new Date().toISOString(),
-          ...data // Spread to include any additional fields like imageData, mimeType, filename
-        };
-      }
-      
       console.log('Sending WebSocket message:', messageData);
       this.ws.send(JSON.stringify(messageData));
     } else {
@@ -221,6 +231,14 @@ class WebSocketService {
     this.liveQueueCallbacks.add(callback);
     return () => {
       this.liveQueueCallbacks.delete(callback);
+    };
+  }
+
+  // Subscribe to outgoing chat messages for optimistic UI updates
+  onOutgoing(callback) {
+    this.outgoingCallbacks.add(callback);
+    return () => {
+      this.outgoingCallbacks.delete(callback);
     };
   }
 

@@ -387,12 +387,15 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         isOptimistic: true
       };
 
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: [...prev.messages, optimisticImageMessage],
-        lastMessage: `📷 Image`,
-        updatedAt: new Date()
-      }));
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), optimisticImageMessage],
+          lastMessage: `📷 Image`,
+          updatedAt: new Date()
+        };
+      });
 
       // Scroll to bottom after adding the image
       setTimeout(scrollToBottom, 100);
@@ -413,7 +416,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         // ✅ Update optimistic message to sent
         setSelectedChat(prev => ({
           ...prev,
-          messages: prev.messages.map(msg => 
+          messages: (prev.messages || []).map(msg => 
             msg.isOptimistic && msg.filename === image.filename 
               ? { ...msg, status: 'sent', isOptimistic: false }
               : msg
@@ -426,7 +429,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         // ❌ Mark image message as failed
         setSelectedChat(prev => ({
           ...prev,
-          messages: prev.messages.map(msg => 
+          messages: (prev.messages || []).map(msg => 
             msg.isOptimistic && msg.filename === image.filename 
               ? { ...msg, status: 'failed', isOptimistic: false }
               : msg
@@ -460,30 +463,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         await handleSendImage(file);
         return;
       }
-      
-      // Always send the message via API first
-      // Try the regular message endpoint first, fallback to first-contact for agents
-      let messageResponse;
-      try {
-        messageResponse = await agentApi.post(`/chats/${chatId}/message`, { 
-          message: messageText,
-          messageType: messageType 
-        });
-      } catch (messageError) {
-        // Fallback to first-contact endpoint for agents
-        messageResponse = await agentApi.post(`/chats/${chatId}/first-contact`, { 
-          message: messageText
-        });
-      }
-      
-      await agentApi.post(`/chats/${chatId}/mark-read`);
-      
-      // Call the parent's onMessageSent callback if provided (for auto-redirect)
-      if (onMessageSent) {
-        onMessageSent(messageText);
-      }
 
       // ⚡ INSTANT MESSAGING: Optimistic update first
+      const clientId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const optimisticMessage = {
         message: messageText,
         timestamp: new Date(),
@@ -492,7 +474,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         readByAgent: true,
         readByCustomer: false,
         status: 'sending',
-        isOptimistic: true
+        isOptimistic: true,
+        clientId
       };
 
       // Add optimistic message immediately
@@ -512,23 +495,25 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         try {
           messageResponse = await agentApi.post(`/chats/${chatId}/message`, { 
             message: messageText,
-            messageType: messageType 
+            messageType: messageType,
+            clientId
           });
         } catch (messageError) {
           // Fallback to first-contact endpoint for agents
           messageResponse = await agentApi.post(`/chats/${chatId}/first-contact`, { 
-            message: messageText
+            message: messageText,
+            clientId
           });
         }
         
         await agentApi.post(`/chats/${chatId}/mark-read`);
         
-        // ✅ Update optimistic message to sent
+        // ✅ Update optimistic message to sent but keep isOptimistic=true until WebSocket echo replaces it
         setSelectedChat(prev => ({
           ...prev,
-          messages: prev.messages.map(msg => 
+          messages: (prev.messages || []).map(msg => 
             msg.isOptimistic && msg.message === messageText 
-              ? { ...msg, status: 'sent', isOptimistic: false }
+              ? { ...msg, status: 'sent' }
               : msg
           )
         }));
@@ -542,7 +527,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         // ❌ Mark message as failed
         setSelectedChat(prev => ({
           ...prev,
-          messages: prev.messages.map(msg => 
+          messages: (prev.messages || []).map(msg => 
             msg.isOptimistic && msg.message === messageText 
               ? { ...msg, status: 'failed', isOptimistic: false }
               : msg
@@ -583,22 +568,32 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       setError('Invalid chat selected');
       return;
     }
+    // Ensure we have full chat details (global live-queue items may not include messages)
+    let fullChat = chat;
+    if (!Array.isArray(chat.messages)) {
+      try {
+        const fetched = await agentAuth.getChat(chat._id);
+        if (fetched) fullChat = fetched;
+      } catch (e) {
+        // Non-fatal; continue with the partial chat object
+      }
+    }
 
-    setSelectedChat(chat);
+    setSelectedChat(fullChat);
     setShowMobileSidebar(false); // Close mobile sidebar when chat is selected
-    const customerInfo = chat.customerId || {};
+    const customerInfo = fullChat.customerId || {};
     setUserDetails({
-      username: customerInfo.username || chat.customerName || 'N/A',
+      username: customerInfo.username || fullChat.customerName || 'N/A',
       email: customerInfo.email || 'N/A',
       gender: customerInfo.gender || 'N/A',
       age: customerInfo.age || 'N/A',
-      createdAt: customerInfo.createdAt || chat.createdAt || 'N/A',
+      createdAt: customerInfo.createdAt || fullChat.createdAt || 'N/A',
       coins: customerInfo.coins?.balance || 0,
       memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A'
     });
 
     // Set notes from chat comments initially
-    setNotes(chat.comments || []);
+    setNotes(fullChat.comments || []);
     setShowNoteInput(false);
     setGeneralNote(''); // Reset general note when changing chats
     
@@ -608,7 +603,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     // Load the latest notes from the backend
     try {
-      const notesData = await agentAuth.getChatNotes(chat._id);
+      const notesData = await agentAuth.getChatNotes(fullChat._id);
       if (notesData && notesData.comments) {
         setNotes(notesData.comments);
       }
@@ -617,11 +612,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
     
     // Fetch logs for escort and user if IDs are available
-    if (chat.escortId?._id) {
-      fetchEscortLogs(chat.escortId._id);
+    if (fullChat.escortId?._id) {
+      fetchEscortLogs(fullChat.escortId._id);
     }
-    if (chat.customerId?._id) {
-      fetchUserLogs(chat.customerId._id);
+    if (fullChat.customerId?._id) {
+      fetchUserLogs(fullChat.customerId._id);
     }
   };
 
@@ -635,9 +630,12 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           setError('No escort profile selected. Please select an escort profile to view their live queue.');
           return;
         }
-  const data = await agentAuth.getLiveQueue(escortId);
-  const normalized = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-  setChats(normalized);
+        // Fetch escort-scoped live queue
+        const escortResponse = await agentAuth.getLiveQueue(escortId);
+        const normalized = Array.isArray(escortResponse)
+          ? escortResponse
+          : (Array.isArray(escortResponse?.data) ? escortResponse.data : []);
+        setChats(normalized);
         setError(null);
         
         // Fetch escort profile information
@@ -650,7 +648,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         
         // If a specific chat ID was provided in the URL, select it even if it has no unread messages
         if (chatId) {
-          const chatToSelect = data.find(c => c._id === chatId);
+          const chatToSelect = normalized.find(c => c._id === chatId);
           if (chatToSelect) {
             await handleChatSelection(chatToSelect);
             setTimeout(() => scrollToBottom(), 100); // Slight delay to ensure messages are rendered
@@ -661,7 +659,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               
               if (specificChat) {
                 // Add the specific chat to the chats list if it's not already there
-                const updatedChats = [...data];
+                const updatedChats = [...normalized];
                 if (!updatedChats.find(c => c._id === chatId)) {
                   updatedChats.unshift(specificChat); // Add to beginning
                 }
@@ -675,11 +673,13 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               // Fallback: Try to refetch the queue with the specific chatId
               try {
                 const refreshedData = await agentAuth.getLiveQueue(escortId, chatId);
-                const normalized = Array.isArray(refreshedData) ? refreshedData : (Array.isArray(refreshedData?.data) ? refreshedData.data : []);
-                const refreshedChat = normalized.find(c => c._id === chatId);
+                const normalizedRefetch = Array.isArray(refreshedData)
+                  ? refreshedData
+                  : (Array.isArray(refreshedData?.data) ? refreshedData.data : []);
+                const refreshedChat = normalizedRefetch.find(c => c._id === chatId);
                 
                 if (refreshedChat) {
-                  setChats(normalized);
+                  setChats(normalizedRefetch);
                   await handleChatSelection(refreshedChat);
                   setTimeout(() => scrollToBottom(), 100);
                 } else {
@@ -692,8 +692,57 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           }
         }
       } catch (error) {
-        const errorMessage = error?.response?.data?.message || 'Failed to load the live queue';
-        setError(errorMessage);
+        // When the escort-specific queue 404s due to not authorized, fall back to global queue
+        const msg = error?.message || error?.response?.data?.message || '';
+        const isEscortUnauthorized = /escort profile not found|not authorized/i.test(msg);
+        if (isEscortUnauthorized) {
+          try {
+            const globalResponse = await agentAuth.getLiveQueue();
+            const normalizedGlobal = Array.isArray(globalResponse)
+              ? globalResponse
+              : (Array.isArray(globalResponse?.data) ? globalResponse.data : []);
+            setChats(normalizedGlobal);
+
+            // Try to select the requested chat if a chatId param exists
+            const chatIdParam = searchParams.get('chatId');
+            if (chatIdParam) {
+              const found = normalizedGlobal.find(c => c._id === chatIdParam);
+              if (found) {
+                await handleChatSelection(found);
+                setTimeout(() => scrollToBottom(), 100);
+                setError(null);
+                showNotification('Showing global live queue (escort not linked to your account).', 'info');
+              } else {
+                // Try direct fetch of the chat and add/select it
+                try {
+                  const specificChat = await agentAuth.getChat(chatIdParam);
+                  if (specificChat) {
+                    const updated = [specificChat, ...normalizedGlobal.filter(c => c._id !== chatIdParam)];
+                    setChats(updated);
+                    await handleChatSelection(specificChat);
+                    setTimeout(() => scrollToBottom(), 100);
+                    setError(null);
+                    showNotification('Showing global live queue (escort not linked to your account).', 'info');
+                  } else {
+                    setError('Chat not available. It may have been closed, reassigned, or you may not have permission to access it.');
+                  }
+                } catch (directFetchErr) {
+                  setError('Chat not available. It may have been closed, reassigned, or you may not have permission to access it.');
+                }
+              }
+            } else {
+              // No specific chat requested; show a non-blocking notice
+              setError(null);
+              showNotification('Showing global live queue (escort not linked to your account).', 'info');
+            }
+          } catch (fallbackError) {
+            const fallbackMsg = fallbackError?.message || fallbackError?.response?.data?.message || 'Failed to load the live queue';
+            setError(fallbackMsg);
+          }
+        } else {
+          const errorMessage = error?.response?.data?.message || msg || 'Failed to load the live queue';
+          setError(errorMessage);
+        }
       }
     };
 
@@ -722,22 +771,37 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           return prevChats.map(chat => {
             if (chat._id === data.chatId) {
               // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
-              const updatedMessages = [...chat.messages];
+              const updatedMessages = [...(chat.messages || [])];
               
               // Find matching optimistic message (same content and sender)
               const optimisticIndex = updatedMessages.findIndex(msg => 
-                msg.isOptimistic && 
-                msg.sender === data.sender && 
-                ((data.messageType === 'image' && msg.filename === data.filename) ||
-                 (data.messageType !== 'image' && msg.message === data.message))
+                msg.isOptimistic && (
+                  (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+                  (
+                    msg.sender === data.sender && 
+                    ((data.messageType === 'image' && msg.filename === data.filename) ||
+                     (data.messageType !== 'image' && msg.message === data.message))
+                  )
+                )
               );
               
               if (optimisticIndex !== -1) {
                 // Replace optimistic message with real one
                 updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
               } else {
-                // Add new message (not from this client's optimistic update)
-                updatedMessages.push(newMessage);
+                // Prevent duplicates: skip if an identical non-optimistic message already exists
+                const existingIndex = updatedMessages.findIndex(msg =>
+                  !msg.isOptimistic &&
+                  msg.sender === data.sender &&
+                  (msg.messageType || 'text') === (data.messageType || 'text') &&
+                  (
+                    (data.messageType === 'image' && msg.filename === data.filename) ||
+                    (data.messageType !== 'image' && msg.message === data.message)
+                  )
+                );
+                if (existingIndex === -1) {
+                  updatedMessages.push(newMessage);
+                }
               }
               
               // Show appropriate last message for image messages (no filename)
@@ -766,22 +830,37 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             if (!prev) return prev;
             
             // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
-            const updatedMessages = [...prev.messages];
+            const updatedMessages = [...(prev.messages || [])];
             
             // Find matching optimistic message (same content and sender)
             const optimisticIndex = updatedMessages.findIndex(msg => 
-              msg.isOptimistic && 
-              msg.sender === data.sender && 
-              ((data.messageType === 'image' && msg.filename === data.filename) ||
-               (data.messageType !== 'image' && msg.message === data.message))
+              msg.isOptimistic && (
+                (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+                (
+                  msg.sender === data.sender && 
+                  ((data.messageType === 'image' && msg.filename === data.filename) ||
+                   (data.messageType !== 'image' && msg.message === data.message))
+                )
+              )
             );
             
             if (optimisticIndex !== -1) {
               // Replace optimistic message with real one
               updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
             } else {
-              // Add new message (not from this client's optimistic update)
-              updatedMessages.push(newMessage);
+              // Prevent duplicates: skip if an identical non-optimistic message already exists
+              const existingIndex = updatedMessages.findIndex(msg =>
+                !msg.isOptimistic &&
+                msg.sender === data.sender &&
+                (msg.messageType || 'text') === (data.messageType || 'text') &&
+                (
+                  (data.messageType === 'image' && msg.filename === data.filename) ||
+                  (data.messageType !== 'image' && msg.message === data.message)
+                )
+              );
+              if (existingIndex === -1) {
+                updatedMessages.push(newMessage);
+              }
             }
             
             return {
@@ -834,7 +913,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               if (chat._id === selectedChat._id) {
                 return {
                   ...chat,
-                  messages: chat.messages.map(msg => ({
+                  messages: (chat.messages || []).map(msg => ({
                     ...msg,
                     readByAgent: true
                   }))
@@ -859,18 +938,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     if (!message.trim()) return;
     
     try {
-      // Send via WebSocket first
-      websocketService.sendMessage(chatId, {
-        type: 'chat_message',
-        chatId: chatId,
-        message: message.trim(),
-        sender: 'agent',
-        timestamp: new Date(),
-        requiresResponse: true,
-        responseTimeout: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from now
-      });
-
-      // Also make the API call to update status
+  // Make the API call to update status (server will broadcast over WebSocket)
       await agentAuth.makeFirstContact(chatId, message);
 
       setMessage('');
@@ -924,18 +992,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     setIsLoading(true);
     try {
-      // Send via WebSocket first
-      websocketService.sendMessage(selectedChat._id, {
-        type: 'chat_message',
-        chatId: selectedChat._id,
-        message: messageText,
-        sender: 'agent',
-        timestamp: new Date(),
-        requiresResponse: true,
-        responseTimeout: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours from now
-      });
-
-      // Also make the API call
+  // Make the API call (server will broadcast over WebSocket)
       await agentAuth.makeFirstContact(selectedChat._id, messageText);
 
       scrollToBottom();
@@ -1320,7 +1377,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       // Update local state
       setSelectedChat(prev => ({
         ...prev,
-        messages: prev.messages.map((msg, idx) => {
+        messages: (prev.messages || []).map((msg, idx) => {
           if (idx === editingMessage) {
             return {
               ...msg,
@@ -1361,7 +1418,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       // Update local state
       setSelectedChat(prev => ({
         ...prev,
-        messages: prev.messages.map((msg, idx) => {
+        messages: (prev.messages || []).map((msg, idx) => {
           if (idx === messageIndex) {
             return {
               ...msg,
@@ -1891,7 +1948,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           {selectedChat && (
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                {(selectedChat.customerId?.username || selectedChat.customerName).charAt(0).toUpperCase()}
+                {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -1963,7 +2020,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
-                    {(selectedChat.customerId?.username || selectedChat.customerName).charAt(0).toUpperCase()}
+                    {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -2091,7 +2148,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               )}
 
               {/* Display regular messages */}
-              {selectedChat.messages.map((msg, idx) => (
+              {(selectedChat?.messages || []).map((msg, idx) => (
                 <div
                   key={idx}
                   className={`flex ${
@@ -2101,7 +2158,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 >
                   {msg.sender !== 'agent' && (
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-sm mr-2 self-end">
-                      {msg.senderName ? msg.senderName.charAt(0).toUpperCase() : 'U'}
+                      {(msg.senderName?.[0] || 'U').toUpperCase()}
                     </div>
                   )}
                   <div className="flex flex-col max-w-[85%] sm:max-w-[70%] relative overflow-visible">

@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { escorts, chats } from '../../services/api';
 import websocketService from '../../services/websocket';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import SubscriptionPlans from './SubscriptionPlans';
 import config from '../../config/environment';
 
@@ -63,7 +62,7 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
   </div>
 );
 
-const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
+const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack }) => {
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
@@ -150,20 +149,35 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
           // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
           const updatedMessages = [...prev.messages];
           
-          // Find matching optimistic message (same content and sender)
+          // Find matching optimistic message (prefer clientId when available)
           const optimisticIndex = updatedMessages.findIndex(msg => 
-            msg.isOptimistic && 
-            msg.sender === data.sender && 
-            ((data.messageType === 'image' && msg.filename === data.filename) ||
-             (data.messageType !== 'image' && msg.text === data.message))
+            msg.isOptimistic && (
+              (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+              (
+                msg.sender === data.sender && 
+                ((data.messageType === 'image' && msg.filename === data.filename) ||
+                 (data.messageType !== 'image' && msg.text === data.message))
+              )
+            )
           );
           
           if (optimisticIndex !== -1) {
             // Replace optimistic message with real one
             updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
           } else {
-            // Add new message (not from this client's optimistic update)
-            updatedMessages.push(newMessage);
+            // Prevent duplicates: skip if an identical non-optimistic message already exists
+            const existingIndex = updatedMessages.findIndex(msg =>
+              !msg.isOptimistic &&
+              msg.sender === data.sender &&
+              (msg.messageType || 'text') === (data.messageType || 'text') &&
+              (
+                (data.messageType === 'image' && msg.filename === data.filename) ||
+                (data.messageType !== 'image' && msg.text === data.message)
+              )
+            );
+            if (existingIndex === -1) {
+              updatedMessages.push(newMessage);
+            }
           }
           
           return {
@@ -323,6 +337,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       setError(null);
 
       // ⚡ OPTIMISTIC UPDATE: Add message immediately for instant feel
+      const clientId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const optimisticMessage = {
         text: messageText,
         time: new Date().toLocaleString(),
@@ -332,7 +347,8 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
         messageType: 'text',
         readByAgent: false,
         readByCustomer: true,
-        isOptimistic: true // Flag to identify optimistic messages
+        isOptimistic: true, // Flag to identify optimistic messages
+        clientId
       };
 
       // Add optimistic message to UI immediately
@@ -347,14 +363,15 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
 
       // Send the message via REST API (now in background)
       try {
-        await chats.sendMessage(selectedChat.id, messageText);
+        await chats.sendMessage(selectedChat.id, messageText, { clientId });
         
         // ✅ Message sent successfully - update status
+        // Keep isOptimistic=true until WebSocket echo arrives, so we can replace it instead of duplicating
         setSelectedChat(prev => ({
           ...prev,
           messages: prev.messages.map(msg => 
             msg.isOptimistic && msg.text === messageText 
-              ? { ...msg, status: 'sent', isOptimistic: false }
+              ? { ...msg, status: 'sent' }
               : msg
           )
         }));
@@ -410,9 +427,20 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
   return (
     <div className="flex flex-col h-full">
       {/* Chat Header */}
-      <div className="border-b border-gray-200 p-4 bg-white/90 backdrop-blur-sm">
+      <div className="border-b border-gray-200 p-4 bg-white/90 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {/* Back button for mobile */}
+            <button
+              type="button"
+              onClick={() => onBack && onBack()}
+              className="lg:hidden mr-1 p-2 rounded-md hover:bg-gray-100"
+              aria-label="Back to chats"
+            >
+              <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
             <h3 className="font-semibold text-gray-800">{selectedChat.escortName}</h3>
             <span className={`w-2 h-2 rounded-full ${selectedChat.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
           </div>
@@ -431,7 +459,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-rose-50">
+  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-rose-50">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
             <span className="block sm:inline">{error}</span>
@@ -600,7 +628,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       </div>
 
       {/* Chat Input */}
-      <div className="border-t border-gray-200 p-4 bg-white/90 backdrop-blur-sm">
+  <div className="border-t border-gray-200 p-4 bg-white/90 backdrop-blur-sm">
         {userCoins <= 5 && userCoins > 0 && (
           <div className="mb-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
             ⚠️ Warning: You have only {userCoins} coins remaining
@@ -651,6 +679,7 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userChats, setUserChats] = useState([]);
   const [error, setError] = useState(null);
+  const [showChatOnMobile, setShowChatOnMobile] = useState(false);
 
   useEffect(() => {
     const fetchChats = async () => {
@@ -706,10 +735,98 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection }) => {
       )
     : userChats;
 
+  const handleSelectChat = (chat) => {
+    setSelectedChat(chat);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setShowChatOnMobile(true);
+    }
+  };
+
+  // If a chat is preselected (e.g., from Members), show conversation on mobile automatically
+  useEffect(() => {
+    if (selectedChat && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setShowChatOnMobile(true);
+    }
+  }, [selectedChat]);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Left Sidebar - Chat Lists */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+    <>
+      {/* Mobile layout: single pane with toggle between list and chat */}
+      <div className="lg:hidden">
+        {!showChatOnMobile ? (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+            <div className="p-4 border-b border-gray-200">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search chats..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all duration-150"
+                />
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-150"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filteredChats.length > 0 ? (
+              <div className="p-4 space-y-2 h-[65vh] overflow-y-auto">
+                {filteredChats.map(chat => (
+                  <MessageItem
+                    key={chat.escortId}
+                    chat={chat}
+                    isSelected={selectedChat?.escortId === chat.escortId}
+                    onClick={() => handleSelectChat(chat)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="h-[65vh] flex flex-col items-center justify-center text-gray-500 p-4">
+                <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                <p className="text-center">No messages found</p>
+                <p className="text-sm text-center mt-2">Start a conversation with an escort in the Members tab</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[75vh]">
+            {selectedChat ? (
+              <ChatBox 
+                selectedChat={selectedChat}
+                setSelectedChat={setSelectedChat}
+                setActiveSection={setActiveSection}
+                onBack={() => setShowChatOnMobile(false)}
+              />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6">
+                <svg className="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                  <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <h3 className="text-xl font-medium text-gray-700 mb-2">Your Messages</h3>
+                <p className="text-center max-w-sm text-gray-500">Select a chat or find new connections in the Members tab</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop layout: two-pane */}
+      <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Sidebar - Chat Lists */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
         <div className="p-4 border-b border-gray-200">
           <div className="relative">
             <input
@@ -741,8 +858,8 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection }) => {
               <MessageItem
                 key={chat.escortId}
                 chat={chat}
-                isSelected={selectedChat?.escortId === chat.escortId}
-                onClick={() => setSelectedChat(chat)}
+                  isSelected={selectedChat?.escortId === chat.escortId}
+                  onClick={() => handleSelectChat(chat)}
               />
             ))}
           </div>
@@ -755,28 +872,29 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection }) => {
             <p className="text-sm text-center mt-2">Start a conversation with an escort in the Members tab</p>
           </div>
         )}
-      </div>
+        </div>
 
-      {/* Right - Chat Area */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[700px]">
-        {selectedChat ? (
-          <ChatBox 
-            selectedChat={selectedChat}
-            setSelectedChat={setSelectedChat}
-            setActiveSection={setActiveSection}
-            error={error}
-          />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6">
-            <svg className="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <h3 className="text-xl font-medium text-gray-700 mb-2">Your Messages</h3>
-            <p className="text-center max-w-sm text-gray-500">Select a chat or find new connections in the Members tab</p>
-          </div>
-        )}
+        {/* Right - Chat Area */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[700px]">
+          {selectedChat ? (
+            <ChatBox 
+              selectedChat={selectedChat}
+              setSelectedChat={setSelectedChat}
+              setActiveSection={setActiveSection}
+              error={error}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6">
+              <svg className="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">Your Messages</h3>
+              <p className="text-center max-w-sm text-gray-500">Select a chat or find new connections in the Members tab</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -793,74 +911,73 @@ const ProfileSection = ({ user }) => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-2 sm:px-4">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 overflow-hidden"
       >
         {/* Profile Header */}
-        <div className="relative h-48 bg-gradient-to-r from-rose-400 to-pink-500">
-          <div className="absolute -bottom-16 left-8 flex items-end gap-6">
+        <div className="relative h-32 sm:h-48 bg-gradient-to-r from-rose-400 to-pink-500">
+          <div className="absolute -bottom-12 sm:-bottom-16 left-4 sm:left-8 flex flex-col sm:flex-row items-start sm:items-end gap-3 sm:gap-6">
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="h-32 w-32 rounded-xl bg-white p-1 shadow-lg"
+              className="h-24 w-24 sm:h-32 sm:w-32 rounded-xl bg-white p-1 shadow-lg"
             >
-              <div className="h-full w-full rounded-lg bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-4xl font-bold">
+              <div className="h-full w-full rounded-lg bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-2xl sm:text-4xl font-bold">
                 {user?.username.charAt(0).toUpperCase()}
               </div>
             </motion.div>
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold text-white">{user?.username}</h2>
-              <p className="text-white/80">{user?.email}</p>
+            <div className="mb-2 sm:mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">{user?.username}</h2>
+              <p className="text-white/80 text-sm sm:text-base">{user?.email}</p>
             </div>
           </div>
         </div>
 
         {/* Profile Content */}
-        <div className="mt-20 p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="mt-16 sm:mt-20 p-4 sm:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* Left Column - Basic Info */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                 Basic Information
               </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Username</label>
-                  <p className="text-gray-800">{profileData.username}</p>
+                  <p className="text-gray-800 text-sm sm:text-base">{profileData.username}</p>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                  <p className="text-gray-800">{profileData.email}</p>
+                  <p className="text-gray-800 text-sm sm:text-base break-all">{profileData.email}</p>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Date of Birth</label>
-                  <p className="text-gray-800">
+                  <p className="text-gray-800 text-sm sm:text-base">
                     {new Date(profileData.dateOfBirth).toLocaleDateString()}
                   </p>
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Gender</label>
-                  <p className="text-gray-800 capitalize">{profileData.sex}</p>
+                  <p className="text-gray-800 capitalize text-sm sm:text-base">{profileData.sex}</p>
                 </div>
               </div>
             </div>
 
             {/* Right Column - Additional Info */}
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                 Additional Information
               </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Location</label>
-                  <p className="text-gray-800">{profileData.location || 'Not specified'}</p>
+                  <p className="text-gray-800 text-sm sm:text-base">{profileData.location || 'Not specified'}</p>
                 </div>
                 
                 <div>
@@ -870,20 +987,20 @@ const ProfileSection = ({ user }) => {
                       profileData.interests.map((interest, index) => (
                         <span 
                           key={index}
-                          className="bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-sm"
+                          className="bg-rose-100 text-rose-600 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm"
                         >
                           {interest}
                         </span>
                       ))
                     ) : (
-                      <p className="text-gray-500 text-sm">No interests added yet</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">No interests added yet</p>
                     )}
                   </div>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Bio</label>
-                  <p className="text-gray-800 whitespace-pre-wrap">
+                  <p className="text-gray-800 whitespace-pre-wrap text-sm sm:text-base">
                     {profileData.bio || 'No bio added yet'}
                   </p>
                 </div>
@@ -892,14 +1009,14 @@ const ProfileSection = ({ user }) => {
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 flex gap-4">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setIsEditing(true)}
-              className="px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               {isEditing ? 'Save Changes' : 'Edit Profile'}
@@ -908,9 +1025,9 @@ const ProfileSection = ({ user }) => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
               Change Password
@@ -920,54 +1037,54 @@ const ProfileSection = ({ user }) => {
       </motion.div>
 
       {/* Settings Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4 sm:mt-6">
         <motion.div
           whileHover={{ scale: 1.02 }}
-          className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/50"
+          className="bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg border border-white/50"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-rose-100 text-rose-600 rounded-lg">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800">Notifications</h3>
-              <p className="text-sm text-gray-500">Manage your alerts and notifications</p>
+              <h3 className="font-semibold text-gray-800 text-sm sm:text-base">Notifications</h3>
+              <p className="text-xs sm:text-sm text-gray-500">Manage your alerts and notifications</p>
             </div>
           </div>
         </motion.div>
 
         <motion.div
           whileHover={{ scale: 1.02 }}
-          className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/50"
+          className="bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg border border-white/50"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-rose-100 text-rose-600 rounded-lg">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800">Privacy & Security</h3>
-              <p className="text-sm text-gray-500">Control your privacy settings</p>
+              <h3 className="font-semibold text-gray-800 text-sm sm:text-base">Privacy & Security</h3>
+              <p className="text-xs sm:text-sm text-gray-500">Control your privacy settings</p>
             </div>
           </div>
         </motion.div>
 
         <motion.div
           whileHover={{ scale: 1.02 }}
-          className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/50"
+          className="bg-white/80 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg border border-white/50 sm:col-span-2 lg:col-span-1"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-rose-100 text-rose-600 rounded-lg">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800">Language & Region</h3>
-              <p className="text-sm text-gray-500">Set your preferred language</p>
+              <h3 className="font-semibold text-gray-800 text-sm sm:text-base">Language & Region</h3>
+              <p className="text-xs sm:text-sm text-gray-500">Set your preferred language</p>
             </div>
           </div>
         </motion.div>
@@ -976,7 +1093,7 @@ const ProfileSection = ({ user }) => {
   );
 };
 
-const MembersSection = ({ setActiveSection, setSelectedChat }) => {
+const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1034,33 +1151,6 @@ const MembersSection = ({ setActiveSection, setSelectedChat }) => {
     return true;
   });
 
-  const handleStartChat = async (memberId) => {
-    try {
-      // Create or get existing chat with this member
-      const response = await chats.startChat(memberId);
-      
-      // Switch to messages section and select the chat
-      if (response && response.chatId) {
-        // Find the member info to create a chat object
-        const member = members.find(m => m._id === memberId);
-        const chatData = {
-          id: response.chatId,
-          escortName: member?.firstName || member?.username || 'Unknown',
-          profileImage: member?.profileImage,
-          messages: [],
-          isOnline: true,
-          time: new Date().toLocaleString()
-        };
-        
-        setSelectedChat(chatData);
-        setActiveSection('messages');
-      }
-    } catch (err) {
-      console.error('Error starting chat:', err);
-      alert('Failed to start chat. Please try again.');
-    }
-  };
-
   const resetFilters = () => {
     setSearchQuery('');
     setFilters({
@@ -1097,185 +1187,323 @@ const MembersSection = ({ setActiveSection, setSelectedChat }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Search and Filter Section */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-rose-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-rose-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Find Your Perfect Match</h3>
+              <h3 className="text-sm sm:text-lg font-semibold text-gray-800">Find Your Perfect Match</h3>
             </div>
-            <span className="text-sm text-gray-500">{filteredMembers.length} members found</span>
+            <span className="text-xs sm:text-sm text-gray-500">{filteredMembers.length} found</span>
           </div>
         </div>
 
-        {/* Filter Form */}
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            {/* Search */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Search</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Enter username..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm"
-                />
-                <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        {/* Mobile-First Search */}
+        <div className="p-3 sm:p-6">
+          {/* Main Search Bar - Always Visible */}
+          <div className="mb-3 sm:mb-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search members by name or location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm shadow-sm"
+              />
+              <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors duration-150 rounded-full hover:bg-gray-100"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Filter Chips - Mobile Optimized */}
+          <div className="block sm:hidden mb-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'female' ? '' : 'female' }))}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filters.lookingFor === 'female' 
+                    ? 'bg-rose-500 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                👩 Women
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'male' ? '' : 'male' }))}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filters.lookingFor === 'male' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                👨 Men
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, ageMin: prev.ageMin ? '' : '18', ageMax: prev.ageMax ? '' : '30' }))}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filters.ageMin || filters.ageMax 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                🎂 18-30
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, relationStatus: prev.relationStatus === 'single' ? '' : 'single' }))}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  filters.relationStatus === 'single' 
+                    ? 'bg-purple-500 text-white' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                💝 Single
+              </button>
+            </div>
+          </div>
+
+          {/* Advanced Filters - Collapsible on Mobile */}
+          <div className="sm:block">
+            <details className="sm:hidden group">
+              <summary className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                <span className="text-sm font-medium text-gray-700">Advanced Filters</span>
+                <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </svg>
+              </summary>
+              <div className="mt-3 space-y-3">
+                {/* Mobile Advanced Filters */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Age Range</label>
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        placeholder="18"
+                        value={filters.ageMin}
+                        onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
+                        className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs text-center"
+                        min="18"
+                        max="99"
+                      />
+                      <input
+                        type="number"
+                        placeholder="99"
+                        value={filters.ageMax}
+                        onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
+                        className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs text-center"
+                        min="18"
+                        max="99"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Relationship</label>
+                    <select
+                      value={filters.relationStatus}
+                      onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
+                      className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs"
+                    >
+                      <option value="">Any</option>
+                      <option value="single">Single</option>
+                      <option value="divorced">Divorced</option>
+                      <option value="widowed">Widowed</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Children</label>
+                    <select
+                      value={filters.hasChildren}
+                      onChange={(e) => setFilters(prev => ({ ...prev, hasChildren: e.target.value }))}
+                      className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs"
+                    >
+                      <option value="">Any</option>
+                      <option value="0">None</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3+</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+                    <select
+                      value={filters.location}
+                      onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                      className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs"
+                    >
+                      <option value="">All</option>
+                      <option value="usa">🇺🇸 USA</option>
+                      <option value="canada">🇨🇦 Canada</option>
+                      <option value="uk">🇬🇧 UK</option>
+                      <option value="australia">🇦🇺 Australia</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
 
-            {/* Looking For */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Looking For</label>
-              <select
-                value={filters.lookingFor}
-                onChange={(e) => setFilters(prev => ({ ...prev, lookingFor: e.target.value }))}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-              >
-                <option value="">All Genders</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-
-            {/* Relation Status */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Relationship Status</label>
-              <select
-                value={filters.relationStatus}
-                onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-              >
-                <option value="">Any Status</option>
-                <option value="single">Single</option>
-                <option value="divorced">Divorced</option>
-                <option value="widowed">Widowed</option>
-                <option value="separated">Separated</option>
-              </select>
-            </div>
-
-            {/* Children */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Children</label>
-              <select
-                value={filters.hasChildren}
-                onChange={(e) => setFilters(prev => ({ ...prev, hasChildren: e.target.value }))}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-              >
-                <option value="">Any</option>
-                <option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="more">5+ More</option>
-              </select>
-            </div>
-
-            {/* Age Range */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Age Range</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  placeholder="18"
-                  value={filters.ageMin}
-                  onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
-                  className="w-full px-3 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
-                  min="18"
-                  max="99"
-                />
-                <input
-                  type="number"
-                  placeholder="99"
-                  value={filters.ageMax}
-                  onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
-                  className="w-full px-3 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
-                  min="18"
-                  max="99"
-                />
+            {/* Desktop Filters */}
+            <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+              {/* Looking For */}
+              <div className="xl:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Looking For</label>
+                <select
+                  value={filters.lookingFor}
+                  onChange={(e) => setFilters(prev => ({ ...prev, lookingFor: e.target.value }))}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">All Genders</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </div>
-            </div>
 
-            {/* Location */}
-            <div className="xl:col-span-1">
-              <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Location</label>
-              <select
-                value={filters.location}
-                onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-              >
-                <option value="">All Locations</option>
-                <option value="usa">🇺🇸 United States</option>
-                <option value="canada">🇨🇦 Canada</option>
-                <option value="uk">🇬🇧 United Kingdom</option>
-                <option value="australia">🇦🇺 Australia</option>
-                <option value="germany">🇩🇪 Germany</option>
-                <option value="france">🇫🇷 France</option>
-                <option value="spain">🇪🇸 Spain</option>
-                <option value="italy">🇮🇹 Italy</option>
-                <option value="netherlands">🇳🇱 Netherlands</option>
-                <option value="sweden">🇸🇪 Sweden</option>
-              </select>
+              {/* Relation Status */}
+              <div className="xl:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Relationship Status</label>
+                <select
+                  value={filters.relationStatus}
+                  onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">Any Status</option>
+                  <option value="single">Single</option>
+                  <option value="divorced">Divorced</option>
+                  <option value="widowed">Widowed</option>
+                  <option value="separated">Separated</option>
+                </select>
+              </div>
+
+              {/* Children */}
+              <div className="xl:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Children</label>
+                <select
+                  value={filters.hasChildren}
+                  onChange={(e) => setFilters(prev => ({ ...prev, hasChildren: e.target.value }))}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">Any</option>
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="more">5+ More</option>
+                </select>
+              </div>
+
+              {/* Age Range */}
+              <div className="xl:col-span-1">
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Age Range</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="18"
+                    value={filters.ageMin}
+                    onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
+                    className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
+                    min="18"
+                    max="99"
+                  />
+                  <input
+                    type="number"
+                    placeholder="99"
+                    value={filters.ageMax}
+                    onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
+                    className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
+                    min="18"
+                    max="99"
+                  />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="xl:col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Location</label>
+                <select
+                  value={filters.location}
+                  onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
+                >
+                  <option value="">All Locations</option>
+                  <option value="usa">🇺🇸 United States</option>
+                  <option value="canada">🇨🇦 Canada</option>
+                  <option value="uk">🇬🇧 United Kingdom</option>
+                  <option value="australia">🇦🇺 Australia</option>
+                  <option value="germany">🇩🇪 Germany</option>
+                  <option value="france">🇫🇷 France</option>
+                  <option value="spain">🇪🇸 Spain</option>
+                  <option value="italy">🇮🇹 Italy</option>
+                  <option value="netherlands">🇳🇱 Netherlands</option>
+                  <option value="sweden">🇸🇪 Sweden</option>
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-4 border-t border-gray-100">
-            <div className="flex items-center space-x-4 mb-3 sm:mb-0">
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
+            <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-0">
               <button
                 onClick={resetFilters}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-150"
+                className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-150 text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span className="text-sm font-medium">Reset Filters</span>
+                <span className="font-medium">Reset</span>
               </button>
               
               {(searchQuery || Object.values(filters).some(v => v)) && (
                 <span className="text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full">
-                  Filters active
+                  Active filters
                 </span>
               )}
             </div>
 
-            <button
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white rounded-lg hover:from-rose-600 hover:to-purple-700 transition-all duration-150 shadow-md hover:shadow-lg font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span>Search Members</span>
-            </button>
+            <div className="hidden sm:block">
+              <button
+                className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white rounded-lg hover:from-rose-600 hover:to-purple-700 transition-all duration-150 shadow-md hover:shadow-lg font-medium text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Search Members</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Members Grid */}
       {filteredMembers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
           {filteredMembers.map((member) => (
             <div
               key={member._id}
-              className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-200"
+              className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden group"
             >
-              {/* Pink Header Strip */}
-              <div className="h-3 bg-gradient-to-r from-pink-400 to-pink-500"></div>
-              
-              {/* Profile Image - Full Size */}
+              {/* Profile Image - Optimized for Mobile */}
               <div className="relative aspect-[3/4] bg-gray-100">
                 {member.profileImage ? (
                   <img 
@@ -1284,54 +1512,120 @@ const MembersSection = ({ setActiveSection, setSelectedChat }) => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 text-5xl font-bold">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 text-xl sm:text-2xl lg:text-3xl font-bold">
                     {(member.firstName || member.username)?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                
+                {/* Quick Action Overlay - Shows on Hover/Touch */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="flex space-x-2">
+                    {/* Heart/Like Button */}
+                    <button
+                      className="w-8 h-8 sm:w-10 sm:h-10 bg-white bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all duration-150 shadow-lg"
+                      title="Like"
+                    >
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+
+                    {/* Chat Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Immediately switch to Chat tab for instant UX
+                        setActiveSection('messages'); 
+                        // Optimistically select this member's chat (no id yet)
+                        setSelectedChat({
+                          escortId: member._id,
+                          escortName: member.firstName || member.username || 'Member',
+                          profileImage: member.profileImage,
+                          messages: [],
+                          isOnline: true,
+                          time: new Date().toLocaleString()
+                        });
+                        // Start or fetch the chat in background and merge id when ready
+                        handleStartChat(member._id, {
+                          escortName: member.firstName || member.username || 'Member',
+                          profileImage: member.profileImage
+                        });
+                      }}
+                      className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all duration-150 shadow-lg"
+                      title="Message"
+                    >
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Age Badge - Top Right */}
+                {member.dateOfBirth && (
+                  <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+                    {new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()}
                   </div>
                 )}
               </div>
 
-              {/* Profile Info - Blue Footer */}
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4">
+              {/* Profile Info - Minimal Footer */}
+              <div className="p-2 sm:p-3">
                 {/* Username */}
-                <h3 className="text-lg font-semibold text-center mb-1 truncate">
+                <h3 className="text-sm sm:text-base font-semibold text-gray-800 truncate leading-tight">
                   {member.firstName || member.username}
                 </h3>
                 
-                {/* Location */}
-                <p className="text-blue-100 text-sm text-center mb-3 truncate">
-                  {member.country || 'Location not set'}
+                {/* Location - Smaller on Mobile */}
+                <p className="text-xs sm:text-sm text-gray-500 truncate mt-0.5">
+                  📍 {member.country || member.region || 'Unknown'}
                 </p>
 
-                {/* Action Buttons */}
-                <div className="flex justify-center space-x-3">
-                  {/* Heart/Like Button */}
+                {/* Quick Stats - Only on Desktop */}
+                <div className="hidden sm:flex items-center justify-between mt-2 text-xs text-gray-400">
+                  <span>💬 Active</span>
+                  {member.profession && (
+                    <span className="truncate max-w-20">{member.profession}</span>
+                  )}
+                </div>
+
+                {/* Mobile Action Buttons - Bottom */}
+                <div className="flex sm:hidden justify-center space-x-3 mt-2 pt-2 border-t border-gray-100">
+                  {/* Like Button */}
                   <button
-                    className="w-12 h-10 bg-white/20 rounded-md flex items-center justify-center hover:bg-white/30 transition-colors duration-150"
+                    className="flex-1 py-1.5 bg-gray-50 hover:bg-gray-100 rounded-md flex items-center justify-center transition-colors"
                     title="Like"
                   >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                   </button>
 
                   {/* Chat Button */}
                   <button
-                    onClick={() => handleStartChat(member._id)}
-                    className="w-12 h-10 bg-white/20 rounded-md flex items-center justify-center hover:bg-white/30 transition-colors duration-150"
+                    onClick={() => { 
+                      // Immediately switch to Chat tab for instant UX
+                      setActiveSection('messages'); 
+                      // Optimistically select this member's chat (no id yet)
+                      setSelectedChat({
+                        escortId: member._id,
+                        escortName: member.firstName || member.username || 'Member',
+                        profileImage: member.profileImage,
+                        messages: [],
+                        isOnline: true,
+                        time: new Date().toLocaleString()
+                      });
+                      // Start or fetch the chat in background and merge id when ready
+                      handleStartChat(member._id, {
+                        escortName: member.firstName || member.username || 'Member',
+                        profileImage: member.profileImage
+                      });
+                    }}
+                    className="flex-1 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center justify-center transition-colors"
                     title="Message"
                   >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                  </button>
-
-                  {/* Star/Favorite Button */}
-                  <button
-                    className="w-12 h-10 bg-white/20 rounded-md flex items-center justify-center hover:bg-white/30 transition-colors duration-150"
-                    title="Favorite"
-                  >
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                     </svg>
                   </button>
                 </div>
@@ -1340,14 +1634,22 @@ const MembersSection = ({ setActiveSection, setSelectedChat }) => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center py-8 sm:py-12">
+          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
-          <h3 className="text-xl font-medium text-gray-700 mb-2">No members found</h3>
-          <p className="text-gray-500">
-            {searchQuery ? 'Try adjusting your search terms' : 'No members available at the moment'}
+          <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No members found</h3>
+          <p className="text-sm sm:text-base text-gray-500">
+            {searchQuery ? 'Try adjusting your search terms or filters' : 'No members available at the moment'}
           </p>
+          {(searchQuery || Object.values(filters).some(v => v)) && (
+            <button 
+              onClick={resetFilters}
+              className="mt-4 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors text-sm"
+            >
+              Clear All Filters
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1361,6 +1663,53 @@ const UserDashboard = () => {
   const [activeSection, setActiveSection] = useState('members');
   const [notifications, setNotifications] = useState([]);
   const [userCoins, setUserCoins] = useState(0);
+
+  // Handle starting a chat with a member (supports prefill merge)
+  const handleStartChat = async (memberId, prefill = {}) => {
+    try {
+      // Create or get existing chat with this member
+      const response = await chats.startChat(memberId);
+      
+      // Switch to messages section and select the chat
+      if (response && response.chatId) {
+        // Get member info from the escorts service to create proper chat data
+        let memberInfo = null;
+        try {
+          const escortProfiles = await escorts.getEscortProfiles();
+          const allMembers = escortProfiles.data || escortProfiles || [];
+          memberInfo = allMembers.find(m => m._id === memberId);
+        } catch (err) {
+          console.error('Error fetching member info:', err);
+        }
+        
+        const chatData = {
+          id: response.chatId,
+          escortId: memberId,
+          escortName: memberInfo?.firstName || memberInfo?.username || prefill.escortName || response.escortName || 'Member',
+          profileImage: memberInfo?.profileImage || prefill.profileImage || response.profileImage,
+          messages: [],
+          isOnline: true,
+          time: new Date().toLocaleString()
+        };
+
+        // If we've already optimistically selected this member, merge the new id
+        setSelectedChat(prev => {
+          if (prev && (prev.escortId === memberId)) {
+            return { ...prev, id: response.chatId };
+          }
+          return chatData;
+        });
+        
+        // Ensure we are on messages tab
+        setActiveSection('messages');
+        
+        console.log('🎯 Chat started successfully:', chatData);
+      }
+    } catch (err) {
+      console.error('❌ Error starting chat:', err);
+      alert('Failed to start chat. Please try again.');
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 1000);
@@ -1388,10 +1737,6 @@ const UserDashboard = () => {
       fetchUserData();
     }
   }, [user, token]);
-
-  const handleBuyCoins = () => {
-    setActiveSection('subscription-plans');
-  };
 
   const handlePurchaseSuccess = (newCoinBalance) => {
     setUserCoins(newCoinBalance);
@@ -1424,28 +1769,28 @@ const UserDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-purple-50">
       {/* Top Header */}
       <header className="bg-white shadow-lg border-b-2 border-gradient-to-r from-rose-500 to-purple-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-rose-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-rose-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold text-gray-900">HetaSinglar</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">HetaSinglar</h1>
             </div>
 
             {/* User Info and Actions */}
-            <div className="flex items-center space-x-4">
-              {/* Country Flag */}
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-3">
+              {/* Country Flag - Hidden on very small screens */}
+              <div className="hidden sm:flex items-center space-x-2">
                 <span className="text-lg">🇺🇸</span>
                 <span className="text-sm text-gray-600">US</span>
               </div>
               
-              {/* Help */}
-              <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-800">
+              {/* Help - Hidden on mobile */}
+              <button className="hidden md:flex items-center space-x-1 text-gray-600 hover:text-gray-800">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -1455,14 +1800,14 @@ const UserDashboard = () => {
               {/* Logout */}
               <motion.button
                 onClick={logout}
-                className="flex items-center space-x-1 bg-rose-500 text-white px-3 py-2 rounded-lg hover:bg-rose-600 transition-colors"
+                className="flex items-center space-x-1 bg-rose-500 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg hover:bg-rose-600 transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v-8" />
                 </svg>
-                <span className="text-sm">Logout</span>
+                <span className="text-xs sm:text-sm">Logout</span>
               </motion.button>
             </div>
           </div>
@@ -1470,11 +1815,11 @@ const UserDashboard = () => {
       </header>
 
       {/* Main Navigation Tabs */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav className="bg-white shadow-sm border-b border-gray-200 overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center">
             {/* Navigation Tabs */}
-            <div className="flex space-x-8">
+            <div className="flex space-x-2 sm:space-x-6 lg:space-x-8 min-w-max">
               {[
                 { key: 'members', label: 'Members', icon: '👥' },
                 { key: 'messages', label: 'Chat', icon: '💬', badge: notifications.length > 0 ? notifications.length : null },
@@ -1484,7 +1829,7 @@ const UserDashboard = () => {
                 <motion.button
                   key={tab.key}
                   onClick={() => setActiveSection(tab.key)}
-                  className={`relative flex items-center space-x-2 py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`relative flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors ${
                     activeSection === tab.key
                       ? 'border-rose-500 text-rose-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1492,10 +1837,11 @@ const UserDashboard = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <span className="text-lg">{tab.icon}</span>
-                  <span>{tab.label}</span>
+                  <span className="text-sm sm:text-lg">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden text-xs">{tab.label.substring(0, 4)}</span>
                   {tab.badge && (
-                    <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 sm:-top-1 sm:-right-2 bg-rose-500 text-white text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center">
                       {tab.badge}
                     </span>
                   )}
@@ -1504,36 +1850,40 @@ const UserDashboard = () => {
             </div>
 
             {/* Right Side Actions */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 sm:space-x-3 lg:space-x-4 ml-2">
               {/* Coins Display */}
-              <div className="flex items-center space-x-2 bg-yellow-50 px-4 py-2 rounded-full border border-yellow-200">
-                <svg className="w-5 h-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+              <div className="flex items-center space-x-1 sm:space-x-2 bg-yellow-50 px-2 py-1 sm:px-4 sm:py-2 rounded-full border border-yellow-200">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM10 4a6 6 0 110 12 6 6 0 010-12z"/>
                 </svg>
-                <span className="text-sm font-medium text-yellow-700">{userCoins} Credits</span>
+                <span className="text-xs sm:text-sm font-medium text-yellow-700">
+                  <span className="hidden sm:inline">{userCoins} Credits</span>
+                  <span className="sm:hidden">{userCoins}</span>
+                </span>
               </div>
 
               {/* Buy Credits Button */}
               <motion.button
                 onClick={() => setActiveSection('subscription-plans')}
-                className="bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition-colors font-medium"
+                className="bg-rose-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 transition-colors font-medium text-xs sm:text-sm"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Buy Credits
+                <span className="hidden sm:inline">Buy Credits</span>
+                <span className="sm:hidden">Buy</span>
               </motion.button>
 
               {/* Profile Button */}
               <motion.button
                 onClick={() => setActiveSection('my profile')}
-                className="flex items-center space-x-2 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors"
+                className="flex items-center space-x-1 sm:space-x-2 bg-purple-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-purple-600 transition-colors text-xs sm:text-sm"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span>Profile</span>
+                <span className="hidden sm:inline">Profile</span>
               </motion.button>
             </div>
           </div>
@@ -1541,7 +1891,7 @@ const UserDashboard = () => {
       </nav>
 
       {/* Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeSection}
@@ -1563,18 +1913,19 @@ const UserDashboard = () => {
                 <MembersSection 
                   setActiveSection={setActiveSection}
                   setSelectedChat={setSelectedChat}
+                  handleStartChat={handleStartChat}
                 />
               )}
 
               {activeSection === 'matches' && (
-                <div className="text-center py-16">
-                  <div className="max-w-md mx-auto">
-                    <svg className="w-16 h-16 text-rose-300 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+                <div className="text-center py-8 sm:py-16">
+                  <div className="max-w-sm sm:max-w-md mx-auto px-4">
+                    <svg className="w-12 h-12 sm:w-16 sm:h-16 text-rose-300 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                     </svg>
-                    <h3 className="text-xl font-medium text-gray-700 mb-2">Find Your Match</h3>
-                    <p className="text-gray-500">Discover compatible people based on your preferences and interests.</p>
-                    <button className="mt-4 px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors">
+                    <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">Find Your Match</h3>
+                    <p className="text-sm sm:text-base text-gray-500 mb-4">Discover compatible people based on your preferences and interests.</p>
+                    <button className="px-4 sm:px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors text-sm sm:text-base">
                       Start Matching
                     </button>
                   </div>
@@ -1582,16 +1933,16 @@ const UserDashboard = () => {
               )}
 
               {activeSection === 'favourites' && (
-                <div className="text-center py-16">
-                  <div className="max-w-md mx-auto">
-                    <svg className="w-16 h-16 text-yellow-300 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+                <div className="text-center py-8 sm:py-16">
+                  <div className="max-w-sm sm:max-w-md mx-auto px-4">
+                    <svg className="w-12 h-12 sm:w-16 sm:h-16 text-yellow-300 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
-                    <h3 className="text-xl font-medium text-gray-700 mb-2">Your Favourites</h3>
-                    <p className="text-gray-500">Keep track of members you're interested in.</p>
+                    <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">Your Favourites</h3>
+                    <p className="text-sm sm:text-base text-gray-500 mb-4">Keep track of members you're interested in.</p>
                     <button 
                       onClick={() => setActiveSection('members')}
-                      className="mt-4 px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                      className="px-4 sm:px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm sm:text-base"
                     >
                       Browse Members
                     </button>
