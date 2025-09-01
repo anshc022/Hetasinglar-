@@ -559,7 +559,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     placeholder: "Type your message...",
     showEmojiPicker: true,
     showAttachments: true,
-    showVoiceNote: true,
+    showVoiceNote: false,
     onShowImageSelector: () => setShowImageSelector(true)
   }), [memoizedSendMessage, isLoading]);
 
@@ -1902,7 +1902,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* Active Chat */}
-      <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full max-h-[calc(100vh-1rem)] border border-gray-700">
+  <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
         {error && (
           <div className="p-4 bg-red-500/20 text-red-100 text-sm border-b border-red-500/30">
             <div className="flex items-start justify-between">
@@ -2087,15 +2087,33 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              {/* General Notes Section - Using Sticky Component */}
+            {/* Top Notes Section (scrollable within itself) */}
+            <div className="p-2 lg:p-3 border-b border-gray-700 bg-gray-800/40">
               <StickyGeneralNotes 
                 notes={notes} 
                 isVisible={showGeneralNotes} 
                 setIsVisible={setShowGeneralNotes} 
                 onDeleteNote={handleDeleteChatNote}
               />
+            </div>
 
+            {/* Middle Composer Section */}
+            <div className="p-3 lg:p-4 border-b border-gray-700 bg-gray-800/50 space-y-3">
+              {/* Add general note box above the message composer */}
+              <GeneralNoteBox
+                value={generalNote}
+                onChange={(e) => setGeneralNote(e.target.value)}
+                onAddNote={handleAddGeneralNote}
+              />
+              {/* Message Composer - Single instance only */}
+              <MessageComposer
+                key={`composer-${selectedChat?._id}`}
+                {...messageComposerProps}
+              />
+            </div>
+
+            {/* Messages Section (scrollable) */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               {/* Panic Room Information Box */}
               {selectedChat.isInPanicRoom && (
                 <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 mb-4">
@@ -2321,19 +2339,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               ))}
               <div ref={messagesEndRef} />
-            </div>
-            <div className="p-3 lg:p-4 border-t border-gray-700 bg-gray-800/50 space-y-3">
-              {/* Add general note box at the top of the chat input area */}
-              <GeneralNoteBox
-                value={generalNote}
-                onChange={(e) => setGeneralNote(e.target.value)}
-                onAddNote={handleAddGeneralNote}
-              />
-              {/* Message Composer - Single instance only */}
-              <MessageComposer
-                key={`composer-${selectedChat?._id}`}
-                {...messageComposerProps}
-              />
             </div>
           </>
         ) : (

@@ -1,7 +1,9 @@
 import React from 'react';
 
 const StickyGeneralNotes = ({ notes, isVisible, setIsVisible, onDeleteNote }) => {
-  const generalNotes = notes.filter(note => note.isGeneral || note.text.startsWith('[General]'));
+  const generalNotes = notes.filter(
+    (note) => note?.isGeneral || (typeof note?.text === 'string' && note.text.startsWith('[General]'))
+  );
   
   // If there are no general notes, don't render anything
   if (generalNotes.length === 0) {
@@ -9,8 +11,8 @@ const StickyGeneralNotes = ({ notes, isVisible, setIsVisible, onDeleteNote }) =>
   }
 
   return (
-    <div className={`sticky top-0 z-20 transition-all duration-300 ease-in-out ${isVisible ? 'animate-slideDown' : ''}`}>
-      <div className="mb-4 p-3 bg-gray-800/95 border border-blue-600/20 rounded-lg shadow-lg backdrop-blur">
+    <div className={`transition-all duration-300 ease-in-out ${isVisible ? 'animate-slideDown' : ''}`}>
+      <div className="p-3 bg-gray-800/95 border border-blue-600/20 rounded-lg shadow-lg backdrop-blur">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-blue-300 font-medium text-sm flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,10 +37,14 @@ const StickyGeneralNotes = ({ notes, isVisible, setIsVisible, onDeleteNote }) =>
             </svg>
           </button>
         </div>
-        <div className={`space-y-2 overflow-y-auto transition-all duration-300 ${isVisible ? 'max-h-[150px] animate-fadeIn' : 'max-h-0 overflow-hidden'}`}>
+  <div className={`space-y-2 overflow-y-auto transition-all duration-300 ${isVisible ? 'max-h-40 md:max-h-56 animate-fadeIn' : 'max-h-0 overflow-hidden'}`}>
           {generalNotes.map((note, index) => (
             <div key={`general-note-${index}`} className="p-2 bg-blue-900/30 border border-blue-700/30 rounded-lg">
-              <p className="text-white text-sm whitespace-pre-wrap">{note.text.startsWith('[General]') ? note.text.substring(9) : note.text}</p>
+              <p className="text-white text-sm whitespace-pre-wrap">{
+                typeof note?.text === 'string'
+                  ? (note.text.startsWith('[General]') ? note.text.substring(9) : note.text)
+                  : ''
+              }</p>
               <div className="flex justify-between items-center mt-1 text-xs">
                 <span className="text-blue-300">{note.agentName || 'Agent'}</span>
                 <div className="flex items-center gap-2">
