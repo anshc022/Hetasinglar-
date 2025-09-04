@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth } from '../../services/agentApi';
 import imageCompression from 'browser-image-compression';
@@ -10,8 +10,16 @@ import {
   FaSave,
   FaImage,
   FaCheckCircle,
-  FaExclamationCircle
+  FaExclamationCircle,
+  FaGlobe,
+  FaMapMarkerAlt
 } from 'react-icons/fa';
+import { 
+  COUNTRIES, 
+  getStatesForCountry, 
+  countryHasStates, 
+  getStateLabelForCountry 
+} from '../../utils/statesData';
 
 const AddEscortProfile = () => {
   const navigate = useNavigate();
@@ -36,6 +44,42 @@ const AddEscortProfile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState({});
+  const [availableStates, setAvailableStates] = useState([]);
+  const [stateLabel, setStateLabel] = useState('Region/State');
+
+  // Update available states when country changes
+  useEffect(() => {
+    if (formData.country) {
+      const states = getStatesForCountry(formData.country);
+      setAvailableStates(states);
+      setStateLabel(getStateLabelForCountry(formData.country));
+      
+      // Clear region if country changed and previous region is not valid for new country
+      if (formData.region && countryHasStates(formData.country)) {
+        const validRegion = states.some(state => state.value === formData.region || state.label === formData.region);
+        if (!validRegion) {
+          setFormData(prev => ({ ...prev, region: '' }));
+        }
+      }
+    } else {
+      setAvailableStates([]);
+      setStateLabel('Region/State');
+    }
+  }, [formData.country, formData.region]);
+
+  // Helper function to get readable names from codes
+  const getReadableLocationNames = () => {
+    const country = COUNTRIES.find(c => c.value === formData.country);
+    const countryName = country?.label || formData.country;
+    
+    let regionName = formData.region;
+    if (formData.region && countryHasStates(formData.country)) {
+      const state = availableStates.find(s => s.value === formData.region);
+      regionName = state?.label || formData.region;
+    }
+    
+    return { countryName, regionName };
+  };
 
   const validateForm = () => {
     const errors = {};
@@ -95,8 +139,15 @@ const AddEscortProfile = () => {
 
     try {
       setValidationErrors({});
+      
+      const { countryName, regionName } = getReadableLocationNames();
+      
       await agentAuth.createEscortProfile({
         ...formData,
+        country: countryName,
+        region: regionName,
+        countryCode: formData.country,
+        regionCode: formData.region,
         interests: formData.interests.filter(i => i.trim()),
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
         height: parseInt(formData.height) || null
@@ -431,10 +482,10 @@ const AddEscortProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <FaGlobe className="inline mr-2" />
                     Country <span className="text-red-400">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="country"
                     required
                     className={`w-full px-3 py-2 border bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
@@ -442,8 +493,14 @@ const AddEscortProfile = () => {
                     }`}
                     value={formData.country}
                     onChange={handleChange}
-                    placeholder="Enter country"
-                  />
+                  >
+                    <option value="">Select Country</option>
+                    {COUNTRIES.map(country => (
+                      <option key={country.value} value={country.value}>
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
                   {validationErrors.country && (
                     <p className="mt-1 text-sm text-red-400">{validationErrors.country}</p>
                   )}
@@ -451,16 +508,37 @@ const AddEscortProfile = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Region/State
+                    <FaMapMarkerAlt className="inline mr-2" />
+                    {stateLabel}
                   </label>
-                  <input
-                    type="text"
-                    name="region"
-                    className="w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    value={formData.region}
-                    onChange={handleChange}
-                    placeholder="Enter region or state"
-                  />
+                  {formData.country && countryHasStates(formData.country) ? (
+                    <select
+                      name="region"
+                      className="w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.region}
+                      onChange={handleChange}
+                    >
+                      <option value="">Select {stateLabel}</option>
+                      {availableStates.map(state => (
+                        <option key={state.value} value={state.value}>
+                          {state.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      name="region"
+                      className="w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      value={formData.region}
+                      onChange={handleChange}
+                      placeholder={formData.country ? `Enter ${stateLabel.toLowerCase()}` : "Select country first"}
+                      disabled={!formData.country}
+                    />
+                  )}
+                  {!formData.country && (
+                    <p className="mt-1 text-sm text-gray-400">Please select a country first</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth } from '../../services/agentApi';
 import imageCompression from 'browser-image-compression';
@@ -13,12 +13,20 @@ import {
   FaVenus,
   FaMars,
   FaGenderless,
+  FaGlobe,
+  FaMapMarkerAlt,
   FaEdit,
   FaTimes,
   FaSave,
   FaUpload,
   FaTrash
 } from 'react-icons/fa';
+import { 
+  COUNTRIES, 
+  getStatesForCountry, 
+  countryHasStates, 
+  getStateLabelForCountry 
+} from '../../utils/statesData';
 
 const EscortProfilesTab = ({ 
   escorts, 
@@ -38,6 +46,36 @@ const EscortProfilesTab = ({
   const [imagePreview, setImagePreview] = useState(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [availableStates, setAvailableStates] = useState([]);
+  const [stateLabel, setStateLabel] = useState('Region/State');
+
+  // Update available states when country changes in edit form
+  useEffect(() => {
+    if (editForm.country || editForm.countryCode) {
+      const countryCode = editForm.countryCode || editForm.country;
+      const states = getStatesForCountry(countryCode);
+      setAvailableStates(states);
+      setStateLabel(getStateLabelForCountry(countryCode));
+    } else {
+      setAvailableStates([]);
+      setStateLabel('Region/State');
+    }
+  }, [editForm.country, editForm.countryCode]);
+
+  // Helper function to get readable names from codes
+  const getReadableLocationNames = (countryCode, regionCode) => {
+    const country = COUNTRIES.find(c => c.value === countryCode);
+    const countryName = country?.label || countryCode;
+    
+    let regionName = regionCode;
+    if (regionCode && countryHasStates(countryCode)) {
+      const states = getStatesForCountry(countryCode);
+      const state = states.find(s => s.value === regionCode);
+      regionName = state?.label || regionCode;
+    }
+    
+    return { countryName, regionName };
+  };
 
   // Normalize image src (supports base64, absolute URLs, or relative paths)
   const getImageSrc = (src) => {
@@ -695,15 +733,28 @@ const EscortProfilesTab = ({
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">
+                      <FaGlobe className="inline mr-2" />
                       Country
                     </label>
                     {isEditMode ? (
-                      <input
-                        type="text"
+                      <select
                         value={editForm.country || ''}
-                        onChange={(e) => setEditForm({...editForm, country: e.target.value})}
+                        onChange={(e) => {
+                          setEditForm({
+                            ...editForm, 
+                            country: e.target.value,
+                            region: '' // Clear region when country changes
+                          });
+                        }}
                         className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      >
+                        <option value="">Select Country</option>
+                        {COUNTRIES.map(country => (
+                          <option key={country.value} value={country.value}>
+                            {country.label}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <p className="text-white">{selectedProfile.country || 'N/A'}</p>
                     )}
@@ -711,17 +762,38 @@ const EscortProfilesTab = ({
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Region/State
+                      <FaMapMarkerAlt className="inline mr-2" />
+                      {stateLabel}
                     </label>
                     {isEditMode ? (
-                      <input
-                        type="text"
-                        value={editForm.region || ''}
-                        onChange={(e) => setEditForm({...editForm, region: e.target.value})}
-                        className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      editForm.country && countryHasStates(editForm.country) ? (
+                        <select
+                          value={editForm.region || ''}
+                          onChange={(e) => setEditForm({...editForm, region: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select {stateLabel}</option>
+                          {availableStates.map(state => (
+                            <option key={state.value} value={state.value}>
+                              {state.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={editForm.region || ''}
+                          onChange={(e) => setEditForm({...editForm, region: e.target.value})}
+                          className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={editForm.country ? `Enter ${stateLabel.toLowerCase()}` : "Select country first"}
+                          disabled={!editForm.country}
+                        />
+                      )
                     ) : (
                       <p className="text-white">{selectedProfile.region || 'N/A'}</p>
+                    )}
+                    {isEditMode && !editForm.country && (
+                      <p className="mt-1 text-sm text-gray-400">Please select a country first</p>
                     )}
                   </div>
                   
@@ -910,7 +982,13 @@ const EscortProfilesTab = ({
                       onClick={() => {
                         setIsEditMode(false);
                         setImagePreview(selectedProfile.profileImage || null);
-                        setEditForm(selectedProfile);
+                        // Reset edit form with proper codes
+                        const editFormData = {
+                          ...selectedProfile,
+                          country: selectedProfile.countryCode || selectedProfile.country || '',
+                          region: selectedProfile.regionCode || selectedProfile.region || ''
+                        };
+                        setEditForm(editFormData);
                       }}
                       className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                     >
@@ -919,8 +997,17 @@ const EscortProfilesTab = ({
                     <button
                       onClick={async () => {
                         try {
+                          const { countryName, regionName } = getReadableLocationNames(
+                            editForm.country, 
+                            editForm.region
+                          );
+                          
                           const updatedProfileData = {
                             ...editForm,
+                            country: countryName,
+                            region: regionName,
+                            countryCode: editForm.country,
+                            regionCode: editForm.region,
                             profileImage: imagePreview || editForm.profileImage
                           };
                           const updatedProfile = await agentAuth.updateEscortProfile(
@@ -945,7 +1032,16 @@ const EscortProfilesTab = ({
                 ) : (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setIsEditMode(true)}
+                      onClick={() => {
+                        // Initialize edit form with proper country codes
+                        const editFormData = {
+                          ...selectedProfile,
+                          country: selectedProfile.countryCode || selectedProfile.country || '',
+                          region: selectedProfile.regionCode || selectedProfile.region || ''
+                        };
+                        setEditForm(editFormData);
+                        setIsEditMode(true);
+                      }}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                     >
                       <FaEdit />
