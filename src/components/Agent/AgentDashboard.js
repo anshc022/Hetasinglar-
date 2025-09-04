@@ -861,6 +861,16 @@ const AgentDashboard = () => {
         }
       }
       
+      if (data.type === 'new_chat_created') {
+        // Handle new chat creation - refresh the entire dashboard
+        console.log('New chat created, refreshing dashboard:', data);
+        if (window.fetchLiveQueueData) {
+          window.fetchLiveQueueData();
+        }
+        // Also trigger a full refresh to ensure we get the new chat
+        setTimeout(() => refreshDashboard(), 1000);
+      }
+      
   if (data.type === 'chat_message') {
         // Update chat in real-time when new messages arrive
         setChats(prevChats => {
@@ -1327,13 +1337,16 @@ const AgentDashboard = () => {
 
   const refreshDashboard = async () => {
     try {
+      // Add a small delay to ensure database operations are completed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Fetch all dashboard data
-  const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
+      const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
         agentAuth.getDashboardStats(),
         agentAuth.getLiveQueue(),
         agentAuth.getMyEscorts()
       ]);
-  const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+      const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 
       // Update stats
       setStats({
@@ -1347,6 +1360,11 @@ const AgentDashboard = () => {
       setChats(liveQueue);
       setMyEscorts(escortData);
       setReminders(dashboardStats.reminders || []);
+
+      console.log('Dashboard refreshed with new data:', { 
+        chatsCount: liveQueue.length,
+        remindersCount: dashboardStats.reminders?.length || 0 
+      });
 
       // Update panic room count
       await updatePanicRoomCount();

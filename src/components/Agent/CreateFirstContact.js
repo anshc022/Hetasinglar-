@@ -136,6 +136,11 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
       setSelectedEscort('');
       setInitialMessage('');
       
+      // Immediately call success callback to refresh dashboard
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       // Refresh data
       loadNewCustomers();
       const contactsRes = await agentAuth.getRecentContacts({ limit: 5 });
@@ -146,7 +151,7 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
         setTimeout(() => {
           onClose(); // Close modal first
           navigate(`/agent/live-queue/${response.chat.escortId._id}?chatId=${response.chat._id}&newContact=true`);
-          // Call success callback to refresh dashboard
+          // Call success callback to refresh dashboard immediately
           if (onSuccess) {
             onSuccess();
           }
