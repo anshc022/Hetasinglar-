@@ -12,6 +12,7 @@ import AgentLogin from './components/Agent/AgentLogin';
 import AgentDashboard from './components/Agent/AgentDashboard';
 import AdminLogin from './components/Admin/AdminLogin';
 import AdminDashboard from './components/Admin/AdminDashboard';
+import AdminAddUpdateEscort from './components/Admin/AdminAddUpdateEscort';
 import AddEscortProfile from './components/Agent/AddEscortProfile';
 import ChatBox from './components/Agent/ChatBox';
 import LiveQueueChat from './components/Agent/LiveQueueChat';
@@ -46,6 +47,8 @@ function App() {
           <Route path="/agent/customers/:customerId" element={<CustomerProfile />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/escorts/add" element={<AdminAddUpdateEscort />} />
+          <Route path="/admin/escorts/edit/:escortId" element={<AdminAddUpdateEscort />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

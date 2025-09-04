@@ -192,6 +192,70 @@ export const adminAuth = {
     }
   },
 
+  // Escort Management
+  async getEscorts() {
+    try {
+      const response = await adminApi.get('/admin/escorts');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch escorts' };
+    }
+  },
+
+  async getEscortProfile(escortId) {
+    try {
+      const response = await adminApi.get(`/admin/escorts/${escortId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch escort profile' };
+    }
+  },
+
+  async createEscortProfile(escortData) {
+    try {
+      const response = await adminApi.post('/admin/escorts', escortData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to create escort profile' };
+    }
+  },
+
+  async updateEscortProfile(escortId, escortData) {
+    try {
+      const response = await adminApi.put(`/admin/escorts/${escortId}`, escortData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update escort profile' };
+    }
+  },
+
+  async deleteEscort(escortId) {
+    try {
+      const response = await adminApi.delete(`/admin/escorts/${escortId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to delete escort' };
+    }
+  },
+
+  async toggleEscortStatus(escortId, isActive) {
+    try {
+      const response = await adminApi.patch(`/admin/escorts/${escortId}/status`, { isActive });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update escort status' };
+    }
+  },
+
+  async verifyEscort(escortId, isVerified) {
+    try {
+      const response = await adminApi.patch(`/admin/escorts/${escortId}/verify`, { isVerified });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update escort verification' };
+    }
+  },
+
   logout() {
     localStorage.removeItem('adminToken');
   }

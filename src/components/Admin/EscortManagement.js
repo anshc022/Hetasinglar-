@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import adminApi from '../../services/adminApi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash, FaEye, FaSearch, FaImage, FaMapMarkerAlt, FaStar, FaCheck, FaTimes } from 'react-icons/fa';
 
 const EscortManagement = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [escorts, setEscorts] = useState([]);
   const [escortProfiles, setEscortProfiles] = useState([]);
@@ -295,7 +297,7 @@ const EscortManagement = () => {
           <p className="text-sm lg:text-base text-gray-300">Manage escort listings and information</p>
         </div>
         <button
-          onClick={() => openModal('create')}
+          onClick={() => navigate('/admin/escorts/add')}
           className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center gap-2 text-sm lg:text-base w-full sm:w-auto justify-center"
         >
           <FaPlus className="text-sm" /> Add New Escort
@@ -502,7 +504,7 @@ const EscortManagement = () => {
                             <FaEye />
                           </button>
                           <button
-                            onClick={() => openModal('edit', escort)}
+                            onClick={() => navigate(`/admin/escorts/edit/${escort._id}`)}
                             className="text-indigo-600 hover:text-indigo-900"
                           >
                             <FaEdit />
@@ -811,7 +813,7 @@ const EscortManagement = () => {
           <p className="text-sm lg:text-base text-gray-300">View all escort profiles created by admins and agents</p>
         </div>
         <button
-          onClick={() => openModal('create')}
+          onClick={() => navigate('/admin/escorts/add')}
           className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-300 flex items-center gap-2 text-sm lg:text-base w-full sm:w-auto justify-center"
         >
           <FaPlus className="text-sm" /> Add New Escort
@@ -1091,7 +1093,7 @@ const EscortManagement = () => {
                           {profile.type === 'admin-created' && (
                             <>
                               <button
-                                onClick={() => editEscort(profile)}
+                                onClick={() => navigate(`/admin/escorts/edit/${profile.id}`)}
                                 className="text-indigo-600 hover:text-indigo-900"
                               >
                                 <FaEdit />
