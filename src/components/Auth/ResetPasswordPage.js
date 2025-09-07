@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
+import config from '../../config/environment';
 import './AuthStyles.css';
 
 const ResetPasswordPage = () => {
@@ -29,7 +30,7 @@ const ResetPasswordPage = () => {
       }
 
       try {
-        const response = await fetch(`/api/auth/verify-reset-token/${token}`);
+        const response = await fetch(`${config.API_URL}/auth/verify-reset-token/${token}`);
         const data = await response.json();
 
         if (response.ok && data.valid) {
@@ -65,7 +66,7 @@ const ResetPasswordPage = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await fetch(`${config.API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
