@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { resendOtp } from '../../services/api';
 import AuthLayout from './AuthLayout';
-import './AuthStyles.css';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -14,92 +14,162 @@ const LoginPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
+    setShowVerificationPrompt(false);
 
     try {
-      const loginResponse = await login(formData.username, formData.password);
-      if (loginResponse.access_token) {
-        navigate('/dashboard', { replace: true });
-      }
+      await login(formData.username, formData.password);
+      navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Invalid credentials. Please try again.');
+      
+      // Check if error is related to email verification
+      if (err.message?.includes('email') && err.message?.includes('verif')) {
+        setShowVerificationPrompt(true);
+        setVerificationEmail(formData.username);
+        setError('Your email address is not verified. Please check your email and verify your account to continue.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    navigate('/auth/forgot-password');
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      await resendOtp({ email: verificationEmail });
+      setError('Verification email sent! Please check your inbox and verify your account.');
+    } catch (err) {
+      setError('Failed to send verification email. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   return (
-    <AuthLayout 
-      title="Welcome Back" 
-      subtitle="Sign in to continue your journey ❤️"
+    <AuthLayout
+      title="Welcome Back! ✨"
+      subtitle="Sign in to continue your journey"
     >
-      {/* Login Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Username Field */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
-          <motion.input
-            type="text"
-            placeholder="Enter your username"
-            className="w-full px-4 py-3 rounded-xl glass-effect border-2 border-white/30 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift"
-            value={formData.username}
-            onChange={(e) => setFormData({...formData, username: e.target.value})}
-            whileFocus={{ scale: 1.02 }}
-            required
-          />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
+          className="space-y-2"
         >
-          <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-          <motion.input
-            type="password"
-            placeholder="Enter your password"
-            className="w-full px-4 py-3 rounded-xl glass-effect border-2 border-white/30 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift"
-            value={formData.password}
-            onChange={(e) => setFormData({...formData, password: e.target.value})}
-            whileFocus={{ scale: 1.02 }}
+          <label htmlFor="username" className="block text-sm font-semibold text-gray-700">
+            Username or Email
+          </label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Enter your username or email"
             required
+            disabled={loading}
           />
         </motion.div>
 
-        {/* Forgot Password */}
-        <div className="text-right">
-          <motion.button
-            type="button"
-            onClick={handleForgotPassword}
-            className="text-sm text-rose-600 hover:text-rose-700 hover:underline font-medium transition-colors"
-            whileHover={{ scale: 1.05 }}
-          >
-            🔑 Forgot your password?
-          </motion.button>
-        </div>
+        {/* Password Field */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="space-y-2"
+        >
+          <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+            Password
+          </label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Enter your password"
+            required
+            disabled={loading}
+          />
+          {/* Forgot Password Link */}
+          <div className="mt-2 text-right">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-rose-600 hover:text-rose-700 hover:underline transition-colors font-medium"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        </motion.div>
 
         {/* Error Message */}
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3 bg-red-50 border border-red-200 rounded-xl"
+            className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl"
           >
             <p className="text-red-600 text-center text-sm flex items-center justify-center gap-2">
               ⚠️ {error}
             </p>
+            
+            {/* Verification Prompt */}
+            {showVerificationPrompt && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-4 pt-4 border-t border-red-200"
+              >
+                <div className="text-center">
+                  <p className="text-red-700 text-sm mb-3">
+                    📧 Need to verify your email? We can resend the verification link.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {resendLoading ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                        />
+                        <span>Sending...</span>
+                      </div>
+                    ) : (
+                      'Resend Verification Email'
+                    )}
+                  </button>
+                  <p className="text-gray-600 text-xs mt-2">
+                    Or <Link to="/register" className="text-red-600 hover:underline">create a new account</Link>
+                  </p>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
@@ -107,7 +177,7 @@ const LoginPage = () => {
         <motion.button
           type="submit"
           disabled={loading}
-          className="w-full py-4 bg-gradient-to-r from-rose-500 via-pink-500 to-red-500 text-white rounded-xl font-bold text-lg shadow-2xl hover:shadow-3xl transition-all duration-300 disabled:opacity-50 btn-glow"
+          className="w-full py-4 bg-gradient-to-r from-rose-500 via-pink-500 to-red-500 text-white rounded-xl font-bold text-lg shadow-2xl hover:shadow-rose-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 hover:-translate-y-1 focus:ring-4 focus:ring-rose-500/50"
           whileHover={{ scale: 1.02, y: -2 }}
           whileTap={{ scale: 0.98 }}
         >

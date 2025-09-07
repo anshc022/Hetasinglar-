@@ -7,7 +7,8 @@ import RegisterPage from './components/Auth/RegisterPage';
 import PricingPage from './components/Landing/PricingPage';
 import UserDashboard from './components/UserPage/UserDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
-import ForgotPassword from './components/Auth/ForgotPassword';
+import ForgotPasswordPage from './components/Auth/ForgotPasswordPage';
+import ResetPasswordPage from './components/Auth/ResetPasswordPage';
 import AgentLogin from './components/Agent/AgentLogin';
 import AgentDashboard from './components/Agent/AgentDashboard';
 import AdminLogin from './components/Admin/AdminLogin';
@@ -18,6 +19,10 @@ import ChatBox from './components/Agent/ChatBox';
 import LiveQueueChat from './components/Agent/LiveQueueChat';
 import CustomerProfile from './components/Agent/CustomerProfile';
 import SubscriptionPlans from './components/UserPage/SubscriptionPlans';
+import PrivacyPolicy from './components/Legal/PrivacyPolicy';
+import CookiePolicy from './components/Legal/CookiePolicy';
+import ContactUs from './components/Legal/ContactUs';
+import ComingSoon from './components/Legal/ComingSoon';
 import './App.css';
 
 function App() {
@@ -38,7 +43,8 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/agent/login" element={<AgentLogin />} />
           <Route path="/agent/dashboard" element={<AgentDashboard />} />
           <Route path="/agent/escorts/add" element={<AddEscortProfile />} />
@@ -49,6 +55,26 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/escorts/add" element={<AdminAddUpdateEscort />} />
           <Route path="/admin/escorts/edit/:escortId" element={<AdminAddUpdateEscort />} />
+          
+          {/* Legal Pages */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/contact" element={<ContactUs />} />
+          
+          {/* Placeholder Pages */}
+          <Route path="/about" element={<ComingSoon />} />
+          <Route path="/how-it-works" element={<ComingSoon />} />
+          <Route path="/stories" element={<ComingSoon />} />
+          <Route path="/blog" element={<ComingSoon />} />
+          <Route path="/careers" element={<ComingSoon />} />
+          <Route path="/help" element={<ComingSoon />} />
+          <Route path="/safety" element={<ComingSoon />} />
+          <Route path="/report" element={<ComingSoon />} />
+          <Route path="/faq" element={<ComingSoon />} />
+          <Route path="/terms" element={<ComingSoon />} />
+          <Route path="/guidelines" element={<ComingSoon />} />
+          <Route path="/data-protection" element={<ComingSoon />} />
+          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

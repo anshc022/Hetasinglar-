@@ -149,6 +149,24 @@ export const auth = {
     }
   },
 
+  async verifyOtp(data) {
+    try {
+      const response = await api.post('/auth/verify-otp', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  async resendOtp(data) {
+    try {
+      const response = await api.post('/auth/resend-otp', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   async forgotPassword(email) {
     try {
       const response = await api.post('/auth/forgot-password', { email });
@@ -190,7 +208,7 @@ export const auth = {
 export const escorts = {
   async getEscortProfiles() {
     try {
-      const response = await api.get('/agents/escorts');
+      const response = await api.get('/agents/escorts/active');
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -292,5 +310,9 @@ export const chats = {
     }
   }
 };
+
+// Individual function exports for convenience
+export const verifyOtp = auth.verifyOtp;
+export const resendOtp = auth.resendOtp;
 
 export default api;

@@ -1,15 +1,33 @@
 import React from 'react';
 
 const StickyGeneralNotes = ({ notes, isVisible, setIsVisible, onDeleteNote }) => {
-  const generalNotes = notes.filter(
-    (note) => note?.isGeneral || (typeof note?.text === 'string' && note.text.startsWith('[General]'))
-  );
+  // More precise filtering for general notes - only explicit general notes
+  const generalNotes = notes.filter((note) => {
+    if (!note || !note.text) return false;
+    
+    // Only include notes that are explicitly marked as general
+    return (
+      note?.isGeneral === true ||  // Explicitly marked as general
+      (typeof note?.text === 'string' && note.text.startsWith('[General]')) // Text starts with [General]
+    );
+  });
   
-  // If there are no general notes, don't render anything
-  if (generalNotes.length === 0) {
-    return null;
-  }
-
+  // Debug logging to help identify the issue
+  console.log('StickyGeneralNotes Debug:', { 
+    totalNotes: notes.length, 
+    generalNotes: generalNotes.length,
+    allNotes: notes.map(n => ({ 
+      text: n.text?.substring(0, 30) + (n.text?.length > 30 ? '...' : ''), 
+      isGeneral: n.isGeneral,
+      startsWithGeneral: n.text?.startsWith('[General]')
+    })),
+    filteredGeneralNotes: generalNotes.map(n => ({ 
+      text: n.text?.substring(0, 30) + (n.text?.length > 30 ? '...' : ''), 
+      isGeneral: n.isGeneral 
+    }))
+  });
+  
+  // Always show the notes container, even if empty, so user can see the section
   return (
     <div className={`transition-all duration-300 ease-in-out ${isVisible ? 'animate-slideDown' : ''}`}>
       <div className="p-3 bg-gray-800/95 border border-blue-600/20 rounded-lg shadow-lg backdrop-blur">
@@ -38,34 +56,40 @@ const StickyGeneralNotes = ({ notes, isVisible, setIsVisible, onDeleteNote }) =>
           </button>
         </div>
   <div className={`space-y-2 overflow-y-auto transition-all duration-300 ${isVisible ? 'max-h-40 md:max-h-56 animate-fadeIn' : 'max-h-0 overflow-hidden'}`}>
-          {generalNotes.map((note, index) => (
-            <div key={`general-note-${index}`} className="p-2 bg-blue-900/30 border border-blue-700/30 rounded-lg">
-              <p className="text-white text-sm whitespace-pre-wrap">{
-                typeof note?.text === 'string'
-                  ? (note.text.startsWith('[General]') ? note.text.substring(9) : note.text)
-                  : ''
-              }</p>
-              <div className="flex justify-between items-center mt-1 text-xs">
-                <span className="text-blue-300">{note.agentName || 'Agent'}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">
-                    {new Date(note.timestamp).toLocaleString()}
-                  </span>
-                  {note._id && (
-                    <button
-                      onClick={() => onDeleteNote(note._id)}
-                      className="text-red-400 hover:text-red-300"
-                      title="Delete note"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  )}
+          {generalNotes.length > 0 ? (
+            generalNotes.map((note, index) => (
+              <div key={`general-note-${index}`} className="p-2 bg-blue-900/30 border border-blue-700/30 rounded-lg">
+                <p className="text-white text-sm whitespace-pre-wrap">{
+                  typeof note?.text === 'string'
+                    ? (note.text.startsWith('[General]') ? note.text.substring(9).trim() : note.text)
+                    : ''
+                }</p>
+                <div className="flex justify-between items-center mt-1 text-xs">
+                  <span className="text-blue-300">{note.agentName || 'Agent'}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">
+                      {new Date(note.timestamp).toLocaleString()}
+                    </span>
+                    {note._id && (
+                      <button
+                        onClick={() => onDeleteNote(note._id)}
+                        className="text-red-400 hover:text-red-300"
+                        title="Delete note"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="text-gray-400 text-sm text-center py-2">
+              No general notes yet. Add one using the text box below.
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>

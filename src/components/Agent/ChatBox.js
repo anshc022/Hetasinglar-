@@ -39,12 +39,29 @@ const ChatActions = ({
   onMoveToPanicRoom,
   onRemoveFromPanicRoom,
   onTogglePanicNotes,
+  onWatchLiveQueue,
   customerName,
   escortName,
   isInPanicRoom,
+  isViewMode = false,
   isMobile = false
 }) => (
   <div className={`flex gap-2 ${isMobile ? 'flex-wrap justify-center' : 'flex-wrap'}`}>
+    {/* Watch Live Queue Button - Only show in view mode */}
+    {isViewMode && onWatchLiveQueue && (
+      <button
+        onClick={onWatchLiveQueue}
+        className={`${isMobile ? 'px-2 py-1.5' : 'px-3 py-2'} bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 flex items-center gap-2 font-medium shadow-lg`}
+        title="Enter Live Queue System"
+      >
+        <svg className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        {!isMobile && <span>Watch Live Queue</span>}
+      </button>
+    )}
+    
     {/* First Contact Button */}
     <FirstContactButton
       onSendFirstContact={onFirstContact}
@@ -278,6 +295,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
+  
+  // Determine if we're in view mode (regular chat route)
+  const isViewMode = !!params.chatId && !params.escortId; // If only chatId exists, we're in view mode
+  
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [message, setMessage] = useState('');
@@ -303,6 +324,42 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   // State for general notes
   const [generalNote, setGeneralNote] = useState('');
   const [showGeneralNotes, setShowGeneralNotes] = useState(true);
+
+  // Helper: normalize legacy notes so they appear as General Notes if none explicitly tagged
+  const normalizeGeneralNotes = (arr = []) => {
+    if (!Array.isArray(arr) || arr.length === 0) return [];
+    const hasExplicitGeneral = arr.some(n => (n?.isGeneral === true) || (typeof n?.text === 'string' && n.text.startsWith('[General]')));
+    if (hasExplicitGeneral) return arr; // Already properly tagged
+    // Fallback: treat all existing notes as general (legacy data) so they become visible
+    return arr.map(n => ({ ...n, isGeneral: true }));
+  };
+
+  // Ensure notes are fetched soon after a chat is selected (even if initial chat object lacked comments)
+  useEffect(() => {
+    if (!selectedChat?._id) return;
+    if (notes.length > 0) return; // Already have notes
+    let cancelled = false;
+    const fetchNotes = async (attempt = 1) => {
+      try {
+        console.log(`[NotesFetcher] Fetching notes (attempt ${attempt}) chat=${selectedChat._id}`);
+        const notesData = await agentAuth.getChatNotes(selectedChat._id);
+        if (!cancelled && notesData?.comments) {
+          if (notesData.comments.length) {
+            setNotes(normalizeGeneralNotes(notesData.comments));
+            console.log('[NotesFetcher] Loaded notes count:', notesData.comments.length);
+          } else {
+            console.log('[NotesFetcher] No notes returned yet');
+          }
+        }
+      } catch (e) {
+        console.warn('[NotesFetcher] Failed attempt', attempt, e?.message || e);
+        if (attempt < 3 && !cancelled) setTimeout(() => fetchNotes(attempt + 1), attempt * 600);
+      }
+    };
+    // slight delay to allow auth/token readiness
+    const t = setTimeout(() => fetchNotes(), 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [selectedChat?._id]);
   // Mobile sidebar states
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [mobileSidebarType, setMobileSidebarType] = useState(''); // 'chats', 'user', 'escort'
@@ -592,8 +649,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A'
     });
 
-    // Set notes from chat comments initially
-    setNotes(fullChat.comments || []);
+  // Set notes from chat comments initially (normalize legacy notes so they show)
+  setNotes(normalizeGeneralNotes(fullChat.comments || []));
     setShowNoteInput(false);
     setGeneralNote(''); // Reset general note when changing chats
     
@@ -605,7 +662,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       const notesData = await agentAuth.getChatNotes(fullChat._id);
       if (notesData && notesData.comments) {
-        setNotes(notesData.comments);
+        console.log('Loading chat notes:', notesData.comments);
+        setNotes(normalizeGeneralNotes(notesData.comments));
       }
     } catch (error) {
       // Don't set error state here as it's not critical
@@ -623,6 +681,28 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   useEffect(() => {
     const fetchInitialChats = async () => {
       try {
+        // VIEW MODE: Load single chat directly
+        if (isViewMode) {
+          const chatId = params.chatId;
+          setError(null);
+          
+          try {
+            const chat = await agentAuth.getChat(chatId);
+            if (chat) {
+              setChats([chat]);
+              await handleChatSelection(chat);
+              setTimeout(() => scrollToBottom(), 100);
+            } else {
+              setError('Chat not found.');
+            }
+          } catch (error) {
+            console.error('Error loading chat:', error);
+            setError('Failed to load chat. It may have been deleted or you may not have permission to access it.');
+          }
+          return;
+        }
+        
+        // QUEUE MODE: Original queue loading logic
         const escortId = params.escortId;
         const chatId = searchParams.get('chatId'); // Get chatId from query parameters
         
@@ -1148,6 +1228,16 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     navigate('/agent/dashboard');
   };
 
+  const handleWatchLiveQueue = () => {
+    if (selectedChat && selectedChat.escortId) {
+      // Navigate to the live queue with the current chat
+      const escortId = selectedChat.escortId._id || selectedChat.escortId;
+      navigate(`/agent/live-queue/${escortId}?chatId=${selectedChat._id}`);
+    } else {
+      showNotification('Unable to enter live queue. Chat or escort information is missing.', 'error');
+    }
+  };
+
   const handleAddReminder = async (text) => {
     try {
       await agentAuth.addReminder({
@@ -1216,8 +1306,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       // Send to backend using the dedicated API
       const response = await agentAuth.addChatNote(selectedChat._id, newNote.trim());
       
-      // Update notes with the actual data from the server
-      setNotes(response.allNotes);
+  // Update notes with the actual data from the server (preserve general tagging)
+  setNotes(normalizeGeneralNotes(response.allNotes));
       
       // Update the selected chat with the new comment
       setSelectedChat({
@@ -1248,11 +1338,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       // Clear the input field
       setGeneralNote('');
       
-      // Send to backend using the dedicated API
-      const response = await agentAuth.addChatNote(selectedChat._id, noteObj.text);
+      // Send to backend using the dedicated API - include isGeneral flag
+      const response = await agentAuth.addChatNote(selectedChat._id, {
+        text: noteObj.text,
+        isGeneral: true
+      });
       
-      // Update notes with the actual data from the server
-      setNotes(response.allNotes);
+  // Update notes with the actual data from the server (preserve general tagging)
+  setNotes(normalizeGeneralNotes(response.allNotes));
       
       // Update the selected chat with the new comment
       setSelectedChat({
@@ -1293,7 +1386,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       const response = await agentAuth.deleteChatNote(selectedChat._id, noteId);
       
       // Update notes in state with the response data
-      setNotes(response.allNotes);
+  setNotes(normalizeGeneralNotes(response.allNotes));
       
       // Update the selected chat with the updated comments
       setSelectedChat({
@@ -1805,9 +1898,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   };
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-2 h-screen bg-gray-900 p-2 overflow-hidden">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-1 h-screen bg-gray-900 overflow-hidden" style={{padding: '0.25rem'}}>
       {/* Chat List and Escort Profile */}
-      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+      <div className="hidden lg:block lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
             <button
@@ -1902,7 +1995,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* Active Chat */}
-  <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
+  <div className="flex-1 lg:col-span-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
         {error && (
           <div className="p-4 bg-red-500/20 text-red-100 text-sm border-b border-red-500/30">
             <div className="flex items-start justify-between">
@@ -2005,9 +2098,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 onMoveToPanicRoom={handleMoveToPanicRoom}
                 onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
                 onTogglePanicNotes={handleTogglePanicRoomNotes}
+                onWatchLiveQueue={handleWatchLiveQueue}
                 customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
                 escortName={escortProfile?.firstName || 'Escort'}
                 isInPanicRoom={selectedChat.isInPanicRoom || false}
+                isViewMode={isViewMode}
                 isMobile={true}
               />
             </div>
@@ -2081,9 +2176,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   onMoveToPanicRoom={handleMoveToPanicRoom}
                   onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
                   onTogglePanicNotes={handleTogglePanicRoomNotes}
+                  onWatchLiveQueue={handleWatchLiveQueue}
                   customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
                   escortName={escortProfile?.firstName || 'Escort'}
                   isInPanicRoom={selectedChat.isInPanicRoom || false}
+                  isViewMode={isViewMode}
                 />
               </div>
             </div>
@@ -2352,7 +2449,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* User Details Panel */}
-      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+      <div className="hidden lg:block lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
         {selectedChat ? (
           <div className="p-4">
             <div className="flex justify-between items-center mb-4">

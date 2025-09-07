@@ -25,12 +25,14 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
   // State for data
   const [escorts, setEscorts] = useState([]);
   const [newCustomers, setNewCustomers] = useState([]);
+  const [allCustomers, setAllCustomers] = useState([]);
   const [recentContacts, setRecentContacts] = useState([]);
   
   // State for UI
   const [loading, setLoading] = useState(false);
   const [escortSearch, setEscortSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerViewMode, setCustomerViewMode] = useState('new'); // 'new' or 'all'
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showRecentContacts, setShowRecentContacts] = useState(false);
   const [showNewCustomerNotification, setShowNewCustomerNotification] = useState(true);
@@ -64,6 +66,13 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
   useEffect(() => {
     loadEscorts();
   }, [escortSearch]);
+  
+  // Load all customers when view mode is 'all' or search changes
+  useEffect(() => {
+    if (customerViewMode === 'all') {
+      loadAllCustomers();
+    }
+  }, [customerViewMode, customerSearch]);
   
   // Auto-select newest customer if none selected and new customers arrive
   useEffect(() => {
@@ -110,6 +119,20 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
       setNewCustomers(response.newCustomers);
     } catch (error) {
       console.error('Error loading customers:', error);
+    }
+  };
+
+  const loadAllCustomers = async () => {
+    try {
+      const params = { limit: 100 }; // Get more customers for selection
+      if (customerSearch) {
+        params.search = customerSearch;
+      }
+      
+      const response = await agentAuth.getAllCustomers(params);
+      setAllCustomers(response.customers);
+    } catch (error) {
+      console.error('Error loading all customers:', error);
     }
   };
 
@@ -177,18 +200,22 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
   };
 
   const getSelectedCustomerData = () => {
-    return newCustomers.find(customer => customer._id === selectedCustomer);
+    const currentCustomers = customerViewMode === 'new' ? newCustomers : allCustomers;
+    return currentCustomers.find(customer => customer._id === selectedCustomer);
   };
 
   const getSelectedEscortData = () => {
     return escorts.find(escort => escort._id === selectedEscort);
   };
 
-  const filteredCustomers = newCustomers.filter(customer =>
-    !customerSearch || 
-    customer.username.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    customer.email.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  const filteredCustomers = (() => {
+    const currentCustomers = customerViewMode === 'new' ? newCustomers : allCustomers;
+    return currentCustomers.filter(customer =>
+      !customerSearch || 
+      customer.username.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      customer.email.toLowerCase().includes(customerSearch.toLowerCase())
+    );
+  })();
 
   const formatTimeAgo = (date) => {
     const now = new Date();
@@ -324,9 +351,43 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
 
             {/* Customer Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Select New Customer
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-300">
+                  Select Customer
+                </label>
+                <div className="flex bg-gray-700 rounded-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerViewMode('new');
+                      setSelectedCustomer(''); // Reset selection when switching modes
+                      setCustomerSearch(''); // Reset search
+                    }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                      customerViewMode === 'new'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    New Customers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomerViewMode('all');
+                      setSelectedCustomer(''); // Reset selection when switching modes
+                      setCustomerSearch(''); // Reset search
+                    }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                      customerViewMode === 'all'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-600'
+                    }`}
+                  >
+                    All Customers
+                  </button>
+                </div>
+              </div>
               <div className="relative mb-2">
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
                 <input
@@ -340,7 +401,10 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
               <div className="max-h-40 overflow-y-auto scrollbar-hide bg-gray-700 rounded-lg border border-gray-600">
                 {filteredCustomers.length === 0 ? (
                   <div className="p-3 text-gray-400 text-center">
-                    No new customers found
+                    {customerViewMode === 'new' ? 'No new customers found' : 'No customers found'}
+                    {customerSearch && (
+                      <div className="text-sm mt-1">Try different search terms</div>
+                    )}
                   </div>
                 ) : (
                   filteredCustomers.map(customer => (

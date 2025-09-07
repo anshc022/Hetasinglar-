@@ -307,9 +307,14 @@ export const agentAuth = {
     localStorage.removeItem('agent');
   },
 
-  async addChatNote(chatId, text) {
+  async addChatNote(chatId, textOrObject) {
     try {
-      const response = await agentApi.post(`/chats/${chatId}/notes`, { text });
+      // Handle both string text and object with text + isGeneral
+      const payload = typeof textOrObject === 'string' 
+        ? { text: textOrObject }
+        : textOrObject;
+      
+      const response = await agentApi.post(`/chats/${chatId}/notes`, payload);
       return response.data;
     } catch (error) {
       console.error('Add chat note error:', error);
@@ -319,8 +324,14 @@ export const agentAuth = {
   
   async getChatNotes(chatId) {
     try {
-      const response = await agentApi.get(`/chats/${chatId}/notes`);
-      return response.data;
+      const cacheBuster = Date.now();
+      const response = await agentApi.get(`/chats/${chatId}/notes?cb=${cacheBuster}`);
+      // Support both legacy array response and new object shape
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return { comments: data, count: data.length };
+      }
+      return data;
     } catch (error) {
       console.error('Get chat notes error:', error);
       throw error.response?.data || error;
@@ -501,6 +512,16 @@ export const agentAuth = {
       return response.data;
     } catch (error) {
       console.error('Get new customers error:', error);
+      throw error.response?.data || error;
+    }
+  },
+
+  async getAllCustomers(params = {}) {
+    try {
+      const response = await agentApi.get('/first-contact/all-customers', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Get all customers error:', error);
       throw error.response?.data || error;
     }
   },

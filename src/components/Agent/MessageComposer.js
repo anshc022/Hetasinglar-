@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
-import { FaPaperPlane, FaSmile, FaImage, FaFile, FaMicrophone, FaStop, FaImages } from 'react-icons/fa';
+import { FaPaperPlane, FaSmile, FaMicrophone, FaStop, FaImages } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MessageComposer = memo(({ 
@@ -21,8 +21,7 @@ const MessageComposer = memo(({
   const [showEmojis, setShowEmojis] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const textareaRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const imageInputRef = useRef(null);
+  // Removed direct device upload inputs (file/image)
   const recordingIntervalRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
@@ -102,39 +101,7 @@ const MessageComposer = memo(({
     }, 0);
   };
 
-  const handleFileUpload = async (files, type = 'file') => {
-    for (const file of files) {
-      try {
-        if (type === 'image') {
-          // For images, convert to base64 and send as image message
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const imageData = reader.result; // This is base64 with data: prefix
-            const imageObject = {
-              filename: file.name,
-              imageData: imageData,
-              mimeType: file.type
-            };
-            
-            // Call onSendMessage with image type and full image data
-            await onSendMessage('📷 Image', 'image', imageObject);
-          };
-          reader.readAsDataURL(file);
-        } else {
-          // For regular files, create FormData for file upload
-          const formData = new FormData();
-          formData.append('file', file);
-          
-          // You would typically upload to your server here
-          // For now, we'll simulate with the filename
-          const fileName = file.name;
-          await onSendMessage(`📎 ${fileName}`, type, file);
-        }
-      } catch (error) {
-        console.error('Failed to upload file:', error);
-      }
-    }
-  };
+  // Removed handleFileUpload (device uploads disabled)
 
   const startRecording = async () => {
     try {
@@ -226,59 +193,18 @@ const MessageComposer = memo(({
 
       {/* Main composer */}
       <div className="flex items-end gap-3">
-        {/* Attachment buttons */}
+        {/* Attachment buttons (device upload removed, keep gallery) */}
         <div className="flex flex-col gap-2">
-          {showAttachments && (
-            <>
-              {/* File upload */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => handleFileUpload(Array.from(e.target.files || []), 'file')}
-                className="hidden"
-                multiple
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isLoading || isRecording}
-                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                title="Attach file"
-              >
-                <FaFile className="w-4 h-4" />
-              </button>
-
-              {/* Image upload */}
-              <input
-                type="file"
-                ref={imageInputRef}
-                onChange={(e) => handleFileUpload(Array.from(e.target.files || []), 'image')}
-                accept="image/*"
-                className="hidden"
-                multiple
-              />
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                disabled={disabled || isLoading || isRecording}
-                className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                title="Upload image from device"
-              >
-                <FaImage className="w-4 h-4" />
-              </button>
-
-              {/* Gallery - select from pre-uploaded images */}
-              {onShowImageSelector && (
-                <button
-                  onClick={() => onShowImageSelector()}
-                  disabled={disabled || isLoading || isRecording}
-                  className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                  title="Select from gallery"
-                >
-                  <FaImages className="w-4 h-4" />
-                </button>
-              )}
-            </>
+          {showAttachments && onShowImageSelector && (
+            <button
+              onClick={() => onShowImageSelector()}
+              disabled={disabled || isLoading || isRecording}
+              className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+              title="Select from gallery"
+            >
+              <FaImages className="w-4 h-4" />
+            </button>
           )}
-
           {/* Voice note */}
           {showVoiceNote && (
             <button

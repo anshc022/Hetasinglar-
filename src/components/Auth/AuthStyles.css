@@ -60,3 +60,126 @@ button:focus {
     transform: translateY(-2px);
   }
 }
+
+/* reCAPTCHA Mobile Optimization */
+.recaptcha-mobile-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  margin: 16px auto;
+  max-width: 320px;
+  transition: all 0.3s ease;
+  overflow: hidden; /* Prevent content from going outside */
+}
+
+.recaptcha-mobile-wrapper:hover {
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.recaptcha-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  overflow: hidden; /* Prevent overflow */
+}
+
+/* Ensure reCAPTCHA stays within bounds */
+.recaptcha-container > div {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Mobile specific reCAPTCHA adjustments */
+@media (max-width: 480px) {
+  .recaptcha-mobile-wrapper {
+    padding: 8px;
+    max-width: calc(100vw - 32px); /* Use viewport width and account for margins */
+    margin: 20px 16px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  /* Compact reCAPTCHA fits better on mobile */
+  .recaptcha-mobile-wrapper .recaptcha-container {
+    min-height: 78px; /* Compact reCAPTCHA height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Ensure reCAPTCHA iframe stays within container */
+  .recaptcha-container iframe {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  /* Add some breathing room around the form on mobile */
+  .glass-effect {
+    margin: 0 8px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 360px) {
+  .recaptcha-mobile-wrapper {
+    padding: 6px;
+    margin: 24px 12px;
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+  }
+  
+  /* Compact reCAPTCHA works well on small devices */
+  .recaptcha-mobile-wrapper .recaptcha-container {
+    min-height: 78px;
+    overflow: hidden;
+  }
+  
+  /* Force reCAPTCHA to fit within container */
+  .recaptcha-container iframe {
+    transform: scale(0.9);
+    transform-origin: center center;
+    max-width: 100% !important;
+  }
+}
+
+/* Very small devices */
+@media (max-width: 320px) {
+  .recaptcha-mobile-wrapper {
+    padding: 4px;
+    margin: 20px 8px;
+    max-width: calc(100vw - 16px);
+  }
+  
+  .recaptcha-container iframe {
+    transform: scale(0.8);
+    transform-origin: center center;
+  }
+}
+
+/* Landscape mobile devices */
+@media (max-width: 768px) and (orientation: landscape) {
+  .recaptcha-mobile-wrapper {
+    margin: 12px auto;
+    padding: 6px;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 481px) and (max-width: 768px) {
+  .recaptcha-mobile-wrapper {
+    max-width: 350px;
+    padding: 16px;
+  }
+}

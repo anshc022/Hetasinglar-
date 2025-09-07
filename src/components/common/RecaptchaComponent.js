@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 
 const RecaptchaComponent = ({ 
@@ -11,10 +11,20 @@ const RecaptchaComponent = ({
   className = ""
 }) => {
   const recaptchaRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Check if we're on mobile device
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 480);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
     // Reset reCAPTCHA when component mounts
     return () => {
+      window.removeEventListener('resize', checkMobile);
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
       }
@@ -38,11 +48,8 @@ const RecaptchaComponent = ({
     }
   };
 
-  const resetRecaptcha = () => {
-    if (recaptchaRef.current) {
-      recaptchaRef.current.reset();
-    }
-  };
+  // Use compact size on mobile if size is not explicitly set to something else
+  const effectiveSize = size === "normal" && isMobile ? "compact" : size;
 
   return (
     <div className={`recaptcha-container ${className}`}>
@@ -53,7 +60,7 @@ const RecaptchaComponent = ({
         onExpired={onExpire}
         onError={handleError}
         theme={theme}
-        size={size}
+        size={effectiveSize}
       />
     </div>
   );
