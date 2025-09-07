@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
+import config from '../../config/environment';
 import './AuthStyles.css';
 
 const ForgotPasswordPage = () => {
@@ -16,7 +17,7 @@ const ForgotPasswordPage = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch(`${config.API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
