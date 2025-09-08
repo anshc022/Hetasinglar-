@@ -370,6 +370,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [escortProfile, setEscortProfile] = useState(null);
   
+  // Chat list expansion state
+  const [showAllChats, setShowAllChats] = useState(false);
+  
   // State for log modals
   const [showEscortLogModal, setShowEscortLogModal] = useState(false);
   const [showUserLogModal, setShowUserLogModal] = useState(false);
@@ -1599,6 +1602,43 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     setShowEscortLogModal(true);
   };
 
+  // Handle deleting an escort log
+  const handleDeleteEscortLog = async (log) => {
+    if (!window.confirm('Are you sure you want to delete this log?')) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('agentToken');
+      const response = await fetch(`http://localhost:5000/api/logs/escort/${log._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Debug-Info': 'Escort log deletion request'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete log');
+      }
+
+      // Refresh escort logs
+      if (selectedChat?.escortId?._id) {
+        fetchEscortLogs(selectedChat.escortId._id);
+      }
+
+      showNotification('Log deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting escort log:', error);
+      setError(`Failed to delete log: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle submitting an edited escort log
   const handleSubmitEditedLog = async (logData) => {
     if (!editingLog?._id) {
@@ -1710,6 +1750,43 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     setEditingLog(log);
     setEditMode(true);
     setShowUserLogModal(true);
+  };
+
+  // Handle deleting a user log
+  const handleDeleteUserLog = async (log) => {
+    if (!window.confirm('Are you sure you want to delete this log?')) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('agentToken');
+      const response = await fetch(`http://localhost:5000/api/logs/user/${log._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Debug-Info': 'User log deletion request'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete log');
+      }
+
+      // Refresh user logs
+      if (selectedChat?.customerId?._id) {
+        fetchUserLogs(selectedChat.customerId._id);
+      }
+
+      showNotification('Log deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting user log:', error);
+      setError(`Failed to delete log: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle submitting an edited user log
@@ -1827,56 +1904,54 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       <div
         key={chat._id}
         onClick={() => handleChatSelection(chat)}
-        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+        className={`p-2.5 rounded-lg cursor-pointer transition-colors border ${
           selectedChat?._id === chat._id 
-            ? 'bg-blue-600 text-white' 
+            ? 'bg-blue-600 text-white border-blue-500' 
             : needsFollowUp
-            ? 'bg-yellow-800/30 text-gray-300 hover:bg-yellow-700/30'
-            : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            ? 'bg-yellow-800/20 text-gray-300 hover:bg-yellow-700/30 border-yellow-600/30'
+            : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50 border-gray-700/50'
         }`}
       >
-        <div className="font-semibold">
-          {chat.customerId?.username || chat.customerName}
+        <div className="flex justify-between items-start mb-1">
+          <div className="font-medium text-sm truncate flex-1 mr-2">
+            {chat.customerId?.username || chat.customerName}
+          </div>
+          <div className="text-xs opacity-75 whitespace-nowrap">
+            {formatDate(chat.createdAt)}
+          </div>
         </div>
-        <div className="text-sm opacity-75">
-          {formatDate(chat.createdAt)}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        
+        <div className="flex flex-wrap items-center gap-1 mt-1.5">
           {chat.isInPanicRoom && (
-            <div className="mt-1">
-              <div className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs rounded-full mb-1">
-                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col gap-1">
+              <div className="inline-flex items-center px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                <svg className="w-2.5 h-2.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
                 </svg>
-                PANIC ROOM
+                PANIC
               </div>
               {chat.panicRoomReason && (
-                <div className="text-xs text-red-300 truncate max-w-[120px]" title={chat.panicRoomReason}>
+                <div className="text-xs text-red-300 truncate max-w-[100px]" title={chat.panicRoomReason}>
                   {chat.panicRoomReason}
-                </div>
-              )}
-              {(chat.panicRoomEnteredAt || chat.panicRoomMovedAt) && (
-                <div className="text-xs text-gray-400">
-                  {formatDate(chat.panicRoomEnteredAt || chat.panicRoomMovedAt)}
                 </div>
               )}
             </div>
           )}
           {unreadCount > 0 && (
-            <div className="mt-1 inline-block px-2 py-1 bg-red-500 text-white text-xs rounded-full">
-              {unreadCount} new
+            <div className="inline-block px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+              {unreadCount}
             </div>
           )}
           {needsFollowUp && (
             <ReminderBadge dueDate={chat.followUpDue} />
           )}
           {chat.customerId?.coins?.balance !== undefined && (
-            <div className="mt-1 inline-flex items-center px-2 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <div className="inline-flex items-center px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-            </svg>
-            {chat.customerId.coins.balance}
+              </svg>
+              {chat.customerId.coins.balance}
             </div>
           )}
         </div>
@@ -1900,102 +1975,139 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   return (
     <div className="flex flex-col lg:grid lg:grid-cols-12 gap-1 h-screen bg-gray-900 overflow-hidden" style={{padding: '0.25rem'}}>
       {/* Chat List and Escort Profile */}
-      <div className="hidden lg:block lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+        <div className="p-3">
+          <div className="flex items-center justify-between mb-3">
             <button
               onClick={() => navigate('/agent/dashboard')}
-              className="p-2 text-white hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-1.5 text-white hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <h2 className="text-lg font-semibold text-white">Chat Box</h2>
+            <h2 className="text-sm font-medium text-white">Chat Box</h2>
           </div>
 
           {/* Escort Profile Section */}
           {params.escortId && (
-            <div className="mb-6 p-4 bg-gray-800 rounded-lg">
-              <h3 className="text-white text-lg font-semibold mb-4">Escort Profile</h3>
-              <div className="space-y-3">
-                <div className="flex justify-center mb-4">
+            <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+              <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Escort Profile
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-center mb-3">
                   {selectedChat?.escortId?.profileImage ? (
                     <img 
                       src={selectedChat.escortId.profileImage} 
                       alt="Profile" 
-                      className="w-32 h-32 rounded-full object-cover border-2 border-blue-500"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
                     />
                   ) : (
-                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-4xl">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium">
                       {selectedChat?.escortId?.firstName?.[0] || '?'}
                     </div>
                   )}
                 </div>
-                <div className="flex justify-between items-center mb-4 w-full">
-                  <div>
-                    <label className="text-gray-400 text-sm">Name</label>
-                    <p className="text-white">{selectedChat?.escortId?.firstName || 'N/A'}</p>
+                
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Name</span>
+                      <span className="text-white text-xs font-medium">{selectedChat?.escortId?.firstName || 'N/A'}</span>
+                    </div>
                   </div>
                   {selectedChat?.escortId?._id && (
                     <button
                       onClick={() => setShowEscortLogModal(true)}
-                      className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                      className="ml-2 flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
-                      Add New Logs
+                      Add Logs
                     </button>
                   )}
                 </div>
-                <div>
-                  <label className="text-gray-400 text-sm">Gender</label>
-                  <p className="text-white">{selectedChat?.escortId?.gender || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-gray-400 text-sm">Location</label>
-                  <p className="text-white">{selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-gray-400 text-sm">Profession</label>
-                  <p className="text-white">{selectedChat?.escortId?.profession || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-gray-400 text-sm">Interests</label>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {selectedChat?.escortId?.interests?.map((interest, index) => (
-                      <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
-                        {interest}
-                      </span>
-                    )) || 'N/A'}
+                
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                    <span className="text-xs text-gray-400">Gender</span>
+                    <span className="text-white text-xs">{selectedChat?.escortId?.gender || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                    <span className="text-xs text-gray-400">Location</span>
+                    <span className="text-white text-xs truncate ml-2" title={selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}>
+                      {selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                    <span className="text-xs text-gray-400">Profession</span>
+                    <span className="text-white text-xs">{selectedChat?.escortId?.profession || 'N/A'}</span>
+                  </div>
+                  <div className="py-1">
+                    <span className="text-xs text-gray-400 block mb-1">Interests</span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedChat?.escortId?.interests?.length > 0 ? selectedChat.escortId.interests.map((interest, index) => (
+                        <span key={index} className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                          {interest}
+                        </span>
+                      )) : (
+                        <span className="text-white text-xs">N/A</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Escort Logs Section */}
                 {selectedChat?.escortId?._id && (
-                  <LogsList
-                    logs={escortLogs}
-                    isLoading={loadingLogs}
-                    title="Escort Logs"
-                    emptyMessage="No logs available for this escort"
-                    onEditLog={handleEditEscortLog}
-                    canEdit={true}
-                  />
+                  <div className="mt-3">
+                    <LogsList
+                      logs={escortLogs}
+                      isLoading={loadingLogs}
+                      title="Escort Logs"
+                      emptyMessage="No logs available for this escort"
+                      onEditLog={handleEditEscortLog}
+                      onDeleteLog={handleDeleteEscortLog}
+                      canEdit={true}
+                      canDelete={true}
+                    />
+                  </div>
                 )}
               </div>
             </div>
           )}
 
           {/* Chat List */}
-          <div className="space-y-2">
-            {chatListItems}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-white text-sm font-medium flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Active Chats
+              </h3>
+              {chats.length > 3 && (
+                <button
+                  onClick={() => setShowAllChats(!showAllChats)}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {showAllChats ? 'Show Less' : `Show All (${chats.length})`}
+                </button>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              {showAllChats ? chatListItems : chatListItems.slice(0, 3)}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Active Chat */}
-  <div className="flex-1 lg:col-span-8 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
+  <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
         {error && (
           <div className="p-4 bg-red-500/20 text-red-100 text-sm border-b border-red-500/30">
             <div className="flex items-start justify-between">
@@ -2039,31 +2151,31 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           </div>
           
           {selectedChat && (
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
                 {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-white font-medium truncate">
+                  <h3 className="text-white font-medium truncate text-sm">
                     {selectedChat.customerId?.username || selectedChat.customerName}
                   </h3>
                   {selectedChat.isInPanicRoom && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
                       </svg>
                       PANIC
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-2 text-xs">
                   <span className={selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}>
                     {selectedChat.isUserActive ? 'Online' : 'Offline'}
                   </span>
                   {selectedChat.customerId?.coins?.balance !== undefined && (
-                    <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
                       </svg>
@@ -2111,54 +2223,44 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         {selectedChat ? (
           <>
             {/* Desktop Header - Hidden on mobile */}
-            <div className="hidden lg:block p-4 border-b border-gray-700 bg-gray-800/50 sticky top-0 z-10">
+            <div className="hidden lg:block p-3 border-b border-gray-700 bg-gray-800/50 sticky top-0 z-10">
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
                     {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <h2 className="text-sm font-medium text-white flex items-center gap-2">
                       {selectedChat.customerId?.username || selectedChat.customerName}
                       {selectedChat.isInPanicRoom && (
-                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
                           </svg>
-                          PANIC ROOM
+                          PANIC
                         </span>
                       )}
                     </h2>
-                    <div className="flex items-center space-x-2">
-                      <p className={`text-xs ${selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}`}>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className={`${selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}`}>
                         {selectedChat.isUserActive ? 'Online' : 'Offline'}
-                      </p>
+                      </span>
                       {selectedChat.customerId?.coins?.balance !== undefined && (
-                        <p className="text-xs px-2 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                        </svg>
-                        {selectedChat.customerId.coins.balance}
-                        </p>
+                          </svg>
+                          {selectedChat.customerId.coins.balance}
+                        </span>
                       )}
                       {/* In/Out Message Counter */}
                       {(() => {
                         const { inCount, outCount } = getMessageCounts();
                         return (
-                          <div className="flex items-center gap-3 text-xs">
-                            <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 text-green-300 rounded-full">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                              </svg>
-                              <span>In: {inCount}</span>
-                            </div>
-                            <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                              </svg>
-                              <span>Out: {outCount}</span>
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-green-400">In: {inCount}</span>
+                            <span className="text-blue-400">Out: {outCount}</span>
                           </div>
                         );
                       })()}
@@ -2185,7 +2287,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               </div>
             </div>
             {/* Top Notes Section (scrollable within itself) */}
-            <div className="p-2 lg:p-3 border-b border-gray-700 bg-gray-800/40">
+            <div className="p-2 border-b border-gray-700 bg-gray-800/30">
               <StickyGeneralNotes 
                 notes={notes} 
                 isVisible={showGeneralNotes} 
@@ -2195,7 +2297,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             </div>
 
             {/* Middle Composer Section */}
-            <div className="p-3 lg:p-4 border-b border-gray-700 bg-gray-800/50 space-y-3">
+            <div className="p-2 border-b border-gray-700 bg-gray-800/30 space-y-2">
               {/* Add general note box above the message composer */}
               <GeneralNoteBox
                 value={generalNote}
@@ -2449,57 +2551,88 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       </div>
 
       {/* User Details Panel */}
-      <div className="hidden lg:block lg:col-span-2 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
         {selectedChat ? (
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-white text-lg font-semibold">User Details</h3>
+          <div className="p-3">
+            {/* User Profile Image - Compact */}
+            <div className="flex justify-center mb-3">
+              {selectedChat?.customerId?.profileImage ? (
+                <img 
+                  src={selectedChat.customerId.profileImage} 
+                  alt="User Profile" 
+                  className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-blue-500">
+                  {selectedChat?.customerId?.username?.[0]?.toUpperCase() || userDetails.username?.[0]?.toUpperCase() || '?'}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-white text-sm font-medium">User Details</h3>
               {selectedChat?.customerId?._id && (
                 <button
                   onClick={() => setShowUserLogModal(true)}
-                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Add New Logs
+                  Add Logs
                 </button>
               )}
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Username</label>
-                <p className="text-white">{userDetails.username}</p>
+
+            {/* Minimal User Info */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                <span className="text-xs text-gray-400">Username</span>
+                <span className="text-white text-xs font-medium truncate ml-2">{userDetails.username}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Email</label>
-                <p className="text-white">{userDetails.email}</p>
+              <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                <span className="text-xs text-gray-400">Email</span>
+                <span className="text-white text-xs truncate ml-2" title={userDetails.email}>{userDetails.email}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Gender</label>
-                <p className="text-white">{userDetails.gender}</p>
+              <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                <span className="text-xs text-gray-400">Gender</span>
+                <span className="text-white text-xs">{userDetails.gender}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Age</label>
-                <p className="text-white">{userDetails.age}</p>
+              <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                <span className="text-xs text-gray-400">Age</span>
+                <span className="text-white text-xs">{userDetails.age}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Member Since</label>
-                <p className="text-white">{userDetails.memberSince}</p>
+              <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                <span className="text-xs text-gray-400">Member Since</span>
+                <span className="text-white text-xs">{userDetails.memberSince}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Coins Balance</label>
-                <p className="flex items-center text-white">
-                  <span className="inline-block mr-2 text-yellow-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                  {userDetails.coins !== 'N/A' ? userDetails.coins : 'N/A'}
-                </p>
+              <div className="flex justify-between items-center py-1.5 bg-yellow-600/10 rounded px-2">
+                <span className="text-xs text-yellow-400 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                  </svg>
+                  Coins
+                </span>
+                <span className="text-white text-xs font-medium">{userDetails.coins !== 'N/A' ? userDetails.coins : 'N/A'}</span>
               </div>
             </div>
+
+            {/* User Logs Section */}
+            {selectedChat?.customerId?._id && (
+              <div className="mt-3">
+                <LogsList
+                  logs={userLogs}
+                  isLoading={loadingLogs}
+                  title="User Logs"
+                  emptyMessage="No logs available for this user"
+                  onEditLog={handleEditUserLog}
+                  onDeleteLog={handleDeleteUserLog}
+                  canEdit={true}
+                  canDelete={true}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -2509,60 +2642,71 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
         {/* Chat Statistics */}
         {selectedChat && (
-          <div className="bg-gray-800/50 rounded-lg p-4">
-            <h3 className="text-white text-lg font-semibold mb-4">Chat Statistics</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Total Messages</label>
-                <p className="text-white">{selectedChat.messages?.length || 0}</p>
+          <div className="bg-gray-800/50 rounded-lg p-3 mt-3">
+            <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Chat Stats
+            </h3>
+            <div className="space-y-2">
+              {/* Message counts in one line */}
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-400">Messages</span>
+                <span className="text-white font-medium">{selectedChat.messages?.length || 0}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Messages In</label>
-                <p className="text-white text-green-400 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-400 flex items-center gap-1">
+                  <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
                   </svg>
-                  {getMessageCounts().inCount}
-                </p>
+                  In
+                </span>
+                <span className="text-green-400 font-medium">{getMessageCounts().inCount}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Messages Out</label>
-                <p className="text-white text-blue-400 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-400 flex items-center gap-1">
+                  <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
-                  {getMessageCounts().outCount}
-                </p>
+                  Out
+                </span>
+                <span className="text-blue-400 font-medium">{getMessageCounts().outCount}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Chat Started</label>
-                <p className="text-white">
-                  {new Date(selectedChat.createdAt).toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300">Last Active</label>
-                <p className="text-white">
-                  {selectedChat.messages?.length > 0 
-                    ? formatDate(selectedChat.messages[selectedChat.messages.length - 1].timestamp)
-                    : 'No messages'
-                  }
-                </p>
+              
+              {/* Divider */}
+              <div className="border-t border-gray-600/50 my-2"></div>
+              
+              {/* Timestamps in compact format */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">Started</span>
+                  <span className="text-white text-right">
+                    {new Date(selectedChat.createdAt).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">Last Active</span>
+                  <span className="text-white text-right">
+                    {selectedChat.messages?.length > 0 
+                      ? new Date(selectedChat.messages[selectedChat.messages.length - 1].timestamp).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'No messages'
+                    }
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        )}
-
-        {/* User Logs Section */}
-        {selectedChat?.customerId?._id && (
-          <LogsList
-            logs={userLogs}
-            isLoading={loadingLogs}
-            title="User Logs"
-            emptyMessage="No logs available for this user"
-            onEditLog={handleEditUserLog}
-            canEdit={true}
-          />
         )}
 
         {/* Agent Notes Section */}
@@ -2723,72 +2867,99 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               
               {mobileSidebarType === 'user' && selectedChat && (
                 <div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Username</label>
-                      <p className="text-white">{userDetails.username}</p>
+                  {/* User Profile Image - Compact */}
+                  <div className="flex justify-center mb-3">
+                    {selectedChat?.customerId?.profileImage ? (
+                      <img 
+                        src={selectedChat.customerId.profileImage} 
+                        alt="User Profile" 
+                        className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-blue-500">
+                        {selectedChat?.customerId?.username?.[0]?.toUpperCase() || userDetails.username?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Minimal User Info */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Username</span>
+                      <span className="text-white text-xs font-medium truncate ml-2">{userDetails.username}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Email</label>
-                      <p className="text-white">{userDetails.email}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Email</span>
+                      <span className="text-white text-xs truncate ml-2" title={userDetails.email}>{userDetails.email}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Gender</label>
-                      <p className="text-white">{userDetails.gender}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Gender</span>
+                      <span className="text-white text-xs">{userDetails.gender}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Age</label>
-                      <p className="text-white">{userDetails.age}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Age</span>
+                      <span className="text-white text-xs">{userDetails.age}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Member Since</label>
-                      <p className="text-white">{userDetails.memberSince}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Member Since</span>
+                      <span className="text-white text-xs">{userDetails.memberSince}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300">Coins Balance</label>
-                      <p className="flex items-center text-white">
-                        <span className="inline-block mr-2 text-yellow-400">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                          </svg>
-                        </span>
-                        {userDetails.coins !== 'N/A' ? userDetails.coins : 'N/A'}
-                      </p>
+                    <div className="flex justify-between items-center py-1.5 bg-yellow-600/10 rounded px-2">
+                      <span className="text-xs text-yellow-400 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                        </svg>
+                        Coins
+                      </span>
+                      <span className="text-white text-xs font-medium">{userDetails.coins !== 'N/A' ? userDetails.coins : 'N/A'}</span>
                     </div>
                   </div>
                   
                   {/* Chat Statistics */}
-                  <div className="mt-6 bg-gray-800/50 rounded-lg p-4">
-                    <h3 className="text-white text-lg font-semibold mb-4">Chat Statistics</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300">Total Messages</label>
-                        <p className="text-white">{selectedChat.messages?.length || 0}</p>
+                  <div className="mt-6 bg-gray-800/50 rounded-lg p-3">
+                    <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      Chat Stats
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Messages</span>
+                        <span className="text-white font-medium">{selectedChat.messages?.length || 0}</span>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300">Messages In</label>
-                        <p className="text-white text-green-400 flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
                           </svg>
-                          {getMessageCounts().inCount}
-                        </p>
+                          In
+                        </span>
+                        <span className="text-green-400 font-medium">{getMessageCounts().inCount}</span>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300">Messages Out</label>
-                        <p className="text-white text-blue-400 flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                           </svg>
-                          {getMessageCounts().outCount}
-                        </p>
+                          Out
+                        </span>
+                        <span className="text-blue-400 font-medium">{getMessageCounts().outCount}</span>
                       </div>
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-300">Chat Started</label>
-                        <p className="text-white text-sm">
-                          {new Date(selectedChat.createdAt).toLocaleString()}
-                        </p>
+                      
+                      <div className="border-t border-gray-600/50 my-2"></div>
+                      
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Started</span>
+                        <span className="text-white text-right">
+                          {new Date(selectedChat.createdAt).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
                       </div>
                     </div>
                   </div>
