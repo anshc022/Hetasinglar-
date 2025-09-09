@@ -231,7 +231,7 @@ const StatCard = ({ title, value, icon, color }) => (
   </motion.div>
 );
 
-const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map() }) => {
+const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map() }) => {
   // Store the current chat index for sequential viewing
   const [currentChatIndex, setCurrentChatIndex] = useState(0);
   const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders'
@@ -327,7 +327,10 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
       case 'reminders':
         return allChats.filter(chat => {
           const unread = chat.unreadCount || 0;
-          return (chat.chatType === 'reminder' || chat.reminderActive) && unread === 0 && !chat.isInPanicRoom;
+          return (chat.chatType === 'reminder' || chat.reminderActive) && 
+                 unread === 0 && 
+                 !chat.isInPanicRoom && 
+                 chat.reminderHandled !== true;
         });
       default:
         // Show active items: panic, unread, needs-response, reminders (no unread) 
@@ -335,7 +338,9 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
           const unread = chat.unreadCount || 0;
           const isPanic = chat.chatType === 'panic' || chat.isInPanicRoom;
           const needsResponse = chat.lastMessage?.sender === 'customer';
-          const isReminder = (chat.chatType === 'reminder' || chat.reminderActive) && unread === 0;
+          const isReminder = (chat.chatType === 'reminder' || chat.reminderActive) && 
+                           unread === 0 && 
+                           chat.reminderHandled !== true;
           return isPanic || unread > 0 || needsResponse || isReminder;
         });
     }
@@ -365,8 +370,14 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
       }
 
       // 3) Reminder chats (no unread) should appear after unread but before normal queue
-      const aReminder = (a.chatType === 'reminder' || a.reminderActive) && aUnread === 0 && !aPanic;
-      const bReminder = (b.chatType === 'reminder' || b.reminderActive) && bUnread === 0 && !bPanic;
+      const aReminder = (a.chatType === 'reminder' || a.reminderActive) && 
+                       aUnread === 0 && 
+                       !aPanic && 
+                       a.reminderHandled !== true;
+      const bReminder = (b.chatType === 'reminder' || b.reminderActive) && 
+                       bUnread === 0 && 
+                       !bPanic && 
+                       b.reminderHandled !== true;
       if (aReminder && !bReminder) return -1;
       if (!aReminder && bReminder) return 1;
       if (aReminder && bReminder) {
@@ -464,13 +475,41 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
   const queueCount = baseChats.filter(c => !c.isInPanicRoom && c.chatType === 'queue').length;
   // Unread: same definition for now (distinct logic could be added later if needed)
   const unreadCount = baseChats.filter(c => !c.isInPanicRoom && (c.unreadCount || 0) > 0).length;
-  // Reminders: active reminder, no unread, not panic
-  const reminderCount = baseChats.filter(c => !c.isInPanicRoom && (c.chatType === 'reminder' || c.reminderActive) && (c.unreadCount || 0) === 0).length;
+  // Reminders: active reminder, no unread, not panic, and not handled by agent
+  const reminderCount = baseChats.filter(c => 
+    !c.isInPanicRoom && 
+    (c.chatType === 'reminder' || c.reminderActive) && 
+    (c.unreadCount || 0) === 0 && 
+    c.reminderHandled !== true
+  ).length;
+
+  // Calculate total actionable chats (excluding idle chats, avoiding double counting)
+  const actionableChats = baseChats.filter(c => {
+    // Panic room chats
+    if (c.chatType === 'panic' || c.isInPanicRoom) return true;
+    
+    // Skip panic room chats for other categories
+    if (c.isInPanicRoom) return false;
+    
+    // Queue/Unread chats (unread messages)
+    if ((c.unreadCount || 0) > 0) return true;
+    
+    // Active reminders that haven't been handled
+    if ((c.chatType === 'reminder' || c.reminderActive) && 
+        (c.unreadCount || 0) === 0 && 
+        c.reminderHandled !== true) return true;
+    
+    return false;
+  });
+  const totalActionableCount = actionableChats.length;
 
   // Extract reminder chats for separate alert table (always from original chats order before sorting modifications for display clarity)
   const reminderChats = Array.isArray(chats) ? chats.filter(chat => {
     const unread = chat.unreadCount || 0;
-    return (chat.chatType === 'reminder' || chat.reminderActive) && unread === 0 && !chat.isInPanicRoom;
+    return (chat.chatType === 'reminder' || chat.reminderActive) && 
+           unread === 0 && 
+           !chat.isInPanicRoom && 
+           chat.reminderHandled !== true;
   }).sort((a,b) => (b.hoursSinceLastCustomer || 0) - (a.hoursSinceLastCustomer || 0)) : [];
 
   return (
@@ -489,7 +528,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
-              All ({baseChats.length})
+              All ({totalActionableCount})
             </button>
             <button 
               onClick={() => setFilterType('panic')}
@@ -629,7 +668,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
               let rowStyling = 'border-l-4 hover:bg-gray-700/30 transition-colors';
               if (chat.chatType === 'panic' || chat.isInPanicRoom) {
                 rowStyling += ' border-red-400 bg-gradient-to-r from-red-900/30 to-red-800/20';
-              } else if ((chat.chatType === 'reminder' || chat.reminderActive) && (chat.unreadCount || 0) === 0) {
+              } else if ((chat.chatType === 'reminder' || chat.reminderActive) && (chat.unreadCount || 0) === 0 && chat.reminderHandled !== true) {
                 rowStyling += ' border-red-500 bg-gradient-to-r from-red-900/25 via-red-800/20 to-red-700/15 animate-pulse';
               } else {
                 rowStyling += ' border-cyan-400 bg-gradient-to-r from-cyan-900/25 to-blue-800/15';
@@ -660,7 +699,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                               🚨 PANIC ROOM
                             </span>
                           )}
-                          {(chat.chatType === 'reminder' || chat.reminderActive) && (chat.unreadCount || 0) === 0 && !chat.isInPanicRoom && (
+                          {(chat.chatType === 'reminder' || chat.reminderActive) && (chat.unreadCount || 0) === 0 && !chat.isInPanicRoom && chat.reminderHandled !== true && (
                             <span className="bg-gradient-to-r from-red-600 via-rose-600 to-red-500 text-white text-xs px-2 py-1 rounded-full shadow shadow-red-600/40 flex items-center gap-1">
                               ⏰ REMINDER
                               {typeof chat.hoursSinceLastCustomer === 'number' && (
@@ -689,7 +728,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                             )}
                           </div>
                         )}
-                        {(chat.chatType === 'reminder' || chat.reminderActive) && unreadCount === 0 && !chat.isInPanicRoom && (
+                        {(chat.chatType === 'reminder' || chat.reminderActive) && unreadCount === 0 && !chat.isInPanicRoom && chat.reminderHandled !== true && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-xs text-red-300">Waiting customer reply</span>
                           </div>
@@ -788,11 +827,11 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onOpenChat, navigate, onC
                       >
                         <FaExclamationTriangle className="w-4 h-4" />
                       </button>
-                      {/* Delete last agent message */}
+                      {/* Remove from dashboard table */}
                       <button
-                        onClick={() => handleDeleteLastAgentMessage(chat)}
-                        className="p-2 bg-gray-600 rounded-lg hover:bg-gray-500 text-white text-xs md:text-sm"
-                        title="Delete My Last Message"
+                        onClick={() => onRemoveFromTable(chat)}
+                        className="p-2 bg-red-600 rounded-lg hover:bg-red-700 text-white text-xs md:text-sm"
+                        title="Remove from Dashboard"
                       >
                         <FaTrash className="w-4 h-4" />
                       </button>
@@ -850,7 +889,6 @@ const AgentDashboard = () => {
   const [suppressedChatIds, setSuppressedChatIds] = useState(new Set());
   
   const socketRef = useRef(null);
-
   // Initialize websocket connection
   useEffect(() => {
     // Fetch agent profile data
@@ -884,7 +922,6 @@ const AgentDashboard = () => {
       
       if (data.type === 'new_chat_created') {
         // Handle new chat creation - refresh the entire dashboard
-        console.log('New chat created, refreshing dashboard:', data);
         if (window.fetchLiveQueueData) {
           window.fetchLiveQueueData();
         }
@@ -953,10 +990,13 @@ const AgentDashboard = () => {
                 },
                 ...(data.sender === 'customer' && {
                   lastCustomerResponse: data.timestamp,
-                  reminderActive: false
+                  reminderActive: false,
+                  reminderHandled: false // Reset when customer replies
                 }),
                 ...(data.sender === 'agent' && {
-                  lastAgentResponse: data.timestamp
+                  lastAgentResponse: data.timestamp,
+                  reminderHandled: true, // Mark as handled when agent replies
+                  reminderActive: false  // Also clear reminderActive
                 }),
                 chatType: newChatType
               };
@@ -1011,10 +1051,16 @@ const AgentDashboard = () => {
           });
         }
 
-        // Refresh only for customer messages; agent messages already optimistically removed
-        if (data.sender === 'customer') {
-          if (window.fetchLiveQueueData) {
+        // Refresh live queue data to update counts and filters
+        if (window.fetchLiveQueueData) {
+          if (data.sender === 'customer') {
             setTimeout(() => window.fetchLiveQueueData(), 200);
+          } else if (data.sender === 'agent') {
+            // Clear specific cache entries and refresh immediately when agent replies
+            const cacheService = window.agentCacheService || { delete: () => {} };
+            cacheService.delete?.('live_queue');
+            cacheService.delete?.('dashboard_stats');
+            setTimeout(() => window.fetchLiveQueueData(), 50);
           }
         }
       }
@@ -1201,6 +1247,7 @@ const AgentDashboard = () => {
       try {
         // Use existing agentAuth helper so we get chatType, reminderActive, etc.
         const liveQueue = await agentAuth.getLiveQueue();
+        
         const normalized = Array.isArray(liveQueue) ? liveQueue.map(c => ({
           ...c,
           // Guarantee presence of fields used by UI
@@ -1307,6 +1354,19 @@ const AgentDashboard = () => {
     }
   };
 
+  // Remove chat from dashboard table (hide from view)
+  const handleRemoveChatFromTable = (chat) => {
+    const confirmRemove = window.confirm('Remove this chat from the dashboard table?');
+    if (!confirmRemove) return;
+    
+    // Add chat ID to suppressed list to hide it from view
+    setSuppressedChatIds(prev => {
+      const next = new Set(prev);
+      next.add(chat._id);
+      return next;
+    });
+  };
+
   const handleOpenChat = (chatId) => {
     navigate(`/agent/chat/${chatId}`);
   };
@@ -1348,6 +1408,12 @@ const AgentDashboard = () => {
 
   const refreshDashboard = async () => {
     try {
+      // Clear any potential caches
+      const cacheService = window.agentCacheService || { clear: () => {} };
+      if (typeof cacheService.clear === 'function') {
+        cacheService.clear();
+      }
+      
       // Add a small delay to ensure database operations are completed
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -1369,10 +1435,6 @@ const AgentDashboard = () => {
       // Update chats
       setChats(liveQueue);
       setMyEscorts(escortData);
-
-      console.log('Dashboard refreshed with new data:', { 
-        chatsCount: liveQueue.length
-      });
 
       // Update panic room count
       await updatePanicRoomCount();
@@ -1502,6 +1564,7 @@ const AgentDashboard = () => {
       chats={visibleChats}
             onAssign={handleAssignChat}
             onPushBack={handlePushBack}
+            onRemoveFromTable={handleRemoveChatFromTable}
             onOpenChat={handleOpenChat}
             onCreateFirstContact={handleCreateFirstContact}
             navigate={navigate}
