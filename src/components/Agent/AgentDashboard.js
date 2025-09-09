@@ -1625,6 +1625,10 @@ const AgentDashboard = () => {
           </div>
         )}
 
+        {activeTab === 'panic room' && (
+          <PanicRoomTab onChatSelect={handleOpenChat} />
+        )}
+
         </div>
       </div>
 
