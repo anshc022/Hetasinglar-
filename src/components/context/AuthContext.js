@@ -42,12 +42,21 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('isLoggedIn');
   };
 
+  const setAuthData = (userData, authToken) => {
+    setUser(userData);
+    setToken(authToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', authToken);
+    localStorage.setItem('isLoggedIn', 'true');
+  };
+
   const value = {
     user,
     token,
     loading,
     login,
-    logout
+    logout,
+    setAuthData
   };
 
   return (

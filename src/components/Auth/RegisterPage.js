@@ -34,7 +34,7 @@ const FemaleIcon = () => (
 );
 
 const RegisterPage = () => {
-  const { login } = useAuth();
+  const { login, setAuthData } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -118,10 +118,8 @@ const RegisterPage = () => {
       const response = await auth.verifyOtp({ userId, otp });
       
       if (response.user && response.token) {
-        // Store the token and user info
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        localStorage.setItem('isLoggedIn', 'true');
+        // Update AuthContext and localStorage
+        setAuthData(response.user, response.token);
         
         setShowSuccess(true);
         
