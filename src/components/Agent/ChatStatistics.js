@@ -22,19 +22,29 @@ const ChatStatistics = ({ agentId }) => {
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState('chats');
+  // Filters
+  const [dateRange, setDateRange] = useState('last7days');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  const buildParams = () => {
+    const params = {};
+    if (agentId) params.agentId = agentId;
+    if (dateRange === 'custom') {
+      if (customStartDate) params.startDate = customStartDate;
+      if (customEndDate) params.endDate = customEndDate;
+    } else {
+      params.dateRange = dateRange;
+    }
+    return params;
+  };
 
   const fetchStatistics = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const params = {};
-      
-      // Use the passed agentId if available
-      if (agentId) {
-        params.agentId = agentId;
-      }
-
+      const params = buildParams();
       const response = await agentAuth.getChatStatistics(params);
       
       // The response has a summary property with the actual statistics
@@ -42,6 +52,7 @@ const ChatStatistics = ({ agentId }) => {
       const statsData = {
         ...response.summary,
         chatDetails: response.chatDetails,
+        earnings: response.earnings || [],
         period: response.period
       };
       
@@ -59,13 +70,7 @@ const ChatStatistics = ({ agentId }) => {
       setExporting(true);
       setError('');
 
-      const params = {};
-      
-      // Use the passed agentId if available
-      if (agentId) {
-        params.agentId = agentId;
-      }
-
+      const params = buildParams();
       const response = await agentAuth.exportChatStatistics(params);
 
       // Get the filename from the response headers
@@ -118,6 +123,7 @@ const ChatStatistics = ({ agentId }) => {
 
   useEffect(() => {
     fetchStatistics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -144,31 +150,91 @@ const ChatStatistics = ({ agentId }) => {
             <p className="text-gray-400 mt-1">Monitor your chat performance and analytics</p>
             {statistics?.period && (
               <p className="text-sm text-blue-400 mt-1">
-                Period: {statistics.period.start} - {statistics.period.end}
+                Period: {format(new Date(statistics.period.startDate), 'PP')} - {format(new Date(statistics.period.endDate), 'PP')}
               </p>
             )}
           </div>
           
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchStatistics}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
-            >
-              <FaSync className={`${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <button
-              onClick={handleExportCSV}
-              disabled={exporting || !statistics}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              <FaDownload />
-              {exporting ? 'Exporting...' : 'Export CSV'}
-            </button>
+          {/* Controls: Date Range Picker + Actions */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="bg-gray-700 text-white px-3 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Date Range"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last7days">Last 7 Days</option>
+                <option value="last30days">Last 30 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="lastMonth">Last Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
+              {dateRange === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-gray-700 text-white px-3 py-2 rounded-md border border-gray-600 focus:outline-none"
+                  />
+                  <span className="text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-gray-700 text-white px-3 py-2 rounded-md border border-gray-600 focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchStatistics}
+                disabled={loading || (dateRange === 'custom' && (!customStartDate || !customEndDate))}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                <FaSync className={`${loading ? 'animate-spin' : ''}`} />
+                Apply
+              </button>
+              <button
+                onClick={handleExportCSV}
+                disabled={exporting || !statistics}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <FaDownload />
+                {exporting ? 'Exporting...' : 'Export CSV'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Summary Cards */}
+      {statistics && (
+        <div className="px-6 py-4 border-b border-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+              <div className="text-gray-400 text-xs uppercase">Messages Sent</div>
+              <div className="text-2xl font-bold text-white">{statistics.totalMessagesSent ?? 0}</div>
+            </div>
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+              <div className="text-gray-400 text-xs uppercase">Messages Received</div>
+              <div className="text-2xl font-bold text-white">{statistics.totalMessagesReceived ?? 0}</div>
+            </div>
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+              <div className="text-gray-400 text-xs uppercase">Average Chat Time</div>
+              <div className="text-2xl font-bold text-white">{formatDuration(statistics.averageChatTime || 0)}</div>
+            </div>
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
+              <div className="text-gray-400 text-xs uppercase">Earnings per Chat</div>
+              <div className="text-2xl font-bold text-green-400">{formatCurrency(statistics.averageEarningsPerChat || 0)}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {error && (
