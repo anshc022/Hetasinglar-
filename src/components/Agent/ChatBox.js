@@ -3,7 +3,6 @@ import agentApi, { agentAuth } from '../../services/agentApi';
 import websocketService from '../../services/websocket';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { format, differenceInHours } from 'date-fns';
-import GeneralNoteBox from './GeneralNoteBox';
 import StickyGeneralNotes from './StickyGeneralNotes';
 import MessageComposer from './MessageComposer';
 import PushBackDialog from './PushBackDialog';
@@ -365,6 +364,29 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const [mobileSidebarType, setMobileSidebarType] = useState(''); // 'chats', 'user', 'escort'
   // State for the current agent
   const [currentAgent, setCurrentAgent] = useState(null);
+  
+  // Function to get agent color based on agent name
+  const getAgentColor = (agentName) => {
+    if (!agentName) return 'bg-red-500 text-white';
+    
+    const colors = [
+      'bg-red-500 text-white',
+      'bg-blue-500 text-white', 
+      'bg-green-500 text-white',
+      'bg-purple-500 text-white',
+      'bg-orange-500 text-white',
+      'bg-pink-500 text-white'
+    ];
+    
+    // Simple hash function to assign consistent colors
+    let hash = 0;
+    for (let i = 0; i < agentName.length; i++) {
+      hash = agentName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+  
   // New state for the additional components
   const [showPushBackDialog, setShowPushBackDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -734,7 +756,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           const chatToSelect = normalized.find(c => c._id === chatId);
           if (chatToSelect) {
             await handleChatSelection(chatToSelect);
-            setTimeout(() => scrollToBottom(), 100); // Slight delay to ensure messages are rendered
+            // Removed auto-scroll to bottom since messages are now newest-first
           } else {
             // Try to fetch the specific chat directly
             try {
@@ -748,7 +770,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 }
                 setChats(updatedChats);
                 await handleChatSelection(specificChat);
-                setTimeout(() => scrollToBottom(), 100);
+                // Removed auto-scroll to bottom since messages are now newest-first
               } else {
                 throw new Error('Chat not found');
               }
@@ -764,7 +786,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 if (refreshedChat) {
                   setChats(normalizedRefetch);
                   await handleChatSelection(refreshedChat);
-                  setTimeout(() => scrollToBottom(), 100);
+                  // Removed auto-scroll to bottom since messages are now newest-first
                 } else {
                   setError('Chat not available. It may have been closed, reassigned to another agent, or you may not have permission to access it.');
                 }
@@ -792,7 +814,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               const found = normalizedGlobal.find(c => c._id === chatIdParam);
               if (found) {
                 await handleChatSelection(found);
-                setTimeout(() => scrollToBottom(), 100);
+                // Removed auto-scroll to bottom since messages are now newest-first
                 setError(null);
                 showNotification('Showing global live queue (escort not linked to your account).', 'info');
               } else {
@@ -803,7 +825,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                     const updated = [specificChat, ...normalizedGlobal.filter(c => c._id !== chatIdParam)];
                     setChats(updated);
                     await handleChatSelection(specificChat);
-                    setTimeout(() => scrollToBottom(), 100);
+                    // Removed auto-scroll to bottom since messages are now newest-first
                     setError(null);
                     showNotification('Showing global live queue (escort not linked to your account).', 'info');
                   } else {
@@ -1323,13 +1345,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   };
 
   // Add a general note to the chat
-  const handleAddGeneralNote = async () => {
-    if (!generalNote.trim() || !selectedChat) return;
+  const handleAddGeneralNote = async (textParam) => {
+    const text = typeof textParam === 'string' ? textParam : generalNote;
+    if (!text?.trim() || !selectedChat) return;
     
     try {
       // Create a new note object for local state with special tag for general notes
       const noteObj = {
-        text: `[General] ${generalNote.trim()}`,
+        text: `[General] ${text.trim()}`,
         timestamp: new Date(),
         agentName: currentAgent?.name || 'You', // Will be replaced by the server with actual agent name
         isGeneral: true
@@ -1973,9 +1996,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   };
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-1 h-screen bg-gray-900 overflow-hidden" style={{padding: '0.25rem'}}>
-      {/* Chat List and Escort Profile */}
-      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-2 min-h-screen bg-gray-900 p-1">
+  {/* Chat List and Escort Profile */}
+  <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-700">
         <div className="p-3">
           <div className="flex items-center justify-between mb-3">
             <button
@@ -2106,132 +2129,112 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         </div>
       </div>
 
-      {/* Active Chat */}
-  <div className="flex-1 lg:col-span-6 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg flex flex-col h-full min-h-0 max-h-[calc(100vh-1rem)] border border-gray-700">
-        {error && (
-          <div className="p-4 bg-red-500/20 text-red-100 text-sm border-b border-red-500/30">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="font-medium mb-1">Chat Not Available</div>
-                <div className="text-xs opacity-90">{error}</div>
-              </div>
-              <div className="flex gap-2 ml-4">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
-                  title="Refresh page"
-                >
-                  Refresh
-                </button>
-                <button
-                  onClick={() => navigate('/agent/dashboard')}
-                  className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded transition-colors"
-                  title="Return to dashboard"
-                >
-                  Dashboard
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Mobile Header - Show on mobile/tablet */}
-        <div className="lg:hidden p-3 sm:p-4 border-b border-gray-700 bg-gray-800/50">
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={() => navigate('/agent/dashboard')}
-              className="p-2 text-white hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
-            <h2 className="text-lg font-semibold text-white">Chat Box</h2>
-            <div className="w-10"></div> {/* Spacer for centering */}
-          </div>
-          
-          {selectedChat && (
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
-                {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-white font-medium truncate text-sm">
-                    {selectedChat.customerId?.username || selectedChat.customerName}
-                  </h3>
-                  {selectedChat.isInPanicRoom && (
-                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
-                      </svg>
-                      PANIC
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className={selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}>
-                    {selectedChat.isUserActive ? 'Online' : 'Offline'}
-                  </span>
-                  {selectedChat.customerId?.coins?.balance !== undefined && (
-                    <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                      </svg>
-                      {selectedChat.customerId.coins.balance}
-                    </span>
-                  )}
-                  {(() => {
-                    const { inCount, outCount } = getMessageCounts();
-                    return (
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-400">In: {inCount}</span>
-                        <span className="text-blue-400">Out: {outCount}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Mobile Actions */}
-          {selectedChat && (
-            <div className="mt-2 sm:mt-3 flex gap-1 sm:gap-2 flex-wrap justify-center">
-              <ChatActions
-                onQuit={handleQuitChat}
-                onToggleNotes={handleToggleNotes}
-                onToggleGeneralNotes={() => setShowGeneralNotes(!showGeneralNotes)}
-                showGeneralNotes={showGeneralNotes}
-                onPushBack={handlePushBackDialog}
-                onFirstContact={handleFirstContactMessage}
-                onUnassign={handleUnassignChat}
-                onMoveToPanicRoom={handleMoveToPanicRoom}
-                onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
-                onTogglePanicNotes={handleTogglePanicRoomNotes}
-                onWatchLiveQueue={handleWatchLiveQueue}
-                customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
-                escortName={escortProfile?.firstName || 'Escort'}
-                isInPanicRoom={selectedChat.isInPanicRoom || false}
-                isViewMode={isViewMode}
-                isMobile={true}
-              />
-            </div>
-          )}
-        </div>
+      {/* Middle Column: Header + Notes + Chat stacked */}
+      <div className="lg:col-span-6 lg:col-start-4 flex flex-col">
         {selectedChat ? (
           <>
-            {/* Desktop Header - Hidden on mobile */}
-            <div className="hidden lg:block p-3 border-b border-gray-700 bg-gray-800/50 sticky top-0 z-10">
-              <div className="flex justify-between items-center">
+            {/* Chat Header with user info and controls - at the very top */}
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-t-xl shadow-lg border border-gray-700 border-b-0">
+              <div className="hidden lg:block p-2 bg-gray-800/50">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                      {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-medium text-white flex items-center gap-2">
+                        {selectedChat.customerId?.username || selectedChat.customerName}
+                        {selectedChat.isInPanicRoom && (
+                          <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
+                            </svg>
+                            PANIC
+                          </span>
+                        )}
+                      </h2>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`${selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}`}>
+                          {selectedChat.isUserActive ? 'Online' : 'Offline'}
+                        </span>
+                        {selectedChat.customerId?.coins?.balance !== undefined && (
+                          <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                            </svg>
+                            {selectedChat.customerId.coins.balance}
+                          </span>
+                        )}
+                        {(() => {
+                          const { inCount, outCount } = getMessageCounts();
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-400">In: {inCount}</span>
+                              <span className="text-blue-400">Out: {outCount}</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <ChatActions
+                    onQuit={handleQuitChat}
+                    onToggleNotes={handleToggleNotes}
+                    onToggleGeneralNotes={() => setShowGeneralNotes(!showGeneralNotes)}
+                    showGeneralNotes={showGeneralNotes}
+                    onPushBack={handlePushBackDialog}
+                    onFirstContact={handleFirstContactMessage}
+                    onUnassign={handleUnassignChat}
+                    onMoveToPanicRoom={handleMoveToPanicRoom}
+                    onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
+                    onTogglePanicNotes={handleTogglePanicRoomNotes}
+                    onWatchLiveQueue={handleWatchLiveQueue}
+                    customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
+                    escortName={escortProfile?.firstName || 'Escort'}
+                    isInPanicRoom={selectedChat.isInPanicRoom || false}
+                    isViewMode={isViewMode}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* General Notes (middle section) */}
+            <div className="border-x border-gray-700 bg-gray-800/20">
+              <StickyGeneralNotes
+                notes={notes}
+                isVisible={showGeneralNotes}
+                setIsVisible={setShowGeneralNotes}
+                onDeleteNote={handleDeleteChatNote}
+                onAddNote={handleAddGeneralNote}
+              />
+            </div>
+
+            {/* Mobile Header + Actions - Show only on mobile/tablet */}
+            <div className="lg:hidden bg-gray-800/50 backdrop-blur-sm border border-gray-700 border-t-0">
+              {/* Mobile Header */}
+              <div className="p-3 sm:p-4 border-b border-gray-700 bg-gray-800/50">
+                <div className="flex items-center justify-between mb-3">
+                  <button
+                    onClick={() => navigate('/agent/dashboard')}
+                    className="p-2 text-white hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                  </button>
+                  <h2 className="text-lg font-semibold text-white">Chat Box</h2>
+                  <div className="w-10"></div>
+                </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
                     {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
                   </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-white flex items-center gap-2">
-                      {selectedChat.customerId?.username || selectedChat.customerName}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-medium truncate text-sm">
+                        {selectedChat.customerId?.username || selectedChat.customerName}
+                      </h3>
                       {selectedChat.isInPanicRoom && (
                         <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1">
                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2240,9 +2243,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                           PANIC
                         </span>
                       )}
-                    </h2>
+                    </div>
                     <div className="flex items-center gap-2 text-xs">
-                      <span className={`${selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}`}>
+                      <span className={selectedChat.isUserActive ? 'text-green-400' : 'text-gray-400'}>
                         {selectedChat.isUserActive ? 'Online' : 'Offline'}
                       </span>
                       {selectedChat.customerId?.coins?.balance !== undefined && (
@@ -2254,7 +2257,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                           {selectedChat.customerId.coins.balance}
                         </span>
                       )}
-                      {/* In/Out Message Counter */}
                       {(() => {
                         const { inCount, outCount } = getMessageCounts();
                         return (
@@ -2267,53 +2269,39 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                     </div>
                   </div>
                 </div>
-                <ChatActions
-                  onQuit={handleQuitChat}
-                  onToggleNotes={handleToggleNotes}
-                  onToggleGeneralNotes={() => setShowGeneralNotes(!showGeneralNotes)}
-                  showGeneralNotes={showGeneralNotes}
-                  onPushBack={handlePushBackDialog}
-                  onFirstContact={handleFirstContactMessage}
-                  onUnassign={handleUnassignChat}
-                  onMoveToPanicRoom={handleMoveToPanicRoom}
-                  onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
-                  onTogglePanicNotes={handleTogglePanicRoomNotes}
-                  onWatchLiveQueue={handleWatchLiveQueue}
-                  customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
-                  escortName={escortProfile?.firstName || 'Escort'}
-                  isInPanicRoom={selectedChat.isInPanicRoom || false}
-                  isViewMode={isViewMode}
-                />
+                
+                {/* Mobile Actions - Inside the mobile header */}
+                <div className="mt-3 flex gap-1 sm:gap-2 flex-wrap justify-center">
+                  <ChatActions
+                    onQuit={handleQuitChat}
+                    onToggleNotes={handleToggleNotes}
+                    onToggleGeneralNotes={() => setShowGeneralNotes(!showGeneralNotes)}
+                    showGeneralNotes={showGeneralNotes}
+                    onPushBack={handlePushBackDialog}
+                    onFirstContact={handleFirstContactMessage}
+                    onUnassign={handleUnassignChat}
+                    onMoveToPanicRoom={handleMoveToPanicRoom}
+                    onRemoveFromPanicRoom={handleRemoveFromPanicRoom}
+                    onTogglePanicNotes={handleTogglePanicRoomNotes}
+                    onWatchLiveQueue={handleWatchLiveQueue}
+                    customerName={selectedChat.customerId?.username || selectedChat.customerName || 'Customer'}
+                    escortName={escortProfile?.firstName || 'Escort'}
+                    isInPanicRoom={selectedChat.isInPanicRoom || false}
+                    isViewMode={isViewMode}
+                    isMobile={true}
+                  />
+                </div>
               </div>
             </div>
-            {/* Top Notes Section (scrollable within itself) */}
+
+            {/* Composer at top of chat box */}
             <div className="p-2 border-b border-gray-700 bg-gray-800/30">
-              <StickyGeneralNotes 
-                notes={notes} 
-                isVisible={showGeneralNotes} 
-                setIsVisible={setShowGeneralNotes} 
-                onDeleteNote={handleDeleteChatNote}
-              />
+              <MessageComposer key={`composer-${selectedChat?._id}`} {...messageComposerProps} />
             </div>
 
-            {/* Middle Composer Section */}
-            <div className="p-2 border-b border-gray-700 bg-gray-800/30 space-y-2">
-              {/* Add general note box above the message composer */}
-              <GeneralNoteBox
-                value={generalNote}
-                onChange={(e) => setGeneralNote(e.target.value)}
-                onAddNote={handleAddGeneralNote}
-              />
-              {/* Message Composer - Single instance only */}
-              <MessageComposer
-                key={`composer-${selectedChat?._id}`}
-                {...messageComposerProps}
-              />
-            </div>
-
-            {/* Messages Section (scrollable) */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-              {/* Panic Room Information Box */}
+            {/* Messages Section (scrolls inside chat box with fixed height) */}
+            <div className="h-[55vh] md:h-[60vh] overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+              <div ref={messagesEndRef} />
               {selectedChat.isInPanicRoom && (
                 <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between">
@@ -2364,180 +2352,149 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               )}
 
-              {/* Display regular messages */}
-              {(selectedChat?.messages || []).map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${
-                    msg.sender === 'agent' ? 'justify-end' : 'justify-start'
-                  }`}
-                  style={{ overflow: 'visible', position: 'relative' }}
-                >
-                  {msg.sender !== 'agent' && (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-sm mr-2 self-end">
-                      {(msg.senderName?.[0] || 'U').toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex flex-col max-w-[85%] sm:max-w-[70%] relative overflow-visible">
-                    <div
-                      className={`px-4 py-2 rounded-xl relative group overflow-visible ${
-                        msg.sender === 'agent'
-                          ? 'bg-blue-600 text-white ml-2 hover:bg-blue-700'
-                          : 'bg-gray-700 text-gray-100 hover:bg-gray-600'
-                      } ${msg.isDeleted ? 'opacity-50 bg-gray-600' : ''}`}
-                      style={{ wordBreak: 'break-word' }}
-                    >
-                      {/* Inline controls are shown on hover in the meta row below */}
-
-                      {/* Message content - show edit input or regular message */}
-                      {editingMessage === idx ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editMessageText}
-                            onChange={(e) => setEditMessageText(e.target.value)}
-                            className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
-                            rows="3"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleSaveEditMessage}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={handleCancelEditMessage}
-                              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
+              {([...(selectedChat?.messages || [])].reverse()).map((msg, idx) => {
+                const origIndex = (selectedChat?.messages?.length || 0) - 1 - idx;
+                return (
+                  <div key={msg._id || origIndex} className="mb-3">
+                    {/* Sender Label */}
+                    <div className={`text-xs font-medium mb-1 px-1 ${
+                      msg.sender === 'agent' ? 'text-right' : 'text-left text-yellow-400'
+                    }`}>
+                      {msg.sender === 'agent' ? (
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getAgentColor(currentAgent?.name || 'Agent')}`}>
+                          {currentAgent?.name || 'Agent'}
+                        </span>
                       ) : (
-                        <>
-                          {/* Display image preview for image messages */}
-                          {msg.messageType === 'image' && (msg.imageData || msg.filename) ? (
-                            <div className="space-y-2">
-                              <div className="relative">
-                                <img
-                                  src={msg.imageData || `/uploads/chat/${msg.filename}`}
-                                  alt={msg.filename || 'Sent image'}
-                                  className="max-w-full max-h-32 sm:max-h-48 md:max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-600"
-                                  onClick={() => {
-                                    const newWindow = window.open();
-                                    newWindow.document.write(`
-                                      <html>
-                                        <head><title>${msg.filename || 'Image'}</title></head>
-                                        <body style=\"margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;\">
-                                          <img src=\"${msg.imageData || `/uploads/chat/${msg.filename}`}\" style=\"max-width:100%;max-height:100%;object-fit:contain;\" alt=\"${msg.filename || 'Image'}\" />
-                                        </body>
-                                      </html>
-                                    `);
-                                  }}
-                                  title="Click to view full size"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                                {/* Error fallback */}
-                                <div className="hidden items-center justify-center h-32 bg-gray-600 rounded-lg border border-gray-500">
-                                  <div className="text-center text-gray-400">
-                                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
-                                    </svg>
-                                    <p className="text-xs">Image failed to load</p>
+                        msg.senderName || selectedChat?.customerId?.username || 'User'
+                      )}
+                    </div>
+                    
+                    {/* Message Bubble */}
+                    <div
+                      className={`flex ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}
+                      style={{ overflow: 'visible', position: 'relative' }}
+                    >
+                      <div className="flex flex-col max-w-[85%] sm:max-w-[70%] relative overflow-visible">
+                        <div
+                          className={`px-4 py-3 rounded-lg relative group overflow-visible border-2 ${
+                            msg.sender === 'agent'
+                              ? 'border-red-400 bg-transparent text-white'
+                              : 'border-yellow-400 bg-transparent text-white'
+                          } ${msg.isDeleted ? 'opacity-50' : ''}`}
+                          style={{ wordBreak: 'break-word' }}
+                        >
+                        {editingMessage === origIndex ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editMessageText}
+                              onChange={(e) => setEditMessageText(e.target.value)}
+                              className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
+                              rows="3"
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={handleSaveEditMessage} className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors">Save</button>
+                              <button onClick={handleCancelEditMessage} className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {msg.messageType === 'image' && (msg.imageData || msg.filename) ? (
+                              <div className="space-y-2">
+                                <div className="relative">
+                                  <img
+                                    src={msg.imageData || `/uploads/chat/${msg.filename}`}
+                                    alt={msg.filename || 'Sent image'}
+                                    className="max-w-full max-h-32 sm:max-h-48 md:max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-600"
+                                    onClick={() => {
+                                      const newWindow = window.open();
+                                      newWindow.document.write(`
+                                        <html>
+                                          <head><title>${msg.filename || 'Image'}</title></head>
+                                          <body style=\"margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;\">
+                                            <img src=\"${msg.imageData || `/uploads/chat/${msg.filename}`}\" style=\"max-width:100%;max-height:100%;object-fit:contain;\" alt=\"${msg.filename || 'Image'}\" />
+                                          </body>
+                                        </html>
+                                      `);
+                                    }}
+                                    title="Click to view full size"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                  <div className="hidden items-center justify-center h-32 bg-gray-600 rounded-lg border border-gray-500">
+                                    <div className="text-center text-gray-400">
+                                      <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
+                                      </svg>
+                                      <p className="text-xs">Image failed to load</p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : msg.message?.startsWith('[Image:') && msg.message?.endsWith(']') ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-3 p-3 bg-gray-600/50 rounded-lg border border-gray-500">
-                                <svg className="w-10 h-10 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <div>
-                                  <p className="text-sm font-medium text-blue-300">Image sent</p>
-                                  <p className="text-xs opacity-75">{msg.message.replace(/^\[Image:\s*/, '').replace(/\]$/, '')}</p>
+                            ) : msg.message?.startsWith('[Image:') && msg.message?.endsWith(']') ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-3 p-3 bg-gray-600/50 rounded-lg border border-gray-500">
+                                  <svg className="w-10 h-10 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  <div>
+                                    <p className="text-sm font-medium text-blue-300">Image sent</p>
+                                    <p className="text-xs opacity-75">{msg.message.replace(/^\[Image:\s*/, '').replace(/\]$/, '')}</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : (
-                            <p className="whitespace-pre-wrap">{msg.message}</p>
-                          )}
-                          <div className={`flex items-center mt-1 opacity-75 text-xs ${msg.sender === 'agent' ? 'justify-end' : 'justify-between'}`}>
-                            <div className={`flex items-center gap-1 ${msg.sender === 'agent' ? 'order-2 ml-2' : ''}`}>
-                              <span>{msg.sender === 'agent' ? 'You' : msg.senderName}</span>
-                              {msg.isEdited && (
-                                <span className="text-xs text-gray-400 italic">(edited)</span>
-                              )}
-                            </div>
-                            <div className={`flex items-center ${msg.sender === 'agent' ? 'order-1' : ''}`}>
-                              {/* Remove edit icon for image messages */}
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.message}</p>
+                            )}
+                            
+                            {/* Time stamp at bottom right */}
+                            <div className={`flex justify-end mt-2`}>
+                              <span className="text-xs opacity-75">{formatDate(msg.timestamp)}</span>
                               {!msg.isDeleted && msg.sender === 'agent' && msg.messageType !== 'image' && (
-                                <div className="flex mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => handleStartEditMessage(idx, msg.message)}
-                                    className="p-1 text-gray-200 hover:text-white transition-colors"
-                                    title="Edit your message"
-                                  >
+                                <div className="flex ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => handleStartEditMessage(origIndex, msg.message)} className="p-1 text-gray-200 hover:text-white transition-colors" title="Edit your message">
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
                                   </button>
-                                  <button
-                                    onClick={() => handleDeleteMessage(idx)}
-                                    className="p-1 ml-1 text-gray-200 hover:text-white transition-colors"
-                                    title="Delete your message"
-                                  >
+                                  <button onClick={() => handleDeleteMessage(origIndex)} className="p-1 ml-1 text-gray-200 hover:text-white transition-colors" title="Delete your message">
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
                                   </button>
                                 </div>
                               )}
-                              <span>{formatDate(msg.timestamp)}</span>
                             </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                      {/* Message note display */}
-                    {msg.note && (
-                      <div className="px-3 py-1 mt-1 bg-yellow-500/20 text-yellow-300 rounded-lg text-xs">
-                        <div className="flex justify-between">
-                          <span className="font-medium">Note: {msg.note.text}</span>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs opacity-75">
-                              {new Date(msg.note.timestamp).toLocaleTimeString()}
-                            </span>
-                            <button
-                              onClick={() => handleDeleteMessageNote(idx)}
-                              className="text-red-400 hover:text-red-300 ml-1"
-                              title="Delete note"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            </button>
-                          </div>
+                          </>
+                        )}
+                        </div>
+                        
+                        {msg.note && (
+                          <div className="px-3 py-1 mt-1 bg-yellow-500/20 text-yellow-300 rounded-lg text-xs">
+                            <div className="flex justify-between">
+                              <span className="font-medium">Note: {msg.note.text}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs opacity-75">{new Date(msg.note.timestamp).toLocaleTimeString()}</span>
+                                <button onClick={() => handleDeleteMessageNote(origIndex)} className="text-red-400 hover:text-red-300 ml-1" title="Delete note">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {msg.sender === 'customer' && !msg.note && (
+                            <MessageReminderBadge message={msg} onAddQuickNote={(text) => handleAddMessageNote(origIndex, text)} />
+                          )}
                         </div>
                       </div>
-                    )}
-                    
-                    {/* Only show add note option for customer messages */}
-                    {msg.sender === 'customer' && !msg.note && (
-                      <MessageReminderBadge 
-                        message={msg}
-                        onAddQuickNote={(text) => handleAddMessageNote(idx, text)}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+                    </div>
+                  );
+                })}
             </div>
           </>
         ) : (
@@ -2549,9 +2506,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           </div>
         )}
       </div>
-
-      {/* User Details Panel */}
-      <div className="hidden lg:block lg:col-span-3 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg overflow-y-auto border border-gray-700 h-[calc(100vh-1rem)]">
+  {/* User Details Panel */}
+  <div className="hidden lg:block lg:col-span-3 lg:col-start-10 bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-700">
         {selectedChat ? (
           <div className="p-3">
             {/* User Profile Image - Compact */}
