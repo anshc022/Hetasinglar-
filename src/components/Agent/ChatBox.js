@@ -26,6 +26,75 @@ const ReminderBadge = ({ dueDate }) => {
   );
 };
 
+const CoinAlert = ({ coinBalance, isVisible = true, className = "" }) => {
+  if (!isVisible || coinBalance === undefined || coinBalance === null || coinBalance === 'N/A') {
+    return null;
+  }
+
+  const coinsLeft = parseInt(coinBalance) || 0;
+  let alertType = null;
+  let alertMessage = "";
+  let alertColor = "";
+  let icon = null;
+
+  // Determine alert type based on coin balance
+  if (coinsLeft === 0) {
+    alertType = "no-coins";
+    alertMessage = "⚠️ User has NO COINS! Cannot send messages.";
+    alertColor = "bg-red-600 border-red-500 text-white";
+    icon = (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+    );
+  } else if (coinsLeft <= 5) {
+    alertType = "low-coins";
+    alertMessage = `⚠️ Low coins: Only ${coinsLeft} left. User may run out soon!`;
+    alertColor = "bg-orange-600 border-orange-500 text-white";
+    icon = (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+    );
+  } else if (coinsLeft <= 10) {
+    alertType = "medium-coins";
+    alertMessage = `💰 Moderate coins: ${coinsLeft} remaining.`;
+    alertColor = "bg-yellow-600 border-yellow-500 text-white";
+    icon = (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+      </svg>
+    );
+  }
+
+  if (!alertType) return null;
+
+  return (
+    <div className={`${alertColor} border-2 rounded-lg p-3 mb-4 flex items-center gap-3 ${className}`}>
+      <div className="flex-shrink-0">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <p className="font-semibold text-sm">{alertMessage}</p>
+        {coinsLeft === 0 && (
+          <p className="text-xs mt-1 opacity-90">
+            Recommend user to purchase more coins to continue chatting.
+          </p>
+        )}
+        {coinsLeft <= 5 && coinsLeft > 0 && (
+          <p className="text-xs mt-1 opacity-90">
+            Consider notifying user to purchase more coins soon.
+          </p>
+        )}
+      </div>
+      <div className="flex-shrink-0 text-xl font-bold">
+        {coinsLeft}
+      </div>
+    </div>
+  );
+};
+
 const ChatActions = ({ 
   onQuit, 
   onAddReminder, 
@@ -616,6 +685,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           )
         }));
         
+        // Check if error is about insufficient coins
+        if (sendError.response?.data?.type === 'INSUFFICIENT_COINS') {
+          showNotification(
+            `❌ User has insufficient coins (${sendError.response.data.userCoins} left). User needs to purchase more coins to continue chatting.`,
+            'error'
+          );
+        }
+        
         throw sendError;
       }
 
@@ -627,7 +704,16 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         onMessageSent(messageText);
       }
       
-      setError(`Failed to send message: ${error.response?.data?.message || error.message}`);
+      // Handle coin-specific errors
+      if (error.response?.data?.type === 'INSUFFICIENT_COINS') {
+        setError(`❌ Customer has insufficient coins (${error.response.data.userCoins} remaining). Customer needs to purchase more coins to continue chatting.`);
+        showNotification(
+          `Customer has ${error.response.data.userCoins} coins left and needs to purchase more to continue chatting.`,
+          'error'
+        );
+      } else {
+        setError(`Failed to send message: ${error.response?.data?.message || error.message}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -816,7 +902,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 await handleChatSelection(found);
                 // Removed auto-scroll to bottom since messages are now newest-first
                 setError(null);
-                showNotification('Showing global live queue (escort not linked to your account).', 'info');
               } else {
                 // Try direct fetch of the chat and add/select it
                 try {
@@ -827,7 +912,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                     await handleChatSelection(specificChat);
                     // Removed auto-scroll to bottom since messages are now newest-first
                     setError(null);
-                    showNotification('Showing global live queue (escort not linked to your account).', 'info');
                   } else {
                     setError('Chat not available. It may have been closed, reassigned, or you may not have permission to access it.');
                   }
@@ -838,7 +922,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             } else {
               // No specific chat requested; show a non-blocking notice
               setError(null);
-              showNotification('Showing global live queue (escort not linked to your account).', 'info');
             }
           } catch (fallbackError) {
             const fallbackMsg = fallbackError?.message || fallbackError?.response?.data?.message || 'Failed to load the live queue';
@@ -1969,13 +2052,38 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             <ReminderBadge dueDate={chat.followUpDue} />
           )}
           {chat.customerId?.coins?.balance !== undefined && (
-            <div className="inline-flex items-center px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 text-xs rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-              </svg>
-              {chat.customerId.coins.balance}
-            </div>
+            (() => {
+              const coinBalance = parseInt(chat.customerId.coins.balance) || 0;
+              let bgColor = 'bg-yellow-500/20 text-yellow-300';
+              let alertIcon = null;
+              
+              if (coinBalance === 0) {
+                bgColor = 'bg-red-500/30 text-red-200';
+                alertIcon = (
+                  <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                );
+              } else if (coinBalance <= 5) {
+                bgColor = 'bg-orange-500/30 text-orange-200';
+                alertIcon = (
+                  <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                );
+              }
+              
+              return (
+                <div className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-full ${bgColor}`} title={`User has ${coinBalance} coins`}>
+                  {alertIcon}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                  </svg>
+                  {chat.customerId.coins.balance}
+                </div>
+              );
+            })()
           )}
         </div>
       </div>
@@ -2158,13 +2266,38 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                           {selectedChat.isUserActive ? 'Online' : 'Offline'}
                         </span>
                         {selectedChat.customerId?.coins?.balance !== undefined && (
-                          <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                            </svg>
-                            {selectedChat.customerId.coins.balance}
-                          </span>
+                          (() => {
+                            const coinBalance = parseInt(selectedChat.customerId.coins.balance) || 0;
+                            let bgColor = 'bg-yellow-500/20 text-yellow-300';
+                            let alertIcon = null;
+                            
+                            if (coinBalance === 0) {
+                              bgColor = 'bg-red-500/30 text-red-200';
+                              alertIcon = (
+                                <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              );
+                            } else if (coinBalance <= 5) {
+                              bgColor = 'bg-orange-500/30 text-orange-200';
+                              alertIcon = (
+                                <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              );
+                            }
+                            
+                            return (
+                              <span className={`px-1.5 py-0.5 rounded-full flex items-center ${bgColor}`} title={`User has ${coinBalance} coins`}>
+                                {alertIcon}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                                </svg>
+                                {selectedChat.customerId.coins.balance}
+                              </span>
+                            );
+                          })()
                         )}
                         {(() => {
                           const { inCount, outCount } = getMessageCounts();
@@ -2249,13 +2382,38 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                         {selectedChat.isUserActive ? 'Online' : 'Offline'}
                       </span>
                       {selectedChat.customerId?.coins?.balance !== undefined && (
-                        <span className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-300 rounded-full flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                          </svg>
-                          {selectedChat.customerId.coins.balance}
-                        </span>
+                        (() => {
+                          const coinBalance = parseInt(selectedChat.customerId.coins.balance) || 0;
+                          let bgColor = 'bg-yellow-500/20 text-yellow-300';
+                          let alertIcon = null;
+                          
+                          if (coinBalance === 0) {
+                            bgColor = 'bg-red-500/30 text-red-200';
+                            alertIcon = (
+                              <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            );
+                          } else if (coinBalance <= 5) {
+                            bgColor = 'bg-orange-500/30 text-orange-200';
+                            alertIcon = (
+                              <svg className="h-2.5 w-2.5 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            );
+                          }
+                          
+                          return (
+                            <span className={`px-1.5 py-0.5 rounded-full flex items-center ${bgColor}`} title={`User has ${coinBalance} coins`}>
+                              {alertIcon}
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                              </svg>
+                              {selectedChat.customerId.coins.balance}
+                            </span>
+                          );
+                        })()
                       )}
                       {(() => {
                         const { inCount, outCount } = getMessageCounts();
@@ -2302,6 +2460,13 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             {/* Messages Section (scrolls inside chat box with fixed height) */}
             <div className="h-[55vh] md:h-[60vh] overflow-y-auto p-2 space-y-3 bg-gray-900/30 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
               <div ref={messagesEndRef} />
+              
+              {/* Coin Alert - Show coin balance alert to agent */}
+              <CoinAlert 
+                coinBalance={selectedChat.customerId?.coins?.balance} 
+                className="mx-1"
+              />
+              
               {selectedChat.isInPanicRoom && (
                 <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between">

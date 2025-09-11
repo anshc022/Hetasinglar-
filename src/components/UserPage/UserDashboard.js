@@ -1,18 +1,86 @@
 import React, { useState, useEffect } from 'react';
+import { FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { escorts, chats } from '../../services/api';
+import { likeService } from '../../services/likeService';
 import websocketService from '../../services/websocket';
 import axios from 'axios';
 import SubscriptionPlans from './SubscriptionPlans';
 import config from '../../config/environment';
+import { MagnetLines } from '../ui/MagnetLines';
+
+// Reusable SVG Icon components (replacing emoji usage for consistent styling)
+const IconWarning = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+  </svg>
+);
+const IconFemale = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="8" r="5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 13v8m0 0H9m3 0h3" />
+  </svg>
+);
+const IconMale = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="10" cy="14" r="5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 5l-5 5m0-5h5v5" />
+  </svg>
+);
+const IconCake = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v4M8 3v4m8-4v4M4 11h16M5 11l1 9h12l1-9M8 15h8" />
+  </svg>
+);
+const IconHeartSpark = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 21s-1-.55-2.35-1.57C6.4 17.24 4 15.09 4 12.28 4 10 5.79 8 8.05 8c1.31 0 2.54.62 3.31 1.67A4.07 4.07 0 0114.69 8C16.95 8 18.74 10 18.74 12.28c0 2.81-2.4 4.96-6.55 9.18L12 21z" />
+  </svg>
+);
+const IconUsers = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M17 3a4 4 0 110 8 4 4 0 010-8zM7 3a4 4 0 110 8 4 4 0 010-8z" />
+  </svg>
+);
+const IconPin = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.5a3 3 0 100-6 3 3 0 000 6z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7-7.5 11-7.5 11s-7.5-4-7.5-11a7.5 7.5 0 1115 0z" />
+  </svg>
+);
+const IconBubble = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v7a2 2 0 01-2 2h-5l-4 4v-4z" />
+  </svg>
+);
+const IconGlobe = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" />
+  </svg>
+);
 
 const MessageItem = ({ chat, isSelected, onClick }) => (
-  <div
+  <motion.div
     onClick={onClick}
-    className={`p-4 rounded-lg cursor-pointer transition-colors ${
-      isSelected ? 'bg-rose-100' : 'bg-white/70'
+    className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${
+      isSelected 
+        ? 'border border-pink-300/60 shadow-lg shadow-pink-200/40 transform scale-[1.02]' 
+        : 'hover:bg-white/80 border border-transparent hover:transform hover:scale-[1.01] hover:shadow-md'
     }`}
+    style={isSelected ? {
+      background: 'linear-gradient(145deg, rgba(236,72,153,0.6) 0%, rgba(244,114,182,0.7) 50%, rgba(251,113,133,0.6) 100%)',
+      backdropFilter: 'blur(15px)',
+      boxShadow: '0 4px 20px rgba(236, 72, 153, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+    } : {
+      background: 'rgba(255, 255, 255, 0.7)'
+    }}
+    whileHover={{ y: -2 }}
+    whileTap={{ scale: 0.98 }}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
   >
     <div className="flex items-center gap-3">
       <div className="relative">
@@ -35,20 +103,20 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <h3 className="font-semibold text-gray-800 truncate">{chat.escortName}</h3>
-          <span className="text-xs text-gray-500 flex-shrink-0">{chat.time}</span>
+          <h3 className={`font-semibold truncate ${isSelected ? 'text-white drop-shadow-sm' : 'text-gray-800'}`}>{chat.escortName}</h3>
+          <span className={`text-xs flex-shrink-0 ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>{chat.time}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {chat.isTyping ? (
             <div className="flex items-center gap-0.5">
-              <div className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse"></div>
-              <div className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-              <span className="text-xs text-rose-500 ml-1">typing...</span>
+              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`}></div>
+              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`} style={{ animationDelay: '0.2s' }}></div>
+              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`} style={{ animationDelay: '0.4s' }}></div>
+              <span className={`text-xs ml-1 ${isSelected ? 'text-pink-100' : 'text-rose-500'}`}>typing...</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 w-full">
-              <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
+              <p className={`text-sm truncate ${isSelected ? 'text-pink-50 drop-shadow-sm' : 'text-gray-600'}`}>{chat.lastMessage}</p>
             </div>
           )}
         </div>
@@ -59,7 +127,7 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
         </div>
       )}
     </div>
-  </div>
+  </motion.div>
 );
 
 const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onChatsUpdate }) => {
@@ -445,7 +513,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
   return (
     <div className="flex flex-col h-full">
       {/* Chat Header */}
-      <div className="border-b border-gray-200 p-4 bg-white/90 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b border-gray-200 p-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back button for mobile */}
@@ -470,7 +538,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
               {userCoins} coins
             </span>
             {userCoins <= 5 && userCoins > 0 && (
-              <span className="text-yellow-600 text-xs">⚠️ Low balance</span>
+              <span className="text-yellow-600 text-xs flex items-center gap-1"><IconWarning className="w-3.5 h-3.5" /> Low balance</span>
             )}
           </div>
         </div>
@@ -646,10 +714,10 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       </div>
 
       {/* Chat Input */}
-  <div className="border-t border-gray-200 p-4 bg-white/90 backdrop-blur-sm">
+  <div className="border-t border-gray-200 p-4 bg-white/50 backdrop-blur-sm">
         {userCoins <= 5 && userCoins > 0 && (
-          <div className="mb-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
-            ⚠️ Warning: You have only {userCoins} coins remaining
+          <div className="mb-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded flex items-center gap-1">
+            <IconWarning className="w-4 h-4" /> Warning: You have only {userCoins} coins remaining
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -776,23 +844,38 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
       {/* Mobile layout: single pane with toggle between list and chat */}
       <div className="lg:hidden">
         {!showChatOnMobile ? (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-            <div className="p-4 border-b border-gray-200">
+          <div 
+            className="rounded-xl shadow-lg shadow-pink-200/50 border border-pink-200/40 overflow-hidden"
+            style={{
+              background: 'linear-gradient(145deg, rgba(244,114,182,0.25) 0%, rgba(251,113,133,0.35) 50%, rgba(236,72,153,0.25) 100%)',
+              backdropFilter: 'blur(20px)',
+              boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+            }}
+          >
+            {/* Pink glass overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 via-transparent to-rose-200/20 pointer-events-none rounded-xl"></div>
+            
+            <div className="p-4 border-b border-pink-200/40 bg-pink-50/20 backdrop-blur-sm">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search chats..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all duration-150"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-150 text-gray-800 placeholder-pink-400"
+                  style={{
+                    background: 'linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(252,231,243,0.6) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 2px 10px rgba(244, 114, 182, 0.1)'
+                  }}
                 />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 {searchQuery && (
                   <button 
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-150"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-400 hover:text-pink-600 transition-colors duration-150"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M6 18L18 6M6 6l12 12" />
@@ -814,17 +897,17 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
                 ))}
               </div>
             ) : (
-              <div className="h-[65vh] flex flex-col items-center justify-center text-gray-500 p-4">
-                <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+              <div className="h-[65vh] flex flex-col items-center justify-center text-pink-600 p-4">
+                <svg className="w-16 h-16 text-pink-300 mb-4 drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                   <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
-                <p className="text-center">No messages found</p>
-                <p className="text-sm text-center mt-2">Start a conversation with an escort in the Members tab</p>
+                <p className="text-center font-medium">No messages found</p>
+                <p className="text-sm text-center mt-2 text-pink-500">Start a conversation with an escort in the Members tab</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[75vh]">
+          <div className="bg-white/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 h-[75vh]">
             {selectedChat ? (
               <ChatBox 
                 selectedChat={selectedChat}
@@ -848,24 +931,39 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
 
       {/* Desktop layout: two-pane */}
       <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Sidebar - Chat Lists */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
+        {/* Left Sidebar - Chat Lists with Pink Glass Morphism */}
+        <div 
+          className="rounded-xl shadow-lg shadow-pink-200/50 border border-pink-200/40 overflow-hidden"
+          style={{
+            background: 'linear-gradient(145deg, rgba(244,114,182,0.25) 0%, rgba(251,113,133,0.35) 50%, rgba(236,72,153,0.25) 100%)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+          }}
+        >
+          {/* Pink glass overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 via-transparent to-rose-200/20 pointer-events-none rounded-xl"></div>
+          
+        <div className="p-4 border-b border-pink-200/40 bg-pink-50/20 backdrop-blur-sm relative z-10">
           <div className="relative">
             <input
               type="text"
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-rose-400 focus:border-transparent transition-all duration-150"
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-150 text-gray-800 placeholder-pink-400"
+              style={{
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(252,231,243,0.6) 100%)',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 2px 10px rgba(244, 114, 182, 0.1)'
+              }}
             />
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-150"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-400 hover:text-pink-600 transition-colors duration-150"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 18L18 6M6 6l12 12" />
@@ -876,7 +974,7 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
         </div>
         
         {filteredChats.length > 0 ? (
-          <div className="p-4 space-y-2 h-[600px] overflow-y-auto">
+          <div className="p-4 space-y-2 h-[600px] overflow-y-auto relative z-10">
             {filteredChats.map(chat => (
               <MessageItem
                 key={chat.escortId}
@@ -887,18 +985,18 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
             ))}
           </div>
         ) : (
-          <div className="h-[600px] flex flex-col items-center justify-center text-gray-500 p-4">
-            <svg className="w-16 h-16 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+          <div className="h-[600px] flex flex-col items-center justify-center text-pink-600 p-4 relative z-10">
+            <svg className="w-16 h-16 text-pink-300 mb-4 drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
               <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
-            <p className="text-center">No messages found</p>
-            <p className="text-sm text-center mt-2">Start a conversation with an escort in the Members tab</p>
+            <p className="text-center font-medium">No messages found</p>
+            <p className="text-sm text-center mt-2 text-pink-500">Start a conversation with an escort in the Members tab</p>
           </div>
         )}
         </div>
 
         {/* Right - Chat Area */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 h-[700px]">
+        <div className="bg-white/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 h-[700px]">
           {selectedChat ? (
             <ChatBox 
               selectedChat={selectedChat}
@@ -918,13 +1016,72 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
           )}
         </div>
       </div>
+
+      {/* Floating Action Button */}
+      <motion.div
+        className="fixed bottom-6 right-6 z-50"
+        initial={{ scale: 0, rotate: -180 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ delay: 1, type: "spring", stiffness: 200 }}
+      >
+        <motion.button
+          className="w-14 h-14 rounded-full shadow-2xl border border-pink-300/40 backdrop-blur-md flex items-center justify-center group"
+          style={{
+            background: 'linear-gradient(145deg, rgba(244,114,182,0.9) 0%, rgba(236,72,153,0.95) 100%)',
+            boxShadow: '0 8px 32px rgba(244, 114, 182, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+          }}
+          whileHover={{ 
+            scale: 1.1,
+            boxShadow: '0 12px 40px rgba(244, 114, 182, 0.6)',
+            rotate: 5
+          }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
+          <motion.svg 
+            className="w-6 h-6 text-white drop-shadow-sm" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+            whileHover={{ y: -2 }}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </motion.svg>
+        </motion.button>
+      </motion.div>
+
+      {/* Enhanced Background Particles */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-2 h-2 bg-pink-300/20 rounded-full"
+            style={{
+              left: `${20 + i * 15}%`,
+              top: `${30 + i * 10}%`,
+            }}
+            animate={{
+              y: [0, -30, 0],
+              opacity: [0.2, 0.8, 0.2],
+              scale: [1, 1.5, 1],
+            }}
+            transition={{
+              duration: 3 + i,
+              repeat: Infinity,
+              delay: i * 0.5,
+            }}
+          />
+        ))}
+      </div>
     </>
   );
 };
 
 const ProfileSection = ({ user }) => {
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+    <div className="bg-white/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 p-6">
       {/* Simple Header */}
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
         <div className="h-20 w-20 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-2xl font-bold">
@@ -975,6 +1132,9 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [likedProfiles, setLikedProfiles] = useState(new Set());
+  const [likeLoading, setLikeLoading] = useState(new Set()); // Track which profiles are being liked/unliked
   const [filters, setFilters] = useState({
     lookingFor: '',
     relationStatus: '',
@@ -982,6 +1142,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     ageMax: '',
     location: ''
   });
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -989,6 +1150,22 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
         setLoading(true);
         const response = await escorts.getEscortProfiles();
         setMembers(response.data || response || []);
+        
+        // Check which profiles are already liked
+        if (token && (response.data || response)) {
+          const memberIds = (response.data || response).map(member => member._id);
+          const likeChecks = await Promise.allSettled(
+            memberIds.map(id => likeService.checkLikeStatus(id, token))
+          );
+          
+          const newLikedProfiles = new Set();
+          likeChecks.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value.isLiked) {
+              newLikedProfiles.add(memberIds[index]);
+            }
+          });
+          setLikedProfiles(newLikedProfiles);
+        }
       } catch (err) {
         console.error('Error fetching members:', err);
         setError('Failed to load members');
@@ -998,7 +1175,43 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     };
 
     fetchMembers();
-  }, []);
+  }, [token]);
+
+  const handleLikeToggle = async (memberId) => {
+    // Prevent multiple simultaneous requests for the same profile
+    if (likeLoading.has(memberId)) {
+      return;
+    }
+
+    try {
+      // Add to loading set
+      setLikeLoading(prev => new Set([...prev, memberId]));
+      
+      const isCurrentlyLiked = likedProfiles.has(memberId);
+      
+      if (isCurrentlyLiked) {
+        await likeService.unlikeEscort(memberId, token);
+        setLikedProfiles(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(memberId);
+          return newSet;
+        });
+      } else {
+        await likeService.likeEscort(memberId, token);
+        setLikedProfiles(prev => new Set([...prev, memberId]));
+      }
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      alert('Failed to update like status: ' + (err.message || 'Unknown error'));
+    } finally {
+      // Remove from loading set
+      setLikeLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(memberId);
+        return newSet;
+      });
+    }
+  };
 
   const filteredMembers = members.filter(member => {
     // Search query filter
@@ -1029,6 +1242,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
 
   const resetFilters = () => {
     setSearchQuery('');
+    setShowFilters(false);
     setFilters({
       lookingFor: '',
       relationStatus: '',
@@ -1063,312 +1277,334 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Search and Filter Section */}
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-rose-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <svg className="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Compact Search Header */}
+      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl shadow-lg border border-pink-300/50 overflow-hidden">
+        {/* Main Header */}
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h3 className="text-sm sm:text-lg font-semibold text-gray-800">Find Your Perfect Match</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-white">Find Your Perfect Match</h3>
             </div>
-            <span className="text-xs sm:text-sm text-gray-500">{filteredMembers.length} found</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-white/90 bg-white/20 px-3 py-1 rounded-full">{filteredMembers.length} found</span>
+              <motion.button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-200"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+                <span className="text-sm font-medium">Filters</span>
+                <motion.svg 
+                  className="w-4 h-4" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  animate={{ rotate: showFilters ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </motion.svg>
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Main Search Bar */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search members by name or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-3 pl-12 rounded-xl border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 focus:outline-none transition-all duration-200 text-gray-800 placeholder-gray-500 shadow-lg"
+            />
+            <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors duration-150 rounded-full hover:bg-gray-100"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile-First Search */}
-        <div className="p-3 sm:p-6">
-          {/* Main Search Bar - Always Visible */}
-          <div className="mb-3 sm:mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search members by name or location..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 pl-12 rounded-xl border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm shadow-sm"
-              />
-              <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors duration-150 rounded-full hover:bg-gray-100"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Filter Chips - Mobile Optimized */}
-          <div className="block sm:hidden mb-4">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'female' ? '' : 'female' }))}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  filters.lookingFor === 'female' 
-                    ? 'bg-rose-500 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                👩 Women
-              </button>
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'male' ? '' : 'male' }))}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  filters.lookingFor === 'male' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                👨 Men
-              </button>
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, ageMin: prev.ageMin ? '' : '18', ageMax: prev.ageMax ? '' : '30' }))}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  filters.ageMin || filters.ageMax 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                🎂 18-30
-              </button>
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, relationStatus: prev.relationStatus === 'single' ? '' : 'single' }))}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  filters.relationStatus === 'single' 
-                    ? 'bg-purple-500 text-white' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                💝 Single
-              </button>
-            </div>
-          </div>
-
-          {/* Advanced Filters - Collapsible on Mobile */}
-          <div className="sm:block">
-            <details className="sm:hidden group">
-              <summary className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <span className="text-sm font-medium text-gray-700">Advanced Filters</span>
-                <svg className="w-4 h-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="mt-3 space-y-3">
-                {/* Mobile Advanced Filters */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Age Range</label>
-                    <div className="grid grid-cols-2 gap-1">
-                      <input
-                        type="number"
-                        placeholder="18"
-                        value={filters.ageMin}
-                        onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
-                        className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs text-center"
-                        min="18"
-                        max="99"
-                      />
-                      <input
-                        type="number"
-                        placeholder="99"
-                        value={filters.ageMax}
-                        onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
-                        className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs text-center"
-                        min="18"
-                        max="99"
-                      />
+        {/* Expandable Advanced Filters */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 sm:px-6 pb-6 border-t border-white/20">
+                <div className="pt-4">
+                  {/* Quick Filter Chips - Mobile */}
+                  <div className="block sm:hidden mb-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'female' ? '' : 'female' }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          filters.lookingFor === 'female' 
+                            ? 'bg-white text-pink-600' 
+                            : 'bg-white/20 text-white hover:bg-white/30'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1"><IconFemale className="w-4 h-4" /> Women</span>
+                      </button>
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, lookingFor: prev.lookingFor === 'male' ? '' : 'male' }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          filters.lookingFor === 'male' 
+                            ? 'bg-white text-pink-600' 
+                            : 'bg-white/20 text-white hover:bg-white/30'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1"><IconMale className="w-4 h-4" /> Men</span>
+                      </button>
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, ageMin: prev.ageMin ? '' : '18', ageMax: prev.ageMax ? '' : '30' }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          filters.ageMin || filters.ageMax 
+                            ? 'bg-white text-pink-600' 
+                            : 'bg-white/20 text-white hover:bg-white/30'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1"><IconCake className="w-4 h-4" /> 18-30</span>
+                      </button>
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, relationStatus: prev.relationStatus === 'single' ? '' : 'single' }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          filters.relationStatus === 'single' 
+                            ? 'bg-white text-pink-600' 
+                            : 'bg-white/20 text-white hover:bg-white/30'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1"><IconHeartSpark className="w-4 h-4" /> Single</span>
+                      </button>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Relationship</label>
-                    <select
-                      value={filters.relationStatus}
-                      onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
-                      className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs"
-                    >
-                      <option value="">Any</option>
-                      <option value="single">Single</option>
-                      <option value="divorced">Divorced</option>
-                      <option value="widowed">Widowed</option>
-                    </select>
+
+                  {/* Desktop Advanced Filters */}
+                  <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Looking For */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/90 mb-2 uppercase tracking-wide">Looking For</label>
+                      <select
+                        value={filters.lookingFor}
+                        onChange={(e) => setFilters(prev => ({ ...prev, lookingFor: e.target.value }))}
+                        className="w-full px-3 py-3 rounded-lg border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 text-sm appearance-none cursor-pointer shadow-lg"
+                      >
+                        <option value="">All Genders</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+
+                    {/* Relationship Status */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/90 mb-2 uppercase tracking-wide">Relationship Status</label>
+                      <select
+                        value={filters.relationStatus}
+                        onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
+                        className="w-full px-3 py-3 rounded-lg border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 text-sm appearance-none cursor-pointer shadow-lg"
+                      >
+                        <option value="">Any Status</option>
+                        <option value="single">Single</option>
+                        <option value="divorced">Divorced</option>
+                        <option value="widowed">Widowed</option>
+                        <option value="separated">Separated</option>
+                      </select>
+                    </div>
+
+                    {/* Age Range */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/90 mb-2 uppercase tracking-wide">Age Range</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          placeholder="18"
+                          value={filters.ageMin}
+                          onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
+                          className="w-full px-2 py-3 rounded-lg border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 text-sm text-center shadow-lg"
+                          min="18"
+                          max="99"
+                        />
+                        <input
+                          type="number"
+                          placeholder="99"
+                          value={filters.ageMax}
+                          onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
+                          className="w-full px-2 py-3 rounded-lg border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 text-sm text-center shadow-lg"
+                          min="18"
+                          max="99"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/90 mb-2 uppercase tracking-wide">Location</label>
+                      <select
+                        value={filters.location}
+                        onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full px-3 py-3 rounded-lg border-0 bg-white/95 backdrop-blur-sm focus:bg-white focus:ring-2 focus:ring-white/50 text-sm appearance-none cursor-pointer shadow-lg"
+                      >
+                        <option value="">All Locations</option>
+                        <option value="usa">🇺🇸 United States</option>
+                        <option value="canada">🇨🇦 Canada</option>
+                        <option value="uk">🇬🇧 United Kingdom</option>
+                        <option value="australia">🇦🇺 Australia</option>
+                        <option value="germany">🇩🇪 Germany</option>
+                        <option value="france">🇫🇷 France</option>
+                        <option value="spain">🇪🇸 Spain</option>
+                        <option value="italy">🇮🇹 Italy</option>
+                        <option value="netherlands">🇳🇱 Netherlands</option>
+                        <option value="sweden">🇸🇪 Sweden</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row justify-between items-center mt-6 pt-4 border-t border-white/20">
+                    <div className="flex items-center space-x-4 mb-3 sm:mb-0">
+                      <button
+                        onClick={resetFilters}
+                        className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors duration-150 text-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span className="font-medium">Reset</span>
+                      </button>
+                      
+                      {(searchQuery || Object.values(filters).some(v => v)) && (
+                        <span className="text-xs px-3 py-1 bg-white/30 text-white rounded-full">
+                          Active filters
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="hidden sm:block">
+                      <button
+                        onClick={() => setShowFilters(false)}
+                        className="flex items-center space-x-2 px-6 py-3 bg-white text-pink-600 rounded-lg hover:bg-white/90 transition-all duration-150 shadow-lg font-medium text-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <span>Search Members</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
-                    <select
-                      value={filters.location}
-                      onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-                      className="w-full px-2 py-2 rounded-lg border border-gray-200 focus:ring-1 focus:ring-rose-500 text-xs"
-                    >
-                      <option value="">All</option>
-                      <option value="usa">🇺🇸 USA</option>
-                      <option value="canada">🇨🇦 Canada</option>
-                      <option value="uk">🇬🇧 UK</option>
-                      <option value="australia">🇦🇺 Australia</option>
-                    </select>
-                  </div>
-                </div>
               </div>
-            </details>
-
-            {/* Desktop Filters */}
-            <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-              {/* Looking For */}
-              <div className="xl:col-span-1">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Looking For</label>
-                <select
-                  value={filters.lookingFor}
-                  onChange={(e) => setFilters(prev => ({ ...prev, lookingFor: e.target.value }))}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-                >
-                  <option value="">All Genders</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
-              </div>
-
-              {/* Relation Status */}
-              <div className="xl:col-span-1">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Relationship Status</label>
-                <select
-                  value={filters.relationStatus}
-                  onChange={(e) => setFilters(prev => ({ ...prev, relationStatus: e.target.value }))}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-                >
-                  <option value="">Any Status</option>
-                  <option value="single">Single</option>
-                  <option value="divorced">Divorced</option>
-                  <option value="widowed">Widowed</option>
-                  <option value="separated">Separated</option>
-                </select>
-              </div>
-
-              {/* Age Range */}
-              <div className="xl:col-span-1">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Age Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    placeholder="18"
-                    value={filters.ageMin}
-                    onChange={(e) => setFilters(prev => ({ ...prev, ageMin: e.target.value }))}
-                    className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
-                    min="18"
-                    max="99"
-                  />
-                  <input
-                    type="number"
-                    placeholder="99"
-                    value={filters.ageMax}
-                    onChange={(e) => setFilters(prev => ({ ...prev, ageMax: e.target.value }))}
-                    className="w-full px-2 sm:px-3 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm text-center"
-                    min="18"
-                    max="99"
-                  />
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="xl:col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">Location</label>
-                <select
-                  value={filters.location}
-                  onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white text-sm appearance-none cursor-pointer"
-                >
-                  <option value="">All Locations</option>
-                  <option value="usa">🇺🇸 United States</option>
-                  <option value="canada">🇨🇦 Canada</option>
-                  <option value="uk">🇬🇧 United Kingdom</option>
-                  <option value="australia">🇦🇺 Australia</option>
-                  <option value="germany">🇩🇪 Germany</option>
-                  <option value="france">🇫🇷 France</option>
-                  <option value="spain">🇪🇸 Spain</option>
-                  <option value="italy">🇮🇹 Italy</option>
-                  <option value="netherlands">🇳🇱 Netherlands</option>
-                  <option value="sweden">🇸🇪 Sweden</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row justify-between items-center mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
-            <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-0">
-              <button
-                onClick={resetFilters}
-                className="flex items-center space-x-2 px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-150 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span className="font-medium">Reset</span>
-              </button>
-              
-              {(searchQuery || Object.values(filters).some(v => v)) && (
-                <span className="text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full">
-                  Active filters
-                </span>
-              )}
-            </div>
-
-            <div className="hidden sm:block">
-              <button
-                className="flex items-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-rose-500 to-purple-600 text-white rounded-lg hover:from-rose-600 hover:to-purple-700 transition-all duration-150 shadow-md hover:shadow-lg font-medium text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span>Search Members</span>
-              </button>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Members Grid */}
       {filteredMembers.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
-          {filteredMembers.map((member) => (
-            <div
+          {filteredMembers.map((member, index) => (
+            <motion.div
               key={member._id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden group"
+              className="bg-white/20 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 border border-white/30 hover:shadow-2xl hover:shadow-pink-300/60 hover:bg-white/30 hover:border-pink-200/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105"
+              style={{
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(252,231,243,0.35) 50%, rgba(254,202,202,0.25) 100%)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+              }}
+              initial={{ opacity: 0, y: 50, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ 
+                duration: 0.6, 
+                delay: index * 0.1,
+                type: "spring",
+                stiffness: 100
+              }}
+              whileHover={{ 
+                y: -8,
+                rotateY: 5,
+                boxShadow: "0 20px 40px rgba(244, 114, 182, 0.3)"
+              }}
+              whileTap={{ scale: 0.95 }}
             >
-              {/* Profile Image - Optimized for Mobile */}
-              <div className="relative aspect-[3/4] bg-gray-100">
+              {/* Glass effect overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-pink-100/20 pointer-events-none rounded-2xl"></div>
+              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-t-2xl"></div>
+              
+              {/* Profile Image - Enhanced with glassy styling */}
+              <div className="relative aspect-[3/4] bg-gradient-to-br from-pink-50/50 to-rose-100/50 overflow-hidden rounded-t-2xl backdrop-blur-sm">
                 {member.profileImage ? (
                   <img 
                     src={member.profileImage} 
                     alt={member.firstName || member.username}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 text-xl sm:text-2xl lg:text-3xl font-bold">
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100/70 via-rose-50/60 to-purple-100/70 text-pink-400 text-xl sm:text-2xl lg:text-3xl font-bold backdrop-blur-sm">
                     {(member.firstName || member.username)?.charAt(0).toUpperCase()}
                   </div>
                 )}
                 
-                {/* Quick Action Overlay - Shows on Hover/Touch */}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <div className="flex space-x-2">
-                    {/* Chat Button */}
+                {/* Glassy overlay with pink tints */}
+                <div className="absolute inset-0 bg-gradient-to-t from-pink-900/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
+                  <div className="flex space-x-3">
+                    {/* Enhanced Glassy Like Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Immediately switch to Chat tab for instant UX
+                        if (!likeLoading.has(member._id)) {
+                          handleLikeToggle(member._id);
+                        }
+                      }}
+                      disabled={likeLoading.has(member._id)}
+                      className={`w-12 h-12 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/35 transition-all duration-200 border border-white/40 shadow-lg ${
+                        likedProfiles.has(member._id) ? 'shadow-red-500/30' : 'shadow-pink-500/30'
+                      } ${likeLoading.has(member._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={
+                        likeLoading.has(member._id) ? "Loading..." :
+                        likedProfiles.has(member._id) ? "Unlike" : "Like"
+                      }
+                      style={{
+                        background: likedProfiles.has(member._id) 
+                          ? 'linear-gradient(145deg, rgba(239,68,68,0.3) 0%, rgba(220,38,38,0.2) 100%)'
+                          : 'linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(244,114,182,0.2) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        boxShadow: '0 4px 20px rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+                      }}
+                    >
+                      <svg 
+                        className={`w-5 h-5 drop-shadow-sm ${likedProfiles.has(member._id) ? 'text-red-300' : 'text-white'}`} 
+                        fill={likedProfiles.has(member._id) ? "currentColor" : "none"} 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+
+                    {/* Enhanced Glassy Chat Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setActiveSection('messages'); 
-                        // Optimistically select this member's chat (no id yet)
                         setSelectedChat({
                           escortId: member._id,
                           escortName: member.firstName || member.username || 'Member',
@@ -1377,68 +1613,122 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                           isOnline: true,
                           time: new Date().toLocaleString()
                         });
-                        // Start or fetch the chat in background and merge id when ready
                         handleStartChat(member._id, {
                           escortName: member.firstName || member.username || 'Member',
                           profileImage: member.profileImage
                         });
                       }}
-                      className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all duration-150 shadow-lg"
+                      className="w-12 h-12 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/35 transition-all duration-200 border border-white/40 shadow-lg shadow-pink-500/30"
                       title="Message"
+                      style={{
+                        background: 'linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(244,114,182,0.2) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        boxShadow: '0 4px 20px rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+                      }}
                     >
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
+                      <FiMessageSquare className="w-5 h-5 text-white drop-shadow-sm" />
                     </button>
                   </div>
                 </div>
 
-                {/* Age Badge - Top Right */}
+                {/* Enhanced Glassy Age Badge */}
                 {member.dateOfBirth && (
-                  <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+                  <div 
+                    className="absolute top-3 right-3 text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/30"
+                    style={{
+                      background: 'linear-gradient(145deg, rgba(0,0,0,0.6) 0%, rgba(244,114,182,0.4) 100%)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 2px 10px rgba(244, 114, 182, 0.2)'
+                    }}
+                  >
                     {new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()}
                   </div>
                 )}
+
+                {/* Glassy Online Status Indicator */}
+                <div 
+                  className="absolute top-3 left-3 w-3 h-3 bg-green-400 rounded-full border-2 border-white"
+                  style={{
+                    boxShadow: '0 0 10px rgba(34, 197, 94, 0.5), 0 2px 4px rgba(244, 114, 182, 0.2)'
+                  }}
+                ></div>
               </div>
 
-              {/* Profile Info - Minimal Footer */}
-              <div className="p-2 sm:p-3">
-                {/* Username */}
-                <h3 className="text-sm sm:text-base font-semibold text-gray-800 truncate leading-tight">
+              {/* Enhanced Glassy Profile Info */}
+              <div className="p-3 sm:p-4 relative z-10 bg-white/10 backdrop-blur-sm rounded-b-2xl">
+                {/* Username with glass effect */}
+                <h3 className="text-sm sm:text-base font-bold text-gray-800 truncate leading-tight mb-1 drop-shadow-sm">
                   {member.firstName || member.username}
                 </h3>
                 
-                {/* Location - Smaller on Mobile */}
-                <p className="text-xs sm:text-sm text-gray-500 truncate mt-0.5">
-                  📍 {member.country || member.region || 'Unknown'}
-                </p>
+                {/* Location with enhanced styling */}
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 truncate mb-2">
+                  <IconPin className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 drop-shadow-sm" />
+                  <span className="truncate drop-shadow-sm">{member.country || member.region || 'Unknown'}</span>
+                </div>
 
-                {/* Quick Stats - Only on Desktop */}
-                <div className="hidden sm:flex items-center justify-between mt-2 text-xs text-gray-400">
-                  <span>💬 Active</span>
+                {/* Enhanced Glassy Stats for desktop */}
+                <div className="hidden sm:flex items-center justify-between mt-3 text-xs gap-2">
+                  <div 
+                    className="flex items-center gap-1 text-green-700 px-2 py-1 rounded-full border border-white/30"
+                    style={{
+                      background: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(255,255,255,0.25) 100%)',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.2)'
+                    }}
+                  >
+                    <div className="w-2 h-2 bg-green-400 rounded-full shadow-sm"></div>
+                    <span className="font-medium drop-shadow-sm">Active</span>
+                  </div>
                   {member.profession && (
-                    <span className="truncate max-w-20">{member.profession}</span>
+                    <span 
+                      className="text-gray-700 px-2 py-1 rounded-full truncate max-w-20 font-medium border border-white/30"
+                      style={{
+                        background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(244,114,182,0.15) 100%)',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 2px 8px rgba(244, 114, 182, 0.15)'
+                      }}
+                    >
+                      {member.profession}
+                    </span>
                   )}
                 </div>
 
-                {/* Mobile Action Buttons - Bottom */}
-                <div className="flex sm:hidden justify-center space-x-3 mt-2 pt-2 border-t border-gray-100">
-                  {/* Like Button */}
+                {/* Enhanced Glassy Mobile Action Buttons */}
+                <div className="flex sm:hidden justify-center space-x-2 mt-3 pt-3 border-t border-white/30">
+                  {/* Glassy Like Button */}
                   <button
-                    className="flex-1 py-1.5 bg-gray-50 hover:bg-gray-100 rounded-md flex items-center justify-center transition-colors"
-                    title="Like"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!likeLoading.has(member._id)) {
+                        handleLikeToggle(member._id);
+                      }
+                    }}
+                    disabled={likeLoading.has(member._id)}
+                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 ${
+                      likedProfiles.has(member._id) ? 'text-red-500' : 'text-gray-700'
+                    } ${likeLoading.has(member._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={
+                      likeLoading.has(member._id) ? "Loading..." :
+                      likedProfiles.has(member._id) ? "Unlike" : "Like"
+                    }
+                    style={{
+                      background: likedProfiles.has(member._id) 
+                        ? 'linear-gradient(145deg, rgba(239,68,68,0.25) 0%, rgba(220,38,38,0.15) 100%)'
+                        : 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(229,231,235,0.35) 100%)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 4px 15px rgba(244, 114, 182, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                    }}
                   >
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 drop-shadow-sm" fill={likedProfiles.has(member._id) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                   </button>
 
-                  {/* Chat Button */}
+                  {/* Enhanced Glassy Chat Button */}
                   <button
                     onClick={() => { 
-                      // Immediately switch to Chat tab for instant UX
                       setActiveSection('messages'); 
-                      // Optimistically select this member's chat (no id yet)
                       setSelectedChat({
                         escortId: member._id,
                         escortName: member.firstName || member.username || 'Member',
@@ -1447,22 +1737,24 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                         isOnline: true,
                         time: new Date().toLocaleString()
                       });
-                      // Start or fetch the chat in background and merge id when ready
                       handleStartChat(member._id, {
                         escortName: member.firstName || member.username || 'Member',
                         profileImage: member.profileImage
                       });
                     }}
-                    className="flex-1 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center justify-center transition-colors"
+                    className="flex-1 py-2.5 text-white rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40"
                     title="Message"
+                    style={{
+                      background: 'linear-gradient(145deg, rgba(244,114,182,0.8) 0%, rgba(59,130,246,0.7) 100%)',
+                      backdropFilter: 'blur(10px)',
+                      boxShadow: '0 4px 20px rgba(244, 114, 182, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                    }}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
+                    <FiMessageSquare className="w-4 h-4 drop-shadow-sm" />
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       ) : (
@@ -1482,6 +1774,247 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
               Clear All Filters
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartChat }) => {
+  const [likedProfiles, setLikedProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
+  const { token } = useAuth();
+
+  useEffect(() => {
+    const fetchLikedProfiles = async () => {
+      try {
+        setLoading(true);
+        const response = await likeService.getUserLikes(token, currentPage, 20);
+        setLikedProfiles(response.likes);
+        setPagination(response.pagination);
+      } catch (err) {
+        console.error('Error fetching liked profiles:', err);
+        setError('Failed to load liked profiles');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchLikedProfiles();
+    }
+  }, [token, currentPage]);
+
+  const handleUnlikeProfile = async (escortId) => {
+    try {
+      await likeService.unlikeEscort(escortId, token);
+      setLikedProfiles(prev => prev.filter(like => like.escortId._id !== escortId));
+    } catch (err) {
+      console.error('Error unliking profile:', err);
+      alert('Failed to unlike profile');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-2 text-gray-600">Loading liked profiles...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-8">
+        <p>{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl shadow-lg border border-pink-300/50 overflow-hidden">
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                <IconHeartSpark className="w-6 h-6" />
+                Liked Profiles
+              </h2>
+              <p className="text-pink-100 text-sm sm:text-base mt-1">
+                Profiles you've liked • {pagination?.totalLikes || 0} total
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Liked Profiles Grid */}
+      {likedProfiles.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+          {likedProfiles.map((like) => (
+            <motion.div
+              key={like._id}
+              className="bg-white/20 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 border border-white/30 hover:shadow-2xl hover:shadow-pink-300/60 hover:bg-white/30 hover:border-pink-200/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105"
+              style={{
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(252,231,243,0.35) 50%, rgba(254,202,202,0.25) 100%)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(236, 72, 153, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+              }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0 }}
+            >
+              {/* Glass overlay effects */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-pink-100/20 pointer-events-none rounded-2xl"></div>
+              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-t-2xl"></div>
+              
+              {/* Profile Image */}
+              <div className="relative aspect-[3/4] bg-gradient-to-br from-pink-50/50 to-rose-100/50 overflow-hidden rounded-t-2xl backdrop-blur-sm">
+                {like.escortId.profileImage ? (
+                  <img 
+                    src={like.escortId.profileImage} 
+                    alt={like.escortId.firstName || like.escortId.username}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100/70 via-rose-50/60 to-purple-100/70 text-pink-400 text-xl sm:text-2xl lg:text-3xl font-bold backdrop-blur-sm">
+                    {(like.escortId.firstName || like.escortId.username)?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                
+                {/* Unlike button overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-pink-900/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
+                  <div className="flex space-x-3">
+                    {/* Unlike Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnlikeProfile(like.escortId._id);
+                      }}
+                      className="w-12 h-12 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-red-500/80 transition-all duration-200 border border-white/40 shadow-lg shadow-red-500/30 group"
+                      title="Unlike"
+                      style={{
+                        background: 'linear-gradient(145deg, rgba(239,68,68,0.3) 0%, rgba(220,38,38,0.2) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+                      }}
+                    >
+                      <svg className="w-5 h-5 text-white drop-shadow-sm group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        <path d="M6 8L18 8M6 16L18 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+
+                    {/* Chat Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSection('messages'); 
+                        setSelectedChat({
+                          escortId: like.escortId._id,
+                          escortName: like.escortId.firstName || like.escortId.username || 'Member',
+                          profileImage: like.escortId.profileImage,
+                          messages: [],
+                          isOnline: true,
+                          time: new Date().toLocaleString()
+                        });
+                        handleStartChat(like.escortId._id, {
+                          escortName: like.escortId.firstName || like.escortId.username || 'Member',
+                          profileImage: like.escortId.profileImage
+                        });
+                      }}
+                      className="w-12 h-12 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/35 transition-all duration-200 border border-white/40 shadow-lg shadow-pink-500/30"
+                      title="Message"
+                      style={{
+                        background: 'linear-gradient(145deg, rgba(244,114,182,0.3) 0%, rgba(59,130,246,0.2) 100%)',
+                        backdropFilter: 'blur(15px)',
+                        boxShadow: '0 4px 20px rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+                      }}
+                    >
+                      <FiMessageSquare className="w-5 h-5 text-white drop-shadow-sm" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Info */}
+              <div className="p-3 relative z-10">
+                <div className="text-center">
+                  <h3 className="font-semibold text-gray-800 text-sm truncate">
+                    {like.escortId.firstName || like.escortId.username}
+                  </h3>
+                  <div className="flex items-center justify-center gap-1 text-xs text-gray-600 mt-1">
+                    <IconPin className="w-3 h-3" />
+                    <span className="truncate">
+                      {like.escortId.region && like.escortId.country 
+                        ? `${like.escortId.region}, ${like.escortId.country}`
+                        : like.escortId.country || 'Location not specified'
+                      }
+                    </span>
+                  </div>
+                  {like.escortId.profession && (
+                    <div className="flex items-center justify-center gap-1 text-xs text-gray-500 mt-1">
+                      <span className="truncate">{like.escortId.profession}</span>
+                    </div>
+                  )}
+                  <div className="text-xs text-pink-500 mt-2">
+                    Liked {new Date(like.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 sm:py-12">
+          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No liked profiles yet</h3>
+          <p className="text-sm sm:text-base text-gray-500 mb-4">
+            Start exploring members and like the profiles you find interesting
+          </p>
+          <button 
+            onClick={() => setActiveSection('members')}
+            className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+          >
+            Browse Members
+          </button>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center space-x-2 mt-6">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage <= 1}
+            className="px-3 py-1 bg-white/80 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-colors"
+          >
+            Previous
+          </button>
+          <span className="px-3 py-1 bg-rose-500 text-white rounded-lg">
+            {currentPage} / {pagination.totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+            disabled={currentPage >= pagination.totalPages}
+            className="px-3 py-1 bg-white/80 text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white transition-colors"
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
@@ -1739,9 +2272,99 @@ const UserDashboard = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-purple-50">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50">
+      {/* MagnetLines Background - Above everything but below content */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <MagnetLines
+          rows={12}
+          columns={12}
+          containerSize="100vw"
+          lineColor="#f472b6"
+          lineWidth="2px"
+          lineHeight="40px"
+          baseAngle={-5}
+          className="w-full h-full opacity-30"
+        />
+      </div>
+
+      {/* Enhanced Background */}
+      <div className="fixed inset-0 -z-10">
+        {/* Clean Gradient Background - Subtle Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-rose-50/40 to-pink-100/50"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-rose-100/30"></div>
+
+        {/* Floating Elements positioned above magnet lines */}
+        <div className="absolute inset-0" style={{ zIndex: -1 }}>
+          {/* Dynamic Floating Shapes */}
+          <motion.div
+            className="absolute rounded-full mix-blend-multiply filter blur-xl opacity-15 bg-gradient-to-r from-rose-400 to-pink-400 w-96 h-96 -top-48 -left-48"
+            animate={{
+              y: [0, 50, 0],
+              x: [0, 30, 0],
+              scale: [1, 1.3, 1],
+              rotate: [0, 180, 360],
+            }}
+            transition={{
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          <motion.div
+            className="absolute rounded-full mix-blend-multiply filter blur-xl opacity-15 bg-gradient-to-r from-pink-300 to-rose-300 w-80 h-80 top-1/3 -right-40"
+            animate={{
+              y: [0, 50, 0],
+              x: [0, 30, 0],
+              scale: [1, 1.3, 1],
+              rotate: [0, 180, 360],
+            }}
+            transition={{
+              duration: 14,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2
+            }}
+          />
+          <motion.div
+            className="absolute rounded-full mix-blend-multiply filter blur-xl opacity-15 bg-gradient-to-r from-red-300 to-rose-400 w-64 h-64 bottom-20 left-1/4"
+            animate={{
+              y: [0, 50, 0],
+              x: [0, 30, 0],
+              scale: [1, 1.3, 1],
+              rotate: [0, 180, 360],
+            }}
+            transition={{
+              duration: 16,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 4
+            }}
+          />
+          <motion.div
+            className="absolute rounded-full mix-blend-multiply filter blur-xl opacity-15 bg-gradient-to-r from-purple-300 to-pink-300 w-48 h-48 top-1/2 left-1/2"
+            animate={{
+              y: [0, 50, 0],
+              x: [0, 30, 0],
+              scale: [1, 1.3, 1],
+              rotate: [0, 180, 360],
+            }}
+            transition={{
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 6
+            }}
+          />
+        </div>
+      </div>
+
       {/* Top Header */}
-      <header className="bg-white shadow-lg border-b-2 border-gradient-to-r from-rose-500 to-purple-600">
+      <motion.header 
+        className="relative z-10 bg-white/50 backdrop-blur-sm shadow-lg border-b border-rose-200/50"
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, type: "spring" }}
+      >
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">
             {/* Logo */}
@@ -1758,8 +2381,7 @@ const UserDashboard = () => {
             <div className="flex items-center space-x-1 sm:space-x-3">
               {/* Country Flag - Hidden on very small screens */}
               <div className="hidden sm:flex items-center space-x-2">
-                <span className="text-lg">🇺🇸</span>
-                <span className="text-sm text-gray-600">US</span>
+                <span className="flex items-center gap-1 text-sm text-gray-600"><IconGlobe className="w-4 h-4" /> US</span>
               </div>
               
               {/* Help - Hidden on mobile */}
@@ -1785,29 +2407,27 @@ const UserDashboard = () => {
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Main Navigation Tabs */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 overflow-x-auto">
+      <nav className="relative z-10 bg-white/80 backdrop-blur-sm shadow-sm border-b border-rose-200/50 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center">
             {/* Navigation Tabs */}
             <div className="flex space-x-2 sm:space-x-6 lg:space-x-8 min-w-max">
               {[
-                { key: 'members', label: 'Members', icon: '👥' },
-                { key: 'messages', label: 'Chat', icon: '💬', badge: getTotalUnreadCount() > 0 ? getTotalUnreadCount() : null },
-                { key: 'matches', label: 'Match', icon: '💖' }
-              ].map((tab) => (
-                <motion.button
+                              { key: 'members', label: 'Members', icon: <IconUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                              { key: 'messages', label: 'Chat', icon: <FiMessageSquare className="w-4 h-4 sm:w-5 sm:h-5" /> , badge: getTotalUnreadCount() > 0 ? getTotalUnreadCount() : null },
+                              { key: 'liked-profiles', label: 'Liked', icon: <IconHeartSpark className="w-4 h-4 sm:w-5 sm:h-5" /> }
+                            ].map((tab) => (
+                <button
                   key={tab.key}
                   onClick={() => setActiveSection(tab.key)}
-                  className={`relative flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors ${
+                  className={`relative flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
                     activeSection === tab.key
                       ? 'border-rose-500 text-rose-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   <span className="text-sm sm:text-lg">{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -1817,7 +2437,7 @@ const UserDashboard = () => {
                       {tab.badge}
                     </span>
                   )}
-                </motion.button>
+                </button>
               ))}
             </div>
 
@@ -1835,43 +2455,41 @@ const UserDashboard = () => {
               </div>
 
               {/* Buy Credits Button */}
-              <motion.button
+              <button
                 onClick={() => setActiveSection('subscription-plans')}
-                className="bg-rose-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 transition-colors font-medium text-xs sm:text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="bg-rose-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 transition-all duration-200 font-medium text-xs sm:text-sm"
               >
                 <span className="hidden sm:inline">Buy Credits</span>
                 <span className="sm:hidden">Buy</span>
-              </motion.button>
+              </button>
 
               {/* Profile Button */}
-              <motion.button
+              <button
                 onClick={() => setActiveSection('my profile')}
-                className="flex items-center space-x-1 sm:space-x-2 bg-purple-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-purple-600 transition-colors text-xs sm:text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-1 sm:space-x-2 bg-purple-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-purple-600 transition-all duration-200 text-xs sm:text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 <span className="hidden sm:inline">Profile</span>
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
       {/* Content Area */}
-      <main className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeSection}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
+      <main className="relative z-10 max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6">
+        <div className="min-h-[70vh]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeSection}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="w-full"
+            >
               {activeSection === 'messages' && (
                 <ChatSection 
                   selectedChat={selectedChat} 
@@ -1889,19 +2507,12 @@ const UserDashboard = () => {
                 />
               )}
 
-              {activeSection === 'matches' && (
-                <div className="text-center py-8 sm:py-16">
-                  <div className="max-w-sm sm:max-w-md mx-auto px-4">
-                    <svg className="w-12 h-12 sm:w-16 sm:h-16 text-rose-300 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                    <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">Find Your Match</h3>
-                    <p className="text-sm sm:text-base text-gray-500 mb-4">Discover compatible people based on your preferences and interests.</p>
-                    <button className="px-4 sm:px-6 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors text-sm sm:text-base">
-                      Start Matching
-                    </button>
-                  </div>
-                </div>
+              {activeSection === 'liked-profiles' && (
+                <LikedProfilesSection 
+                  setActiveSection={setActiveSection}
+                  setSelectedChat={setSelectedChat}
+                  handleStartChat={handleStartChat}
+                />
               )}
 
               {activeSection === 'subscription-plans' && (
@@ -1914,6 +2525,7 @@ const UserDashboard = () => {
               {activeSection === 'my profile' && <ProfileSection user={user} />}
             </motion.div>
           </AnimatePresence>
+        </div>
         </main>
       </div>
     );

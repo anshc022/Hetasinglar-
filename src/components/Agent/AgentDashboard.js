@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { likeService } from '../../services/likeService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth, agentApi } from '../../services/agentApi';
@@ -183,20 +184,42 @@ const NotificationBell = ({ notifications, onNotificationClick }) => {
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 mt-2 rounded-full ${
+                        notif.type === 'like' ? 'bg-pink-500' :
                         notif.severity === 'high' ? 'bg-red-500' :
                         notif.severity === 'medium' ? 'bg-yellow-500' :
                         'bg-blue-500'
                       }`} />
                       <div>
-                        <p className="text-white">
-                          <span className="font-semibold">{notif.customerName}</span> needs a follow-up
-                        </p>
-                        <p className="text-sm text-gray-400 mt-1">
-                          Last message: {notif.lastMessage}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Due: {formatDistanceToNow(new Date(notif.followUpDue), { addSuffix: true })}
-                        </p>
+                        {notif.type === 'like' ? (
+                          <>
+                            <p className="text-white">
+                              {notif.message}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {notif.timestamp && !isNaN(new Date(notif.timestamp))
+                                ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })
+                                : 'Date unavailable'
+                              }
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-white">
+                              <span className="font-semibold">{notif.customerName}</span> needs a follow-up
+                            </p>
+                            <p className="text-sm text-gray-400 mt-1">
+                              Last message: {notif.lastMessage}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Due: {notif.followUpDue && !isNaN(new Date(notif.followUpDue)) 
+                                ? formatDistanceToNow(new Date(notif.followUpDue), { addSuffix: true })
+                                : notif.timestamp && !isNaN(new Date(notif.timestamp))
+                                ? formatDistanceToNow(new Date(notif.timestamp), { addSuffix: true })
+                                : 'Date unavailable'
+                              }
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -231,10 +254,10 @@ const StatCard = ({ title, value, icon, color }) => (
   </motion.div>
 );
 
-const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map() }) => {
+const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading }) => {
   // Store the current chat index for sequential viewing
   const [currentChatIndex, setCurrentChatIndex] = useState(0);
-  const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders'
+  const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders', 'likes'
   
   // Delete last agent message in this chat (soft delete)
   const handleDeleteLastAgentMessage = async (chat) => {
@@ -332,6 +355,9 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                  !chat.isInPanicRoom && 
                  chat.reminderHandled !== true;
         });
+      case 'likes':
+        // Show likes instead of chats
+        return [];
       default:
         // Show active items: panic, unread, needs-response, reminders (no unread) 
         return allChats.filter(chat => {
@@ -442,7 +468,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
       const response = await fetch(`${process.env.REACT_APP_API_URL}/agent/chats/${chatId}/assign`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('agentToken')}`,
           'Content-Type': 'application/json'
         }
       });
@@ -574,6 +600,17 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
             >
               ⏰ Reminders ({reminderCount})
             </button>
+            <button 
+              onClick={() => setFilterType('likes')}
+              className={`px-3 py-1 rounded-lg text-xs md:text-sm transition-colors shadow-sm ${
+                filterType === 'likes' 
+                  ? 'bg-gradient-to-r from-pink-500 via-rose-600 to-pink-600 text-white shadow-pink-500/40' 
+                  : 'bg-gradient-to-r from-pink-900/30 via-rose-800/20 to-pink-800/10 text-pink-300 hover:from-pink-800/40 hover:via-rose-700/30 hover:to-pink-700/20 border border-pink-500/30'
+              } ${likes.length === 0 ? 'opacity-60' : ''}`}
+              disabled={likes.length === 0}
+            >
+              💕 Likes ({likes.length})
+            </button>
           </div>
         </div>
         
@@ -584,6 +621,21 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
           >
             <FaPlus />
             <span>Create First Contact</span>
+          </button>
+          <button 
+            onClick={() => {
+              fetchLikesData();
+              if (window.fetchLiveQueueData) {
+                window.fetchLiveQueueData();
+              }
+            }}
+            className="px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex items-center gap-2 text-xs md:text-base"
+            disabled={likesLoading}
+          >
+            <svg className={`w-4 h-4 ${likesLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{likesLoading ? 'Refreshing...' : 'Refresh Data'}</span>
           </button>
           {(queueCount > 0 || unreadCount > 0) && (
             <button 
@@ -643,21 +695,86 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               )}
             </tbody>
           </table>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-700 text-xs md:text-sm">
-            <thead className="bg-gray-900 text-gray-400 uppercase">
+        ) : filterType === 'likes' ? (
+          <table className="min-w-full divide-y divide-pink-700 text-xs md:text-sm">
+            <thead className="bg-pink-900/70 text-pink-200 uppercase">
               <tr>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">User / Last Message</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Escort Profile</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Assigned Agent</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Status</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Unread Messages</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Last Active</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 whitespace-nowrap">Actions</th>
+                <th className="px-2 py-2 text-left">User</th>
+                <th className="px-2 py-2 text-left">Liked Escort</th>
+                <th className="px-2 py-2 text-left">Liked Date</th>
+                <th className="px-2 py-2 text-left">Status</th>
+                <th className="px-2 py-2 text-left">Actions</th>
               </tr>
             </thead>
+            <tbody className="divide-y divide-pink-800/60">
+              {likes.length > 0 ? likes.map(like => (
+                <tr key={like._id} className="hover:bg-pink-800/40 transition-colors">
+                  <td className="px-2 py-2 font-medium text-pink-100 whitespace-nowrap max-w-[140px] truncate">
+                    {like.userFullName || like.userName}
+                  </td>
+                  <td className="px-2 py-2 text-pink-200 whitespace-nowrap max-w-[140px] truncate">
+                    {like.escortName}
+                  </td>
+                  <td className="px-2 py-2 text-pink-300 whitespace-nowrap">
+                    {new Date(like.likedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      like.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {like.status}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => onStartChatFromLike && onStartChatFromLike(like._id)}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs shadow"
+                        title="Start Chat"
+                      >
+                        💬 Chat
+                      </button>
+                      <button
+                        onClick={() => onMarkLikeAsRead && onMarkLikeAsRead(like._id)}
+                        className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs shadow"
+                        title="Mark as Read"
+                      >
+                        ✓ Read
+                      </button>
+                      <button
+                        onClick={() => onDeleteLike && onDeleteLike(like._id)}
+                        className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs shadow"
+                        title="Delete"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="5" className="px-2 py-6 text-center text-pink-300">No likes yet</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-700 text-xs lg:text-sm">
+              <thead className="bg-gray-900 text-gray-400 uppercase">
+                <tr>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[180px] sm:min-w-[200px]">User / Last Message</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden sm:table-cell">Escort Profile</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[130px] hidden md:table-cell">Assigned Agent</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[100px]">Status</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden lg:table-cell">Messages/Likes</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden xl:table-cell">Last Active</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[150px]">Actions</th>
+                </tr>
+              </thead>
             <tbody className="text-gray-300 divide-y divide-gray-700">
-              {Array.isArray(sortedChats) && sortedChats.length > 0 ? sortedChats.map((chat) => {
+              {/* Render all chats */}
+              {Array.isArray(sortedChats) && sortedChats.length > 0 && sortedChats.map((chat) => {
               // Use backend unread count
               const unreadCount = chat.unreadCount || 0;
               
@@ -676,8 +793,8 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               
               return (
                 <tr key={chat._id} className={rowStyling}>
-                  <td className="px-2 py-2 md:px-4 md:py-3 min-w-[160px] align-top">
-                    <div className="flex items-start gap-2 md:gap-3 flex-col md:flex-row">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top">
+                    <div className="flex items-start gap-2 lg:gap-3 flex-col lg:flex-row">
                       <div className="flex items-center gap-2">
                         <div className={`h-2 w-2 rounded-full ${userPresence.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} />
                         {userPresence.isOnline && (
@@ -742,12 +859,12 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 min-w-[120px] align-top">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden sm:table-cell">
                     <span className="block font-semibold text-white truncate">
                       {chat.escortId?.firstName || chat.escortId?.name || chat.escortName || 'N/A'}
                     </span>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 min-w-[100px] align-top">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden md:table-cell">
                     <div className="flex flex-col">
                       {chat.assignedAgent ? (
                         <>
@@ -778,7 +895,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                       )}
                     </div>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 align-top">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top">
                     <div className="flex flex-col gap-1">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         userPresence.isOnline ? 'bg-green-500 text-white' : 'bg-gray-600 text-white'
@@ -787,79 +904,173 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                       </span>
                       {!userPresence.isOnline && userPresence.lastSeen && (
                         <span className="text-xs text-gray-400">
-                          {formatDistanceToNow(new Date(userPresence.lastSeen), { addSuffix: true })}
+                          {userPresence.lastSeen && !isNaN(new Date(userPresence.lastSeen)) 
+                            ? formatDistanceToNow(new Date(userPresence.lastSeen), { addSuffix: true })
+                            : 'Recently'
+                          }
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 align-top">
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full text-xs w-fit shadow-sm">
-                        {unreadCount} unread
-                      </span>
-                    )}
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden lg:table-cell">
+                    <div className="flex flex-col gap-1">
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full text-xs w-fit shadow-sm">
+                          💬 {unreadCount} unread
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 align-top">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden xl:table-cell">
                     <span className="block text-xs text-gray-400">
                       {format(new Date(chat.lastActive || chat.createdAt), 'PPp')}
                     </span>
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3 align-top">
-                    <div className="flex flex-col md:flex-row gap-2">
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top">
+                    <div className="flex flex-col lg:flex-row gap-1 lg:gap-2">
                       <button 
                         onClick={() => navigate(`/agent/live-queue/${chat.escortId._id}?chatId=${chat._id}`)}
-                        className="p-2 text-white rounded-lg flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-xs md:text-sm"
+                        className="p-1.5 lg:p-2 text-white rounded-lg flex items-center justify-center lg:gap-2 bg-blue-500 hover:bg-blue-600 text-xs"
                         title="Open Live Chat"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span className="hidden md:inline">
+                        <span className="hidden lg:inline">
                           {unreadCount > 0 ? 'View Messages' : 'Open Chat'}
                         </span>
                       </button>
                       {/* Panic Room toggle */}
                       <button
                         onClick={() => handleTogglePanicRoom(chat)}
-                        className={`p-2 rounded-lg text-white text-xs md:text-sm ${chat.isInPanicRoom || chat.chatType === 'panic' ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
+                        className={`p-1.5 lg:p-2 rounded-lg text-white text-xs ${chat.isInPanicRoom || chat.chatType === 'panic' ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
                         title={chat.isInPanicRoom || chat.chatType === 'panic' ? 'Remove from Panic Room' : 'Move to Panic Room'}
                       >
-                        <FaExclamationTriangle className="w-4 h-4" />
+                        <FaExclamationTriangle className="w-3 h-3 lg:w-4 lg:h-4" />
                       </button>
                       {/* Remove from dashboard table */}
                       <button
                         onClick={() => onRemoveFromTable(chat)}
-                        className="p-2 bg-red-600 rounded-lg hover:bg-red-700 text-white text-xs md:text-sm"
+                        className="p-1.5 lg:p-2 bg-red-600 rounded-lg hover:bg-red-700 text-white text-xs"
                         title="Remove from Dashboard"
                       >
-                        <FaTrash className="w-4 h-4" />
+                        <FaTrash className="w-3 h-3 lg:w-4 lg:h-4" />
                       </button>
                       <button 
                         onClick={() => onPushBack(chat._id)}
-                        className="p-2 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-xs md:text-sm"
+                        className="p-1.5 lg:p-2 bg-yellow-500 rounded-lg hover:bg-yellow-600 text-xs"
                         title="Push Back Chat"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </button>
                     </div>
                   </td>
                 </tr>
-              );
-              }) : (
+                );
+              })}              {/* Now render all likes as additional rows */}
+              {Array.isArray(likes) && likes.length > 0 && likes.map(like => {
+                // Safely handle date formatting
+                const likeDate = like.likedAt || like.createdAt;
+                const isValidDate = likeDate && !isNaN(new Date(likeDate));
+                
+                return (
+                <tr key={`like-${like._id}`} className="border-l-4 border-pink-400 bg-gradient-to-r from-pink-900/25 to-rose-800/15 hover:bg-pink-800/30 transition-colors">
+                  <td className="px-2 py-2 md:px-4 md:py-3 min-w-[160px] align-top">
+                    <div className="flex items-start gap-2 md:gap-3 flex-col md:flex-row">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-pink-500" />
+                        <span className="text-xs text-pink-400">❤️ Like</span>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-pink-100">
+                          {like.userFullName || like.userName}
+                        </span>
+                        <span className="block text-xs text-pink-300 mt-1">
+                          Liked {like.escortName}
+                        </span>
+                        <span className="block text-xs text-gray-400 mt-1">
+                          {isValidDate ? new Date(likeDate).toLocaleDateString() : 'Date unavailable'}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="hidden sm:table-cell px-2 py-2 md:px-4 md:py-3 min-w-[120px] align-top">
+                    <span className="block font-semibold text-pink-200 truncate">
+                      {like.escortName}
+                    </span>
+                  </td>
+                  <td className="hidden md:table-cell px-2 py-2 md:px-4 md:py-3 min-w-[100px] align-top">
+                    <span className="text-xs text-pink-300">System</span>
+                  </td>
+                  <td className="hidden lg:table-cell px-2 py-2 md:px-4 md:py-3 align-top">
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      like.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {like.status}
+                    </span>
+                  </td>
+                  <td className="hidden lg:table-cell px-2 py-2 md:px-4 md:py-3 align-top">
+                    <span className="px-2 py-1 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-full text-xs w-fit shadow-sm">
+                      💕 New Like
+                    </span>
+                  </td>
+                  <td className="hidden xl:table-cell px-2 py-2 md:px-4 md:py-3 align-top">
+                    <span className="block text-xs text-gray-400">
+                      {isValidDate ? format(new Date(likeDate), 'PPp') : 'Date unavailable'}
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 md:px-4 md:py-3 align-top">
+                    <div className="flex flex-col md:flex-row gap-2">
+                      <button
+                        onClick={() => onStartChatFromLike && onStartChatFromLike(like._id)}
+                        className="p-1.5 lg:p-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs shadow flex items-center gap-1"
+                        title="Start Chat"
+                      >
+                        <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 3.582-8 8-8s8 3.582 8 8z" />
+                        </svg>
+                        <span className="hidden sm:inline">Chat</span>
+                      </button>
+                      <button
+                        onClick={() => onMarkLikeAsRead && onMarkLikeAsRead(like._id)}
+                        className="p-1.5 lg:p-2 bg-green-600 hover:bg-green-500 text-white rounded text-xs shadow"
+                        title="Mark as Read"
+                      >
+                        <svg className="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="hidden sm:inline ml-1">Read</span>
+                      </button>
+                      <button
+                        onClick={() => onDeleteLike && onDeleteLike(like._id)}
+                        className="p-2 bg-red-600 hover:bg-red-500 text-white rounded text-xs shadow"
+                        title="Delete"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                );
+              })}
+              
+              {/* Show empty state only if no chats AND no likes */}
+              {(!Array.isArray(sortedChats) || sortedChats.length === 0) && (!Array.isArray(likes) || likes.length === 0) && (
                 <tr>
-                  <td colSpan="7" className="px-2 py-8 text-center text-gray-400">
+                  <td colSpan="3" className="px-2 py-8 text-center text-gray-400">
                     {filterType === 'panic' && 'No panic room chats'}
                     {filterType === 'queue' && 'No unread messages in queue'}
                     {filterType === 'unread' && 'No unread messages'}
-                    {filterType === 'all' && 'No active chats or panic room items'}
+                    {filterType === 'all' && 'No active chats, likes, or panic room items'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -887,6 +1098,28 @@ const AgentDashboard = () => {
   const [selectedEscortForImages, setSelectedEscortForImages] = useState(null);
   // Chats to hide after agent reply (until customer replies again)
   const [suppressedChatIds, setSuppressedChatIds] = useState(new Set());
+  // Likes state
+  const [likes, setLikes] = useState([]);
+  const [likesLoading, setLikesLoading] = useState(false);
+  
+  // Fetch likes data for agent dashboard
+  const fetchLikesData = useCallback(async () => {
+    try {
+      console.log('🔄 Fetching likes data...');
+      setLikesLoading(true);
+      const likesResponse = await likeService.getAgentLikes(
+        localStorage.getItem('agentToken'),
+        'active',
+        50
+      );
+      console.log('✅ Likes data fetched:', likesResponse);
+      setLikes(likesResponse.likes || []);
+    } catch (error) {
+      console.error('❌ Failed to fetch likes data:', error);
+    } finally {
+      setLikesLoading(false);
+    }
+  }, []);
   
   const socketRef = useRef(null);
   // Initialize websocket connection
@@ -1106,6 +1339,28 @@ const AgentDashboard = () => {
           return [...oldNotifs, ...data.notifications];
         });
       }
+      
+      // Handle new likes in real-time
+      if (data.type === 'new_like') {
+        console.log('Received new like notification:', data);
+        // Refresh likes data to get the new like
+        fetchLikesData();
+        
+        // Optional: Show a notification for the new like
+        if (data.data) {
+          setNotifications(prevNotifs => {
+            const newNotif = {
+              id: `like-${data.data.likeId}`,
+              chatId: data.data.likeId,
+              type: 'like',
+              message: `${data.data.userName} liked ${data.data.escortName}`,
+              timestamp: data.data.timestamp,
+              read: false
+            };
+            return [newNotif, ...prevNotifs.slice(0, 9)]; // Keep only latest 10 notifications
+          });
+        }
+      }
     };
 
     // Handle presence updates
@@ -1199,12 +1454,12 @@ const AgentDashboard = () => {
         }
 
         // Fetch fresh data (this will update the UI if data has changed)
-  const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
+        const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
           agentAuth.getDashboardStats(),
           agentAuth.getLiveQueue(),
           agentAuth.getMyEscorts()
         ]);
-  const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+        const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 
         // Cache the fresh data
         cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000); // 2 min cache
@@ -1219,6 +1474,9 @@ const AgentDashboard = () => {
 
         setChats(liveQueue);
         setMyEscorts(escortData);
+        
+        // Fetch initial likes data
+        fetchLikesData();
 
         // Initialize user presence from initial data
         const presenceMap = new Map();
@@ -1298,13 +1556,16 @@ const AgentDashboard = () => {
 
     fetchDashboardData();
     
+    // Fetch likes data
+    fetchLikesData();
+    
     // Remove auto-polling - use manual refresh button instead
     // const interval = setInterval(() => {
     //   fetchLiveQueueData();
     // }, 15000); // Poll every 15 seconds
     
     // return () => clearInterval(interval);
-  }, [navigate, activeTab]);
+  }, [navigate, activeTab, fetchLikesData]);
 
   // Sync chats to sessionStorage for auto-advance functionality
   useEffect(() => {
@@ -1511,6 +1772,45 @@ const AgentDashboard = () => {
     );
   }
 
+  // Like handlers
+  const handleMarkLikeAsRead = async (likeId) => {
+    try {
+      await likeService.markLikeAsRead(likeId, localStorage.getItem('agentToken'));
+      // Refresh likes data
+      fetchLikesData();
+    } catch (error) {
+      console.error('Failed to mark like as read:', error);
+      alert('Failed to mark like as read');
+    }
+  };
+
+  const handleDeleteLike = async (likeId) => {
+    try {
+      const confirmDelete = window.confirm('Are you sure you want to delete this like entry?');
+      if (!confirmDelete) return;
+      
+      await likeService.deleteLike(likeId, localStorage.getItem('agentToken'));
+      // Refresh likes data
+      fetchLikesData();
+    } catch (error) {
+      console.error('Failed to delete like:', error);
+      alert('Failed to delete like');
+    }
+  };
+
+  const handleStartChatFromLike = async (likeId) => {
+    try {
+      const response = await likeService.startChatFromLike(likeId, localStorage.getItem('agentToken'));
+      if (response.chatId) {
+        // Navigate to the chat
+        navigate(`/agent/chat/${response.chatId}`);
+      }
+    } catch (error) {
+      console.error('Failed to start chat from like:', error);
+      alert('Failed to start chat');
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-900">
       <Sidebar 
@@ -1561,7 +1861,7 @@ const AgentDashboard = () => {
         {/* Live Dashboard - shows all chats and panic room in one table */}
     {activeTab === 'dashboard' && (
           <LiveQueueTable 
-      chats={visibleChats}
+            chats={visibleChats}
             onAssign={handleAssignChat}
             onPushBack={handlePushBack}
             onRemoveFromTable={handleRemoveChatFromTable}
@@ -1569,6 +1869,12 @@ const AgentDashboard = () => {
             onCreateFirstContact={handleCreateFirstContact}
             navigate={navigate}
             userPresence={userPresence}
+            likes={likes}
+            onMarkLikeAsRead={handleMarkLikeAsRead}
+            onDeleteLike={handleDeleteLike}
+            onStartChatFromLike={handleStartChatFromLike}
+            fetchLikesData={fetchLikesData}
+            likesLoading={likesLoading}
           />
         )}
 
