@@ -13,6 +13,47 @@ import { useLogApi } from '../../services/useLogApi';
 import Notification from '../common/Notification';
 import ImageSelector from './ImageSelector';
 
+// Add custom animations for sidebar sliding
+const styles = `
+  @keyframes slideInLeft {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-slide-in-left {
+    animation: slideInLeft 0.3s ease-out forwards;
+  }
+  
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out forwards;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined' && !document.getElementById('chatbox-animations')) {
+  const styleElement = document.createElement('style');
+  styleElement.id = 'chatbox-animations';
+  styleElement.textContent = styles;
+  document.head.appendChild(styleElement);
+}
+
 const ReminderBadge = ({ dueDate }) => {
   const hours = differenceInHours(new Date(dueDate), new Date());
   let color = 'bg-yellow-500';
@@ -467,7 +508,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   // State for log modals
   const [showEscortLogModal, setShowEscortLogModal] = useState(false);
   const [showUserLogModal, setShowUserLogModal] = useState(false);
-  const [showEscortProfileModal, setShowEscortProfileModal] = useState(false);
   
   // Edit states
   const [editingLog, setEditingLog] = useState(null);
@@ -2122,10 +2162,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           </div>
 
           {/* Escort Profile Section */}
-          {params.escortId && (
+          {selectedChat?.escortId && (
             <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
               <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Escort Profile
@@ -2136,10 +2176,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                     <img 
                       src={selectedChat.escortId.profileImage} 
                       alt="Profile" 
-                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-pink-500"
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium border-2 border-pink-500">
                       {selectedChat?.escortId?.firstName?.[0] || '?'}
                     </div>
                   )}
@@ -2155,7 +2195,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   {selectedChat?.escortId?._id && (
                     <button
                       onClick={() => setShowEscortLogModal(true)}
-                      className="ml-2 flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                      className="ml-2 flex items-center gap-1 px-2 py-1 bg-pink-600 hover:bg-pink-700 text-white text-xs rounded transition-colors"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -2184,7 +2224,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                     <span className="text-xs text-gray-400 block mb-1">Interests</span>
                     <div className="flex flex-wrap gap-1">
                       {selectedChat?.escortId?.interests?.length > 0 ? selectedChat.escortId.interests.map((interest, index) => (
-                        <span key={index} className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                        <span key={index} className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded-full text-xs">
                           {interest}
                         </span>
                       )) : (
@@ -2897,7 +2937,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         {/* Escort Profile Image Button */}
         {selectedChat?.escortId && (
           <button
-            onClick={() => setShowEscortProfileModal(true)}
+            onClick={() => {
+              setMobileSidebarType('escort');
+              setShowMobileSidebar(true);
+            }}
             className="w-12 h-12 bg-gradient-to-br from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 border-2 border-pink-500/30"
             title="Escort Profile & Logs"
           >
@@ -2963,17 +3006,51 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       {/* Mobile Sidebar Overlay */}
       {showMobileSidebar && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
-          <div className="fixed inset-y-0 left-0 w-80 max-w-[90vw] bg-gray-800 shadow-xl overflow-y-auto touch-pan-y">
+          {/* Sidebar Container with Animation */}
+          <div className={`fixed inset-y-0 w-80 max-w-[90vw] bg-gray-800 shadow-xl overflow-y-auto touch-pan-y transform transition-all duration-300 ease-out ${
+            mobileSidebarType === 'escort' 
+              ? 'left-0 animate-slide-in-left' 
+              : mobileSidebarType === 'user'
+              ? 'right-0 animate-slide-in-right'
+              : 'left-0 animate-slide-in-left'
+          }`}>
             {/* Sidebar Header */}
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between bg-gray-800/80 backdrop-blur sticky top-0">
-              <h3 className="text-white font-semibold">
-                {mobileSidebarType === 'user' && 'User Details'}
-                {mobileSidebarType === 'chats' && 'Chat List'}
-                {mobileSidebarType === 'escort' && 'Escort Profile'}
+            <div className={`p-4 border-b border-gray-700 flex items-center justify-between backdrop-blur sticky top-0 ${
+              mobileSidebarType === 'escort' 
+                ? 'bg-gradient-to-r from-pink-800/90 to-purple-800/90' 
+                : mobileSidebarType === 'user'
+                ? 'bg-gradient-to-r from-blue-800/90 to-purple-800/90'
+                : 'bg-gray-800/90'
+            }`}>
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                {mobileSidebarType === 'escort' && (
+                  <>
+                    <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Escort Profile
+                  </>
+                )}
+                {mobileSidebarType === 'user' && (
+                  <>
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    User Details
+                  </>
+                )}
+                {mobileSidebarType === 'chats' && (
+                  <>
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Chat List
+                  </>
+                )}
               </h3>
               <button
                 onClick={() => setShowMobileSidebar(false)}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors touch-manipulation"
+                className="p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -3191,47 +3268,184 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               )}
               
-              {mobileSidebarType === 'escort' && params.escortId && (
+              {mobileSidebarType === 'escort' && selectedChat?.escortId && (
                 <div>
-                  <div className="space-y-3">
-                    <div className="flex justify-center mb-4">
-                      {selectedChat?.escortId?.profileImage ? (
-                        <img 
-                          src={selectedChat.escortId.profileImage} 
-                          alt="Profile" 
-                          className="w-24 h-24 rounded-full object-cover border-2 border-blue-500"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-2xl">
-                          {selectedChat?.escortId?.firstName?.[0] || '?'}
-                        </div>
-                      )}
+                  {/* Escort Profile Image - Compact */}
+                  <div className="flex justify-center mb-3">
+                    {selectedChat?.escortId?.profileImage ? (
+                      <img 
+                        src={selectedChat.escortId.profileImage} 
+                        alt="Escort Profile" 
+                        className="w-16 h-16 rounded-full object-cover border-2 border-pink-500"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium border-2 border-pink-500">
+                        {selectedChat?.escortId?.firstName?.[0] || '?'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Escort Basic Info */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Name</span>
+                      <span className="text-white text-xs font-medium truncate ml-2">{selectedChat?.escortId?.firstName || 'N/A'}</span>
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-sm">Name</label>
-                      <p className="text-white">{selectedChat?.escortId?.firstName || 'N/A'}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Gender</span>
+                      <span className="text-white text-xs">{selectedChat?.escortId?.gender || 'N/A'}</span>
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-sm">Gender</label>
-                      <p className="text-white">{selectedChat?.escortId?.gender || 'N/A'}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Location</span>
+                      <span className="text-white text-xs truncate ml-2" title={selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}>
+                        {selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-sm">Location</label>
-                      <p className="text-white">{selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}</p>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Profession</span>
+                      <span className="text-white text-xs">{selectedChat?.escortId?.profession || 'N/A'}</span>
                     </div>
-                    <div>
-                      <label className="text-gray-400 text-sm">Profession</label>
-                      <p className="text-white">{selectedChat?.escortId?.profession || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-gray-400 text-sm">Interests</label>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {selectedChat?.escortId?.interests?.map((interest, index) => (
-                          <span key={index} className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
+                    <div className="py-1">
+                      <span className="text-xs text-gray-400 block mb-1">Interests</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedChat?.escortId?.interests?.length > 0 ? selectedChat.escortId.interests.map((interest, index) => (
+                          <span key={index} className="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded-full text-xs">
                             {interest}
                           </span>
-                        )) || 'N/A'}
+                        )) : (
+                          <span className="text-white text-xs">N/A</span>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Chat Statistics */}
+                  <div className="mt-6 bg-gray-800/50 rounded-lg p-3">
+                    <h3 className="text-white text-sm font-medium mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      Chat Stats
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Messages</span>
+                        <span className="text-white font-medium">{selectedChat.messages?.length || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                          </svg>
+                          In
+                        </span>
+                        <span className="text-green-400 font-medium">{getMessageCounts().inCount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                          </svg>
+                          Out
+                        </span>
+                        <span className="text-blue-400 font-medium">{getMessageCounts().outCount}</span>
+                      </div>
+                      
+                      <div className="border-t border-gray-600/50 my-2"></div>
+                      
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Started</span>
+                        <span className="text-white text-right">
+                          {new Date(selectedChat.createdAt).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Escort Logs Section */}
+                  <div className="mt-6 bg-gray-800/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-white text-sm font-medium flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Escort Logs
+                      </h3>
+                      {selectedChat?.escortId?._id && (
+                        <button
+                          onClick={() => {
+                            setShowMobileSidebar(false);
+                            setShowEscortLogModal(true);
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-pink-600 hover:bg-pink-700 text-white text-xs rounded transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Log
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Display Escort Logs */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {escortLogs.length > 0 ? (
+                        escortLogs.slice(0, 3).map((log) => (
+                          <div key={log._id} className="bg-gray-700/50 rounded p-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-white text-xs mb-1 line-clamp-2">{log.content}</p>
+                                <div className="flex items-center justify-between text-xs text-gray-400">
+                                  <span>{log.agentId?.firstName || 'Unknown'}</span>
+                                  <span>{format(new Date(log.createdAt), 'MMM dd, HH:mm')}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingLog(log);
+                                  setEditMode(true);
+                                  setShowMobileSidebar(false);
+                                  setShowEscortLogModal(true);
+                                }}
+                                className="text-pink-400 hover:text-pink-300 p-0.5 ml-2"
+                                title="Edit Log"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 text-gray-400">
+                          <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p className="text-xs">No logs available</p>
+                          <p className="text-xs mt-1 opacity-75">Tap "Add Log" to create</p>
+                        </div>
+                      )}
+                      
+                      {/* Show more logs indicator */}
+                      {escortLogs.length > 3 && (
+                        <div className="text-center py-2">
+                          <button
+                            onClick={() => {
+                              setShowMobileSidebar(false);
+                              setShowEscortLogModal(true);
+                            }}
+                            className="text-pink-400 hover:text-pink-300 text-xs underline"
+                          >
+                            View all {escortLogs.length} logs
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3323,143 +3537,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         initialData={editingLog}
       />
 
-      {/* Escort Profile Modal */}
-      {showEscortProfileModal && selectedChat?.escortId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
-              <div className="flex items-center gap-3">
-                {selectedChat?.escortId?.profileImage ? (
-                  <img 
-                    src={selectedChat.escortId.profileImage} 
-                    alt="Escort Profile" 
-                    className="w-12 h-12 rounded-full object-cover border-2 border-pink-500"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium border-2 border-pink-500">
-                    {selectedChat?.escortId?.firstName?.[0] || '?'}
-                  </div>
-                )}
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    {selectedChat?.escortId?.firstName || 'Escort'} Profile
-                  </h2>
-                  <p className="text-gray-400 text-sm">View profile and manage logs</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowEscortProfileModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Escort Details */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-white mb-4">Escort Details</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-gray-700/50 rounded-lg p-3">
-                    <span className="text-gray-400 text-sm block mb-1">Name</span>
-                    <span className="text-white">{selectedChat?.escortId?.firstName || 'N/A'}</span>
-                  </div>
-                  <div className="bg-gray-700/50 rounded-lg p-3">
-                    <span className="text-gray-400 text-sm block mb-1">Gender</span>
-                    <span className="text-white">{selectedChat?.escortId?.gender || 'N/A'}</span>
-                  </div>
-                  <div className="bg-gray-700/50 rounded-lg p-3">
-                    <span className="text-gray-400 text-sm block mb-1">Location</span>
-                    <span className="text-white">{selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}</span>
-                  </div>
-                  <div className="bg-gray-700/50 rounded-lg p-3">
-                    <span className="text-gray-400 text-sm block mb-1">Profession</span>
-                    <span className="text-white">{selectedChat?.escortId?.profession || 'N/A'}</span>
-                  </div>
-                </div>
-                
-                {/* Interests */}
-                <div className="mt-4">
-                  <span className="text-gray-400 text-sm block mb-2">Interests</span>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedChat?.escortId?.interests?.length > 0 ? selectedChat.escortId.interests.map((interest, index) => (
-                      <span key={index} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
-                        {interest}
-                      </span>
-                    )) : (
-                      <span className="text-gray-400">No interests specified</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Logs Section */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-white">Escort Logs</h3>
-                  <button
-                    onClick={() => {
-                      setShowEscortProfileModal(false);
-                      setShowEscortLogModal(true);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Add Log
-                  </button>
-                </div>
-                
-                {/* Display Escort Logs */}
-                <div className="space-y-3">
-                  {escortLogs.length > 0 ? (
-                    escortLogs.map((log) => (
-                      <div key={log._id} className="bg-gray-700/50 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-white mb-2">{log.content}</p>
-                            <div className="flex items-center gap-4 text-sm text-gray-400">
-                              <span>By: {log.agentId?.firstName || 'Unknown'}</span>
-                              <span>{format(new Date(log.createdAt), 'MMM dd, yyyy HH:mm')}</span>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setEditingLog(log);
-                              setEditMode(true);
-                              setShowEscortProfileModal(false);
-                              setShowEscortLogModal(true);
-                            }}
-                            className="text-blue-400 hover:text-blue-300 p-1"
-                            title="Edit Log"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-400">
-                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <p>No logs available</p>
-                      <p className="text-sm mt-1">Click "Add Log" to create the first log entry</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Notification */}
       {notification && (
