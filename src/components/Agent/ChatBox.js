@@ -3106,6 +3106,88 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                       </div>
                     </div>
                   </div>
+
+                  {/* User Logs Section */}
+                  <div className="mt-6 bg-gray-800/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-white text-sm font-medium flex items-center gap-2">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        User Logs
+                      </h3>
+                      {selectedChat?.customerId?._id && (
+                        <button
+                          onClick={() => {
+                            setShowMobileSidebar(false);
+                            setShowUserLogModal(true);
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Add Log
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Display User Logs */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {userLogs.length > 0 ? (
+                        userLogs.slice(0, 3).map((log) => (
+                          <div key={log._id} className="bg-gray-700/50 rounded p-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-white text-xs mb-1 line-clamp-2">{log.content}</p>
+                                <div className="flex items-center justify-between text-xs text-gray-400">
+                                  <span>{log.agentId?.firstName || 'Unknown'}</span>
+                                  <span>{format(new Date(log.createdAt), 'MMM dd, HH:mm')}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingLog(log);
+                                  setEditMode(true);
+                                  setShowMobileSidebar(false);
+                                  setShowUserLogModal(true);
+                                }}
+                                className="text-blue-400 hover:text-blue-300 p-0.5 ml-2"
+                                title="Edit Log"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-4 text-gray-400">
+                          <svg className="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p className="text-xs">No logs available</p>
+                          <p className="text-xs mt-1 opacity-75">Tap "Add Log" to create</p>
+                        </div>
+                      )}
+                      
+                      {/* Show more logs indicator */}
+                      {userLogs.length > 3 && (
+                        <div className="text-center py-2">
+                          <button
+                            onClick={() => {
+                              setShowMobileSidebar(false);
+                              setShowUserLogModal(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 text-xs underline"
+                          >
+                            View all {userLogs.length} logs
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               
