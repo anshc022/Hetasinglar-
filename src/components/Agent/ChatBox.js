@@ -467,6 +467,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   // State for log modals
   const [showEscortLogModal, setShowEscortLogModal] = useState(false);
   const [showUserLogModal, setShowUserLogModal] = useState(false);
+  const [showEscortProfileModal, setShowEscortProfileModal] = useState(false);
   
   // Edit states
   const [editingLog, setEditingLog] = useState(null);
@@ -2893,6 +2894,27 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       
       {/* Mobile Floating Action Buttons */}
       <div className="fixed bottom-4 right-4 lg:hidden flex flex-col gap-2 z-40">
+        {/* Escort Profile Image Button */}
+        {selectedChat?.escortId && (
+          <button
+            onClick={() => setShowEscortProfileModal(true)}
+            className="w-12 h-12 bg-gradient-to-br from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 border-2 border-pink-500/30"
+            title="Escort Profile & Logs"
+          >
+            {selectedChat?.escortId?.profileImage ? (
+              <img 
+                src={selectedChat.escortId.profileImage} 
+                alt="Escort Profile" 
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-sm font-medium">
+                {selectedChat?.escortId?.firstName?.[0] || '?'}
+              </div>
+            )}
+          </button>
+        )}
+        
         {/* User Details Button */}
         <button
           onClick={() => {
@@ -3218,6 +3240,144 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         editMode={editMode}
         initialData={editingLog}
       />
+
+      {/* Escort Profile Modal */}
+      {showEscortProfileModal && selectedChat?.escortId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                {selectedChat?.escortId?.profileImage ? (
+                  <img 
+                    src={selectedChat.escortId.profileImage} 
+                    alt="Escort Profile" 
+                    className="w-12 h-12 rounded-full object-cover border-2 border-pink-500"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center text-white text-lg font-medium border-2 border-pink-500">
+                    {selectedChat?.escortId?.firstName?.[0] || '?'}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-semibold text-white">
+                    {selectedChat?.escortId?.firstName || 'Escort'} Profile
+                  </h2>
+                  <p className="text-gray-400 text-sm">View profile and manage logs</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEscortProfileModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Escort Details */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-white mb-4">Escort Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <span className="text-gray-400 text-sm block mb-1">Name</span>
+                    <span className="text-white">{selectedChat?.escortId?.firstName || 'N/A'}</span>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <span className="text-gray-400 text-sm block mb-1">Gender</span>
+                    <span className="text-white">{selectedChat?.escortId?.gender || 'N/A'}</span>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <span className="text-gray-400 text-sm block mb-1">Location</span>
+                    <span className="text-white">{selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}</span>
+                  </div>
+                  <div className="bg-gray-700/50 rounded-lg p-3">
+                    <span className="text-gray-400 text-sm block mb-1">Profession</span>
+                    <span className="text-white">{selectedChat?.escortId?.profession || 'N/A'}</span>
+                  </div>
+                </div>
+                
+                {/* Interests */}
+                <div className="mt-4">
+                  <span className="text-gray-400 text-sm block mb-2">Interests</span>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedChat?.escortId?.interests?.length > 0 ? selectedChat.escortId.interests.map((interest, index) => (
+                      <span key={index} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
+                        {interest}
+                      </span>
+                    )) : (
+                      <span className="text-gray-400">No interests specified</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Logs Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-white">Escort Logs</h3>
+                  <button
+                    onClick={() => {
+                      setShowEscortProfileModal(false);
+                      setShowEscortLogModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add Log
+                  </button>
+                </div>
+                
+                {/* Display Escort Logs */}
+                <div className="space-y-3">
+                  {escortLogs.length > 0 ? (
+                    escortLogs.map((log) => (
+                      <div key={log._id} className="bg-gray-700/50 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-white mb-2">{log.content}</p>
+                            <div className="flex items-center gap-4 text-sm text-gray-400">
+                              <span>By: {log.agentId?.firstName || 'Unknown'}</span>
+                              <span>{format(new Date(log.createdAt), 'MMM dd, yyyy HH:mm')}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingLog(log);
+                              setEditMode(true);
+                              setShowEscortProfileModal(false);
+                              setShowEscortLogModal(true);
+                            }}
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Edit Log"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p>No logs available</p>
+                      <p className="text-sm mt-1">Click "Add Log" to create the first log entry</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Notification */}
       {notification && (
