@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { escorts, chats } from '../../services/api';
 import { likeService } from '../../services/likeService';
@@ -9,6 +10,7 @@ import axios from 'axios';
 import SubscriptionPlans from './SubscriptionPlans';
 import config from '../../config/environment';
 import { MagnetLines } from '../ui/MagnetLines';
+import ThemeToggle from '../ui/ThemeToggle';
 
 // Reusable SVG Icon components (replacing emoji usage for consistent styling)
 const IconWarning = ({ className = 'w-4 h-4' }) => (
@@ -66,15 +68,15 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
     onClick={onClick}
     className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${
       isSelected 
-        ? 'border border-pink-300/60 shadow-lg shadow-pink-200/40 transform scale-[1.02]' 
-        : 'hover:bg-white/80 border border-transparent hover:transform hover:scale-[1.01] hover:shadow-md'
+        ? 'border border-pink-300/60 dark:border-pink-400/50 shadow-lg shadow-pink-200/40 dark:shadow-pink-500/20 transform scale-[1.02]' 
+        : 'bg-white/70 dark:bg-gray-800/70 hover:bg-white/80 dark:hover:bg-gray-800/60 border border-transparent hover:transform hover:scale-[1.01] hover:shadow-md'
     }`}
     style={isSelected ? {
       background: 'linear-gradient(145deg, rgba(236,72,153,0.6) 0%, rgba(244,114,182,0.7) 50%, rgba(251,113,133,0.6) 100%)',
       backdropFilter: 'blur(15px)',
       boxShadow: '0 4px 20px rgba(236, 72, 153, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
     } : {
-      background: 'rgba(255, 255, 255, 0.7)'
+      backdropFilter: 'blur(10px)'
     }}
     whileHover={{ y: -2 }}
     whileTap={{ scale: 0.98 }}
@@ -103,8 +105,8 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <h3 className={`font-semibold truncate ${isSelected ? 'text-white drop-shadow-sm' : 'text-gray-800'}`}>{chat.escortName}</h3>
-          <span className={`text-xs flex-shrink-0 ${isSelected ? 'text-pink-100' : 'text-gray-500'}`}>{chat.time}</span>
+          <h3 className={`font-semibold truncate ${isSelected ? 'text-white drop-shadow-sm' : 'text-gray-800 dark:text-gray-200'}`}>{chat.escortName}</h3>
+          <span className={`text-xs flex-shrink-0 ${isSelected ? 'text-pink-100' : 'text-gray-500 dark:text-gray-400'}`}>{chat.time}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {chat.isTyping ? (
@@ -116,7 +118,7 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
             </div>
           ) : (
             <div className="flex items-center gap-1.5 w-full">
-              <p className={`text-sm truncate ${isSelected ? 'text-pink-50 drop-shadow-sm' : 'text-gray-600'}`}>{chat.lastMessage}</p>
+              <p className={`text-sm truncate ${isSelected ? 'text-pink-50 drop-shadow-sm' : 'text-gray-600 dark:text-gray-400'}`}>{chat.lastMessage}</p>
             </div>
           )}
         </div>
@@ -502,7 +504,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
 
   if (!selectedChat) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500">
+      <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
         <p>Select a chat to start messaging</p>
       </div>
     );
@@ -513,24 +515,24 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
   return (
     <div className="flex flex-col h-full">
       {/* Chat Header */}
-      <div className="border-b border-gray-200 p-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b border-gray-200 dark:border-gray-600 p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Back button for mobile */}
             <button
               type="button"
               onClick={() => onBack && onBack()}
-              className="lg:hidden mr-1 p-2 rounded-md hover:bg-gray-100"
+              className="lg:hidden mr-1 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Back to chats"
             >
-              <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <h3 className="font-semibold text-gray-800">{selectedChat.escortName}</h3>
-            <span className={`w-2 h-2 rounded-full ${selectedChat.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100">{selectedChat.escortName}</h3>
+            <span className={`w-2 h-2 rounded-full ${selectedChat.isOnline ? 'bg-green-500' : 'bg-gray-400 dark:bg-gray-500'}`}></span>
           </div>
-          <div className="text-sm text-gray-600 flex items-center gap-2">
+          <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
             <span className="flex items-center">
               <svg className="w-4 h-4 text-yellow-500 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM10 4a6 6 0 110 12 6 6 0 010-12z"/>
@@ -538,16 +540,16 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
               {userCoins} coins
             </span>
             {userCoins <= 5 && userCoins > 0 && (
-              <span className="text-yellow-600 text-xs flex items-center gap-1"><IconWarning className="w-3.5 h-3.5" /> Low balance</span>
+              <span className="text-yellow-600 dark:text-yellow-400 text-xs flex items-center gap-1"><IconWarning className="w-3.5 h-3.5" /> Low balance</span>
             )}
           </div>
         </div>
       </div>
 
       {/* Chat Messages */}
-  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-rose-50">
+  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-gray-50 to-rose-50 dark:from-gray-800 dark:to-gray-900">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded relative mb-4" role="alert">
             <span className="block sm:inline">{error}</span>
           </div>
         )}
@@ -558,8 +560,8 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
             className={`flex ${msg.isSent ? 'justify-end' : 'justify-start'} items-end gap-2`}
           >
             <div className={`max-w-[70%] relative group ${
-              msg.isSent ? 'bg-rose-500 text-white' : 'bg-white text-gray-800'
-            } rounded-2xl px-4 py-2 shadow-sm ${(msg.isDeleted && msg.isSent) ? 'opacity-50 bg-gray-400' : ''}`}>
+              msg.isSent ? 'bg-rose-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100'
+            } rounded-2xl px-4 py-2 shadow-sm ${(msg.isDeleted && msg.isSent) ? 'opacity-50 bg-gray-400 dark:bg-gray-600' : ''}`}>
               
               {/* Edit/Delete buttons for user's own messages */}
               {msg.isSent && !msg.isDeleted && msg.messageType !== 'image' && msg.text !== '📷 Image' && (
@@ -585,7 +587,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
                 </div>
               )}
 
-              {!msg.isSent && <div className="text-xs text-gray-600 mb-1">{selectedChat.escortName}</div>}
+              {!msg.isSent && <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">{selectedChat.escortName}</div>}
               
               {/* Message content - show edit input or regular message */}
               {editingMessage === index ? (
@@ -593,20 +595,20 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
                   <textarea
                     value={editMessageText}
                     onChange={(e) => setEditMessageText(e.target.value)}
-                    className="w-full p-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
+                    className="w-full p-2 bg-gray-700 dark:bg-gray-600 text-white rounded border border-gray-600 dark:border-gray-500 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none"
                     rows="3"
                     autoFocus
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={handleSaveEditMessage}
-                      className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white rounded text-sm transition-colors"
                     >
                       Save
                     </button>
                     <button
                       onClick={handleCancelEditMessage}
-                      className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                      className="px-3 py-1 bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-800 text-white rounded text-sm transition-colors"
                     >
                       Cancel
                     </button>
@@ -640,8 +642,8 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
                           }}
                         />
                         {/* Error fallback */}
-                        <div className="hidden items-center justify-center h-32 bg-gray-200 rounded-lg border border-gray-300">
-                          <div className="text-center text-gray-500">
+                        <div className="hidden items-center justify-center h-32 bg-gray-200 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
+                          <div className="text-center text-gray-500 dark:text-gray-400">
                             <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
                             </svg>
@@ -652,13 +654,13 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
                     </div>
                   ) : msg.text?.startsWith('[Image:') && msg.text?.endsWith(']') ? (
                     <div className="space-y-2">
-                      <div className="flex items-center space-x-3 p-3 bg-gray-100 rounded-lg border border-gray-300">
-                        <svg className="w-10 h-10 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center space-x-3 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
+                        <svg className="w-10 h-10 text-blue-400 dark:text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         <div>
-                          <p className="text-sm font-medium text-blue-600">Image sent</p>
-                          <p className="text-xs text-gray-500">{msg.text.replace(/^\[Image:\s*/, '').replace(/\]$/, '')}</p>
+                          <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Image sent</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{msg.text.replace(/^\[Image:\s*/, '').replace(/\]$/, '')}</p>
                         </div>
                       </div>
                     </div>
@@ -675,12 +677,12 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
                         <span className="flex items-center gap-1">
                           {msg.status === 'sending' && (
                             <>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                              <span className="text-gray-400">Sending...</span>
+                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse"></div>
+                              <span className="text-gray-400 dark:text-gray-500">Sending...</span>
                             </>
                           )}
                           {msg.status === 'sent' && (
-                            <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-3 h-3 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
@@ -714,9 +716,9 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       </div>
 
       {/* Chat Input */}
-  <div className="border-t border-gray-200 p-4 bg-white/50 backdrop-blur-sm">
+  <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
         {userCoins <= 5 && userCoins > 0 && (
-          <div className="mb-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded flex items-center gap-1">
+          <div className="mb-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded flex items-center gap-1">
             <IconWarning className="w-4 h-4" /> Warning: You have only {userCoins} coins remaining
           </div>
         )}
@@ -737,8 +739,8 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
             disabled={!newMessage.trim() || userCoins <= 0}
             className={`p-3 rounded-full ${
               newMessage.trim() && userCoins > 0
-                ? 'bg-rose-500 text-white hover:bg-rose-600' 
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                ? 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700' 
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
             }`}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -750,7 +752,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
           <div className="mt-2 text-center">
             <button 
               onClick={() => setActiveSection('subscription-plans')}
-              className="text-rose-500 hover:text-rose-600 text-sm"
+              className="text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 text-sm"
             >
               Purchase coins to continue chatting
             </button>
@@ -845,24 +847,23 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
       <div className="lg:hidden">
         {!showChatOnMobile ? (
           <div 
-            className="rounded-xl shadow-lg shadow-pink-200/50 border border-pink-200/40 overflow-hidden"
+            className="rounded-xl shadow-lg shadow-pink-200/50 dark:shadow-gray-900/50 border border-pink-200/40 dark:border-gray-600/40 overflow-hidden transition-colors duration-300 bg-white/80 dark:bg-gray-800/80"
             style={{
-              background: 'linear-gradient(145deg, rgba(244,114,182,0.25) 0%, rgba(251,113,133,0.35) 50%, rgba(236,72,153,0.25) 100%)',
               backdropFilter: 'blur(20px)',
               boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
             }}
           >
-            {/* Pink glass overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 via-transparent to-rose-200/20 pointer-events-none rounded-xl"></div>
+            {/* Glass overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 via-transparent to-rose-200/20 dark:from-gray-800/30 dark:via-transparent dark:to-gray-700/20 pointer-events-none rounded-xl transition-colors duration-300"></div>
             
-            <div className="p-4 border-b border-pink-200/40 bg-pink-50/20 backdrop-blur-sm">
+            <div className="p-4 border-b border-pink-200/40 dark:border-gray-600/40 bg-pink-50/20 dark:bg-gray-800/20 backdrop-blur-sm transition-colors duration-300">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search chats..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-150 text-gray-800 placeholder-pink-400"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 dark:border-gray-600/50 focus:ring-2 focus:ring-pink-400 dark:focus:ring-pink-500 focus:border-transparent transition-all duration-150 text-gray-800 dark:text-gray-200 placeholder-pink-400 dark:placeholder-gray-400 bg-white/70 dark:bg-gray-800/70"
                   style={{
                     background: 'linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(252,231,243,0.6) 100%)',
                     backdropFilter: 'blur(10px)',
@@ -933,37 +934,36 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
       <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Sidebar - Chat Lists with Pink Glass Morphism */}
         <div 
-          className="rounded-xl shadow-lg shadow-pink-200/50 border border-pink-200/40 overflow-hidden"
+          className="rounded-xl shadow-lg shadow-pink-200/50 dark:shadow-gray-900/50 border border-pink-200/40 dark:border-gray-600/40 overflow-hidden bg-white/80 dark:bg-gray-800/80"
           style={{
-            background: 'linear-gradient(145deg, rgba(244,114,182,0.25) 0%, rgba(251,113,133,0.35) 50%, rgba(236,72,153,0.25) 100%)',
             backdropFilter: 'blur(20px)',
             boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
           }}
         >
-          {/* Pink glass overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 via-transparent to-rose-200/20 pointer-events-none rounded-xl"></div>
+          {/* Glass overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-pink-100/30 dark:from-gray-700/20 via-transparent to-rose-200/20 dark:to-gray-800/20 pointer-events-none rounded-xl"></div>
           
-        <div className="p-4 border-b border-pink-200/40 bg-pink-50/20 backdrop-blur-sm relative z-10">
+        <div className="p-4 border-b border-pink-200/40 dark:border-gray-600/40 bg-pink-50/20 dark:bg-gray-800/20 backdrop-blur-sm relative z-10">
           <div className="relative">
             <input
               type="text"
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-150 text-gray-800 placeholder-pink-400"
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-pink-200/50 dark:border-gray-600/50 focus:ring-2 focus:ring-pink-400 dark:focus:ring-pink-500 focus:border-transparent transition-all duration-150 text-gray-800 dark:text-gray-200 placeholder-pink-400 dark:placeholder-gray-400"
               style={{
                 background: 'linear-gradient(145deg, rgba(255,255,255,0.7) 0%, rgba(252,231,243,0.6) 100%)',
                 backdropFilter: 'blur(10px)',
                 boxShadow: '0 2px 10px rgba(244, 114, 182, 0.1)'
               }}
             />
-            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-pink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-pink-400 dark:text-pink-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-400 hover:text-pink-600 transition-colors duration-150"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-pink-400 dark:text-pink-300 hover:text-pink-600 dark:hover:text-pink-400 transition-colors duration-150"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 18L18 6M6 6l12 12" />
@@ -996,7 +996,7 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
         </div>
 
         {/* Right - Chat Area */}
-        <div className="bg-white/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 h-[700px]">
+        <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 dark:border-gray-600/50 h-[700px]">
           {selectedChat ? (
             <ChatBox 
               selectedChat={selectedChat}
@@ -1006,12 +1006,12 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
               onChatsUpdate={onChatsUpdate}
             />
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6">
-              <svg className="w-24 h-24 text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 p-6">
+              <svg className="w-24 h-24 text-gray-300 dark:text-gray-600 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                 <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">Your Messages</h3>
-              <p className="text-center max-w-sm text-gray-500">Select a chat or find new connections in the Members tab</p>
+              <h3 className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Your Messages</h3>
+              <p className="text-center max-w-sm text-gray-500 dark:text-gray-400">Select a chat or find new connections in the Members tab</p>
             </div>
           )}
         </div>
@@ -1079,17 +1079,211 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
   );
 };
 
+// Profile Detail Modal Component
+const ProfileModal = ({ member, isOpen, onClose }) => {
+  if (!isOpen || !member) return null;
+
+  // Calculate age from dateOfBirth
+  const age = member.dateOfBirth ? new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear() : null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+      >
+        {/* Header */}
+        <div className="relative">
+          {/* Profile Image */}
+          <div className="aspect-[4/3] bg-gradient-to-br from-pink-100 to-rose-100 dark:from-gray-700 dark:to-gray-800 overflow-hidden rounded-t-2xl">
+            {member.profileImage ? (
+              <img 
+                src={member.profileImage} 
+                alt={member.firstName || member.username}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100/70 via-rose-50/60 to-purple-100/70 dark:from-gray-700 dark:to-gray-600 text-pink-400 dark:text-pink-300 text-6xl font-bold">
+                {(member.firstName || member.username)?.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          
+          {/* Status Badge */}
+          {member.status && (
+            <div className="absolute top-4 left-4">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                member.status === 'active' 
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+              }`}>
+                {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
+              </span>
+            </div>
+          )}
+          
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Name and Basic Info */}
+          <div className="text-center border-b border-gray-200 dark:border-gray-600 pb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              {member.firstName || member.username}
+            </h2>
+            {age && (
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">{age} years old</p>
+            )}
+            {(member.country || member.region) && (
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>
+                  {member.country && member.region 
+                    ? `${member.region}, ${member.country}`
+                    : member.country || member.region}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
+              Personal Information
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {/* Relationship Status */}
+              {member.relationshipStatus && (
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">Relationship</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      member.relationshipStatus === 'Single' ? 'bg-green-400' :
+                      member.relationshipStatus === 'In Relationship' ? 'bg-yellow-400' :
+                      member.relationshipStatus === 'Married' ? 'bg-red-400' : 'bg-gray-400'
+                    }`}></div>
+                    <span className="text-gray-900 dark:text-gray-100">
+                      {member.relationshipStatus}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Gender */}
+              {member.gender && (
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">Gender</span>
+                  <span className="text-gray-900 dark:text-gray-100 capitalize">{member.gender}</span>
+                </div>
+              )}
+              
+              {/* Profession */}
+              {member.profession && (
+                <div className="col-span-2">
+                  <span className="text-gray-500 dark:text-gray-400 block">Profession</span>
+                  <span className="text-gray-900 dark:text-gray-100">{member.profession}</span>
+                </div>
+              )}
+              
+              {/* Height */}
+              {member.height && (
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">Height</span>
+                  <span className="text-gray-900 dark:text-gray-100">{member.height} cm</span>
+                </div>
+              )}
+              
+              {/* Serial Number (if present) */}
+              {member.serialNumber && (
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 block">ID</span>
+                  <span className="text-gray-900 dark:text-gray-100 font-mono text-xs">#{member.serialNumber}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Interests */}
+          {member.interests && member.interests.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
+                Interests
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {member.interests.map((interest, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full text-sm font-medium"
+                  >
+                    {interest}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Description/About Me */}
+          {member.description && (
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
+                About Me
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                {member.description}
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button
+              onClick={() => {
+                // TODO: Implement start chat functionality
+                onClose();
+              }}
+              className="flex-1 px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Start Chat
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const ProfileSection = ({ user }) => {
   return (
-    <div className="bg-white/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 p-6">
+    <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-xl shadow-lg border border-white/50 dark:border-gray-600/50 p-6">
       {/* Simple Header */}
-      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
+      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200 dark:border-gray-600">
         <div className="h-20 w-20 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-2xl font-bold">
           {user?.username.charAt(0).toUpperCase()}
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">{user?.username}</h2>
-          <p className="text-gray-500">{user?.email}</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{user?.username}</h2>
+          <p className="text-gray-500 dark:text-gray-400">{user?.email}</p>
         </div>
       </div>
 
@@ -1097,29 +1291,29 @@ const ProfileSection = ({ user }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-4">
           <div>
-            <span className="text-sm font-medium text-gray-500">Date of Birth:</span>
-            <p className="text-gray-800">{new Date(user?.dateOfBirth).toLocaleDateString()}</p>
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Date of Birth:</span>
+            <p className="text-gray-800 dark:text-gray-200">{new Date(user?.dateOfBirth).toLocaleDateString()}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-500">Gender:</span>
-            <p className="text-gray-800 capitalize">{user?.sex}</p>
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Gender:</span>
+            <p className="text-gray-800 dark:text-gray-200 capitalize">{user?.sex}</p>
           </div>
         </div>
         <div className="space-y-4">
           <div>
-            <span className="text-sm font-medium text-gray-500">Location:</span>
-            <p className="text-gray-800">{user?.location || 'Not specified'}</p>
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Location:</span>
+            <p className="text-gray-800 dark:text-gray-200">{user?.location || 'Not specified'}</p>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-500">Bio:</span>
-            <p className="text-gray-800">{user?.bio || 'No bio added yet'}</p>
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Bio:</span>
+            <p className="text-gray-800 dark:text-gray-200">{user?.bio || 'No bio added yet'}</p>
           </div>
         </div>
       </div>
 
       {/* Change Password Button */}
-      <div className="flex justify-center mt-6 pt-6 border-t border-gray-200">
-        <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
+      <div className="flex justify-center mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+        <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
           Change Password
         </button>
       </div>
@@ -1135,6 +1329,8 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
   const [showFilters, setShowFilters] = useState(false);
   const [likedProfiles, setLikedProfiles] = useState(new Set());
   const [likeLoading, setLikeLoading] = useState(new Set()); // Track which profiles are being liked/unliked
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [filters, setFilters] = useState({
     lookingFor: '',
     relationStatus: '',
@@ -1148,7 +1344,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     const fetchMembers = async () => {
       try {
         setLoading(true);
-        const response = await escorts.getEscortProfiles();
+  const response = await escorts.getEscortProfiles({ full: true });
         setMembers(response.data || response || []);
         
         // Check which profiles are already liked
@@ -1211,6 +1407,17 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
         return newSet;
       });
     }
+  };
+
+  // Profile modal handlers
+  const handleProfileClick = (member) => {
+    setSelectedProfile(member);
+    setShowProfileModal(true);
+  };
+
+  const handleCloseProfileModal = () => {
+    setShowProfileModal(false);
+    setSelectedProfile(null);
   };
 
   const filteredMembers = members.filter(member => {
@@ -1278,7 +1485,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Compact Search Header */}
-      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl shadow-lg border border-pink-300/50 overflow-hidden">
+      <div className="bg-gradient-to-r from-pink-500 to-rose-500 dark:from-pink-600 dark:to-rose-600 rounded-xl shadow-lg border border-pink-300/50 dark:border-pink-500/30 overflow-hidden transition-colors duration-300">
         {/* Main Header */}
         <div className="px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between mb-4">
@@ -1524,7 +1731,8 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
           {filteredMembers.map((member, index) => (
             <motion.div
               key={member._id}
-              className="bg-white/20 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 border border-white/30 hover:shadow-2xl hover:shadow-pink-300/60 hover:bg-white/30 hover:border-pink-200/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105"
+              onClick={() => handleProfileClick(member)}
+              className="bg-white/20 dark:bg-gray-800/30 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 dark:shadow-gray-900/40 border border-white/30 dark:border-gray-600/30 hover:shadow-2xl hover:shadow-pink-300/60 dark:hover:shadow-gray-700/60 hover:bg-white/30 dark:hover:bg-gray-700/40 hover:border-pink-200/50 dark:hover:border-gray-500/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105 cursor-pointer"
               style={{
                 background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(252,231,243,0.35) 50%, rgba(254,202,202,0.25) 100%)',
                 backdropFilter: 'blur(20px)',
@@ -1655,47 +1863,77 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
               </div>
 
               {/* Enhanced Glassy Profile Info */}
-              <div className="p-3 sm:p-4 relative z-10 bg-white/10 backdrop-blur-sm rounded-b-2xl">
-                {/* Username with glass effect */}
-                <h3 className="text-sm sm:text-base font-bold text-gray-800 truncate leading-tight mb-1 drop-shadow-sm">
-                  {member.firstName || member.username}
+              <div className="p-3 sm:p-4 relative z-10 bg-white/10 dark:bg-gray-700/20 backdrop-blur-sm rounded-b-2xl">
+                {/* Username with age */}
+                <h3 className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight mb-1 drop-shadow-sm">
+                  <span className="truncate block">{member.firstName || member.username}</span>
+                  {member.dateOfBirth && (
+                    <span className="text-xs font-normal text-gray-600 dark:text-gray-400 block">
+                      {new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()} years old
+                    </span>
+                  )}
                 </h3>
                 
                 {/* Location with enhanced styling */}
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 truncate mb-2">
-                  <IconPin className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 drop-shadow-sm" />
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate mb-2">
+                  <IconPin className="w-3.5 h-3.5 text-pink-400 dark:text-pink-300 flex-shrink-0 drop-shadow-sm" />
                   <span className="truncate drop-shadow-sm">{member.country || member.region || 'Unknown'}</span>
                 </div>
 
-                {/* Enhanced Glassy Stats for desktop */}
-                <div className="hidden sm:flex items-center justify-between mt-3 text-xs gap-2">
-                  <div 
-                    className="flex items-center gap-1 text-green-700 px-2 py-1 rounded-full border border-white/30"
-                    style={{
-                      background: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(255,255,255,0.25) 100%)',
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.2)'
-                    }}
-                  >
-                    <div className="w-2 h-2 bg-green-400 rounded-full shadow-sm"></div>
-                    <span className="font-medium drop-shadow-sm">Active</span>
-                  </div>
-                  {member.profession && (
-                    <span 
-                      className="text-gray-700 px-2 py-1 rounded-full truncate max-w-20 font-medium border border-white/30"
+                {/* Enhanced Profile Stats */}
+                <div className="hidden sm:flex flex-col gap-2 mt-3 text-xs">
+                  {/* Online Status */}
+                  <div className="flex items-center justify-between">
+                    <div 
+                      className="flex items-center gap-1 text-green-700 dark:text-green-400 px-2 py-1 rounded-full border border-white/30 dark:border-gray-600/30"
                       style={{
-                        background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(244,114,182,0.15) 100%)',
+                        background: 'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(255,255,255,0.25) 100%)',
                         backdropFilter: 'blur(8px)',
-                        boxShadow: '0 2px 8px rgba(244, 114, 182, 0.15)'
+                        boxShadow: '0 2px 8px rgba(34, 197, 94, 0.2)'
                       }}
                     >
-                      {member.profession}
-                    </span>
+                      <div className="w-2 h-2 bg-green-400 rounded-full shadow-sm"></div>
+                      <span className="font-medium drop-shadow-sm">Online</span>
+                    </div>
+                    {member.profession && (
+                      <span 
+                        className="text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full truncate max-w-20 font-medium border border-white/30 dark:border-gray-600/30"
+                        style={{
+                          background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(244,114,182,0.15) 100%)',
+                          backdropFilter: 'blur(8px)',
+                          boxShadow: '0 2px 8px rgba(244, 114, 182, 0.15)'
+                        }}
+                      >
+                        {member.profession}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Relationship Status */}
+                  {member.relationshipStatus && (
+                    <div className="flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        member.relationshipStatus === 'single' ? 'bg-green-400' :
+                        member.relationshipStatus === 'in_relationship' ? 'bg-yellow-400' :
+                        member.relationshipStatus === 'married' ? 'bg-red-400' : 'bg-gray-400'
+                      }`}></div>
+                      <span className="text-gray-600 dark:text-gray-400 capitalize text-xs">
+                        {member.relationshipStatus.replace('_', ' ')}
+                      </span>
+                    </div>
                   )}
+
+                  {/* Tap for details hint */}
+                  <div className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 opacity-70">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Tap for details</span>
+                  </div>
                 </div>
 
                 {/* Enhanced Glassy Mobile Action Buttons */}
-                <div className="flex sm:hidden justify-center space-x-2 mt-3 pt-3 border-t border-white/30">
+                <div className="flex sm:hidden justify-center space-x-2 mt-3 pt-3 border-t border-white/30 dark:border-gray-600/30">
                   {/* Glassy Like Button */}
                   <button
                     onClick={(e) => {
@@ -1705,8 +1943,8 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                       }
                     }}
                     disabled={likeLoading.has(member._id)}
-                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 ${
-                      likedProfiles.has(member._id) ? 'text-red-500' : 'text-gray-700'
+                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 dark:border-gray-600/40 ${
+                      likedProfiles.has(member._id) ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'
                     } ${likeLoading.has(member._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={
                       likeLoading.has(member._id) ? "Loading..." :
@@ -1742,7 +1980,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                         profileImage: member.profileImage
                       });
                     }}
-                    className="flex-1 py-2.5 text-white rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40"
+                    className="flex-1 py-2.5 text-white rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 dark:border-gray-600/40"
                     title="Message"
                     style={{
                       background: 'linear-gradient(145deg, rgba(244,114,182,0.8) 0%, rgba(59,130,246,0.7) 100%)',
@@ -1759,23 +1997,30 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
         </div>
       ) : (
         <div className="text-center py-8 sm:py-12">
-          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
-          <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No members found</h3>
-          <p className="text-sm sm:text-base text-gray-500">
+          <h3 className="text-lg sm:text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">No members found</h3>
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">
             {searchQuery ? 'Try adjusting your search terms or filters' : 'No members available at the moment'}
           </p>
           {(searchQuery || Object.values(filters).some(v => v)) && (
             <button 
               onClick={resetFilters}
-              className="mt-4 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors text-sm"
+              className="mt-4 px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg transition-colors text-sm"
             >
               Clear All Filters
             </button>
           )}
         </div>
       )}
+
+      {/* Profile Modal */}
+      <ProfileModal 
+        member={selectedProfile}
+        isOpen={showProfileModal}
+        onClose={handleCloseProfileModal}
+      />
     </div>
   );
 };
@@ -1822,18 +2067,18 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="ml-2 text-gray-600">Loading liked profiles...</span>
+        <span className="ml-2 text-gray-600 dark:text-gray-300">Loading liked profiles...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center text-red-600 p-8">
+      <div className="text-center text-red-600 dark:text-red-400 p-8">
         <p>{error}</p>
         <button 
           onClick={() => window.location.reload()} 
-          className="mt-4 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600"
+          className="mt-4 px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg transition-colors"
         >
           Retry
         </button>
@@ -1844,7 +2089,7 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl shadow-lg border border-pink-300/50 overflow-hidden">
+      <div className="bg-gradient-to-r from-pink-500 to-rose-500 dark:from-pink-600 dark:to-rose-600 rounded-xl shadow-lg border border-pink-300/50 dark:border-pink-600/30 overflow-hidden">
         <div className="p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1852,7 +2097,7 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
                 <IconHeartSpark className="w-6 h-6" />
                 Liked Profiles
               </h2>
-              <p className="text-pink-100 text-sm sm:text-base mt-1">
+              <p className="text-pink-100 dark:text-pink-200 text-sm sm:text-base mt-1">
                 Profiles you've liked • {pagination?.totalLikes || 0} total
               </p>
             </div>
@@ -1866,7 +2111,7 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
           {likedProfiles.map((like) => (
             <motion.div
               key={like._id}
-              className="bg-white/20 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 border border-white/30 hover:shadow-2xl hover:shadow-pink-300/60 hover:bg-white/30 hover:border-pink-200/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105"
+              className="bg-white/20 dark:bg-gray-800/30 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 dark:shadow-gray-900/40 border border-white/30 dark:border-gray-600/30 hover:shadow-2xl hover:shadow-pink-300/60 dark:hover:shadow-gray-700/60 hover:bg-white/30 dark:hover:bg-gray-700/40 hover:border-pink-200/50 dark:hover:border-gray-500/50 transition-all duration-300 overflow-hidden group relative transform hover:scale-105"
               style={{
                 background: 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(252,231,243,0.35) 50%, rgba(254,202,202,0.25) 100%)',
                 backdropFilter: 'blur(20px)',
@@ -1952,10 +2197,10 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
               {/* Profile Info */}
               <div className="p-3 relative z-10">
                 <div className="text-center">
-                  <h3 className="font-semibold text-gray-800 text-sm truncate">
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
                     {like.escortId.firstName || like.escortId.username}
                   </h3>
-                  <div className="flex items-center justify-center gap-1 text-xs text-gray-600 mt-1">
+                  <div className="flex items-center justify-center gap-1 text-xs text-gray-600 dark:text-gray-300 mt-1">
                     <IconPin className="w-3 h-3" />
                     <span className="truncate">
                       {like.escortId.region && like.escortId.country 
@@ -1965,11 +2210,11 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
                     </span>
                   </div>
                   {like.escortId.profession && (
-                    <div className="flex items-center justify-center gap-1 text-xs text-gray-500 mt-1">
+                    <div className="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-1">
                       <span className="truncate">{like.escortId.profession}</span>
                     </div>
                   )}
-                  <div className="text-xs text-pink-500 mt-2">
+                  <div className="text-xs text-pink-500 dark:text-pink-400 mt-2">
                     Liked {new Date(like.createdAt).toLocaleDateString()}
                   </div>
                 </div>
@@ -1979,16 +2224,16 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
         </div>
       ) : (
         <div className="text-center py-8 sm:py-12">
-          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
-          <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No liked profiles yet</h3>
-          <p className="text-sm sm:text-base text-gray-500 mb-4">
+          <h3 className="text-lg sm:text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">No liked profiles yet</h3>
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4">
             Start exploring members and like the profiles you find interesting
           </p>
           <button 
             onClick={() => setActiveSection('members')}
-            className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg transition-colors"
           >
             Browse Members
           </button>
@@ -2181,7 +2426,7 @@ const UserDashboard = () => {
         // Get member info from the escorts service to create proper chat data
         let memberInfo = null;
         try {
-          const escortProfiles = await escorts.getEscortProfiles();
+          const escortProfiles = await escorts.getEscortProfiles({ full: true });
           const allMembers = escortProfiles.data || escortProfiles || [];
           memberInfo = allMembers.find(m => m._id === memberId);
         } catch (err) {
@@ -2252,7 +2497,7 @@ const UserDashboard = () => {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2261,7 +2506,7 @@ const UserDashboard = () => {
           <div className="w-16 h-16 mb-4 mx-auto">
             <div className="w-full h-full rounded-full border-4 border-rose-500 border-t-transparent animate-spin"></div>
           </div>
-          <h2 className="text-xl font-medium text-gray-700">
+          <h2 className="text-xl font-medium text-gray-700 dark:text-gray-300">
             {loading ? 'Preparing your dashboard...' : 'Please sign in to continue'}
           </h2>
         </motion.div>
@@ -2272,7 +2517,7 @@ const UserDashboard = () => {
 
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-rose-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-slate-900 transition-colors duration-300">
       {/* MagnetLines Background - Above everything but below content */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <MagnetLines
@@ -2283,15 +2528,15 @@ const UserDashboard = () => {
           lineWidth="2px"
           lineHeight="40px"
           baseAngle={-5}
-          className="w-full h-full opacity-30"
+          className="w-full h-full opacity-30 dark:opacity-20"
         />
       </div>
 
       {/* Enhanced Background */}
       <div className="fixed inset-0 -z-10">
         {/* Clean Gradient Background - Subtle Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-rose-50/40 to-pink-100/50"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-rose-100/30"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-rose-50/40 to-pink-100/50 dark:from-gray-900/90 dark:via-gray-800/60 dark:to-slate-900/70 transition-colors duration-300"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-transparent to-rose-100/30 dark:from-gray-900/40 dark:via-transparent dark:to-purple-900/20 transition-colors duration-300"></div>
 
         {/* Floating Elements positioned above magnet lines */}
         <div className="absolute inset-0" style={{ zIndex: -1 }}>
@@ -2360,7 +2605,7 @@ const UserDashboard = () => {
 
       {/* Top Header */}
       <motion.header 
-        className="relative z-10 bg-white/50 backdrop-blur-sm shadow-lg border-b border-rose-200/50"
+        className="relative z-10 bg-white/50 dark:bg-gray-900/60 backdrop-blur-sm shadow-lg border-b border-rose-200/50 dark:border-gray-700/50 transition-colors duration-300"
         initial={{ y: -100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, type: "spring" }}
@@ -2374,18 +2619,21 @@ const UserDashboard = () => {
                   <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">HetaSinglar</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">HetaSinglar</h1>
             </div>
 
             {/* User Info and Actions */}
             <div className="flex items-center space-x-1 sm:space-x-3">
+              {/* Theme Toggle */}
+              <ThemeToggle size="small" />
+              
               {/* Country Flag - Hidden on very small screens */}
               <div className="hidden sm:flex items-center space-x-2">
-                <span className="flex items-center gap-1 text-sm text-gray-600"><IconGlobe className="w-4 h-4" /> US</span>
+                <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400"><IconGlobe className="w-4 h-4" /> US</span>
               </div>
               
               {/* Help - Hidden on mobile */}
-              <button className="hidden md:flex items-center space-x-1 text-gray-600 hover:text-gray-800">
+              <button className="hidden md:flex items-center space-x-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -2395,7 +2643,7 @@ const UserDashboard = () => {
               {/* Logout */}
               <motion.button
                 onClick={logout}
-                className="flex items-center space-x-1 bg-rose-500 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg hover:bg-rose-600 transition-colors"
+                className="flex items-center space-x-1 bg-rose-500 dark:bg-rose-600 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg hover:bg-rose-600 dark:hover:bg-rose-700 transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -2410,7 +2658,7 @@ const UserDashboard = () => {
       </motion.header>
 
       {/* Main Navigation Tabs */}
-      <nav className="relative z-10 bg-white/80 backdrop-blur-sm shadow-sm border-b border-rose-200/50 overflow-x-auto">
+      <nav className="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm border-b border-rose-200/50 dark:border-gray-600/50 overflow-x-auto transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center">
             {/* Navigation Tabs */}
@@ -2425,8 +2673,8 @@ const UserDashboard = () => {
                   onClick={() => setActiveSection(tab.key)}
                   className={`relative flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
                     activeSection === tab.key
-                      ? 'border-rose-500 text-rose-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-rose-500 text-rose-600 dark:text-rose-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   <span className="text-sm sm:text-lg">{tab.icon}</span>
@@ -2444,11 +2692,11 @@ const UserDashboard = () => {
             {/* Right Side Actions */}
             <div className="flex items-center space-x-1 sm:space-x-3 lg:space-x-4 ml-2">
               {/* Coins Display */}
-              <div className="flex items-center space-x-1 sm:space-x-2 bg-yellow-50 px-2 py-1 sm:px-4 sm:py-2 rounded-full border border-yellow-200">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+              <div className="flex items-center space-x-1 sm:space-x-2 bg-yellow-50 dark:bg-yellow-900/30 px-2 py-1 sm:px-4 sm:py-2 rounded-full border border-yellow-200 dark:border-yellow-600/30 transition-colors">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 dark:text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM10 4a6 6 0 110 12 6 6 0 010-12z"/>
                 </svg>
-                <span className="text-xs sm:text-sm font-medium text-yellow-700">
+                <span className="text-xs sm:text-sm font-medium text-yellow-700 dark:text-yellow-300">
                   <span className="hidden sm:inline">{userCoins} Credits</span>
                   <span className="sm:hidden">{userCoins}</span>
                 </span>
@@ -2457,7 +2705,7 @@ const UserDashboard = () => {
               {/* Buy Credits Button */}
               <button
                 onClick={() => setActiveSection('subscription-plans')}
-                className="bg-rose-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 transition-all duration-200 font-medium text-xs sm:text-sm"
+                className="bg-rose-500 dark:bg-rose-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 dark:hover:bg-rose-700 transition-all duration-200 font-medium text-xs sm:text-sm"
               >
                 <span className="hidden sm:inline">Buy Credits</span>
                 <span className="sm:hidden">Buy</span>
@@ -2466,7 +2714,7 @@ const UserDashboard = () => {
               {/* Profile Button */}
               <button
                 onClick={() => setActiveSection('my profile')}
-                className="flex items-center space-x-1 sm:space-x-2 bg-purple-500 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-purple-600 transition-all duration-200 text-xs sm:text-sm"
+                className="flex items-center space-x-1 sm:space-x-2 bg-purple-500 dark:bg-purple-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-purple-600 dark:hover:bg-purple-700 transition-all duration-200 text-xs sm:text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

@@ -206,9 +206,12 @@ export const auth = {
 };
 
 export const escorts = {
-  async getEscortProfiles() {
+  async getEscortProfiles(options = {}) {
     try {
-      const response = await api.get('/agents/escorts/active');
+      const { full = true, params = {} } = options;
+      const searchParams = new URLSearchParams({ ...(full ? { full: 'true' } : {}), ...params });
+      const url = `/agents/escorts/active${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+      const response = await api.get(url);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
