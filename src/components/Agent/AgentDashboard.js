@@ -1438,7 +1438,7 @@ const AgentDashboard = () => {
         
         const cachedDashboard = cacheService.get('dashboard_stats');
         const cachedQueue = cacheService.get('live_queue');
-        const cachedEscorts = cacheService.get('my_escorts');
+        const cachedEscorts = cacheService.get('all_escorts'); // Changed from 'my_escorts' to 'all_escorts'
 
         // If we have cached data, use it immediately for fast UI
         if (cachedDashboard && cachedQueue && cachedEscorts) {
@@ -1457,14 +1457,14 @@ const AgentDashboard = () => {
         const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
           agentAuth.getDashboardStats(),
           agentAuth.getLiveQueue(),
-          agentAuth.getMyEscorts()
+          agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
         ]);
         const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 
         // Cache the fresh data
         cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000); // 2 min cache
         cacheService.set('live_queue', liveQueue, 1 * 60 * 1000); // 1 min cache
-        cacheService.set('my_escorts', escortData, 5 * 60 * 1000); // 5 min cache
+        cacheService.set('all_escorts', escortData, 5 * 60 * 1000); // 5 min cache - changed from 'my_escorts' to 'all_escorts'
 
         setStats({
           liveMessages: dashboardStats.totalLiveMessages || 0,
@@ -1682,7 +1682,7 @@ const AgentDashboard = () => {
       const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
         agentAuth.getDashboardStats(),
         agentAuth.getLiveQueue(),
-        agentAuth.getMyEscorts()
+        agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
       ]);
       const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
 

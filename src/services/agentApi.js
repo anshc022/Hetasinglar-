@@ -245,6 +245,15 @@ export const agentAuth = {
     }
   },
 
+  async getAllEscorts() {
+    try {
+      const response = await agentApi.get('/agents/all-escorts');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   async updateChatInfo(chatId, updates) {
     try {
       console.log('Updating chat:', chatId, updates); // Debug log

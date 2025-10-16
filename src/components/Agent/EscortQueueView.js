@@ -23,7 +23,7 @@ const EscortQueueView = () => {
       setLoading(true);
       
       // Load escort profile info first
-      const escortResponse = await agentAuth.getMyEscorts();
+      const escortResponse = await agentAuth.getAllEscorts(); // Changed from getMyEscorts to getAllEscorts
       const escort = escortResponse.find(e => e._id === escortId);
       setEscortProfile(escort);
       

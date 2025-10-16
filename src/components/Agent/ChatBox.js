@@ -557,11 +557,26 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   
   // Image handling - defined before memoizedSendMessage to avoid hoisting issues
   const handleSendImage = React.useCallback(async (image) => {
-    if (!selectedChat || !image) return;
+    console.log('🔍 [ChatBox] handleSendImage called with:', {
+      imageExists: !!image,
+      selectedChatExists: !!selectedChat,
+      imageData: image ? {
+        filename: image.filename,
+        mimeType: image.mimeType,
+        hasImageData: !!image.imageData,
+        imageDataLength: image.imageData?.length
+      } : null
+    });
+    
+    if (!selectedChat || !image) {
+      console.warn('⚠️ [ChatBox] Missing selectedChat or image');
+      return;
+    }
     
     setIsLoading(true);
     try {
       const chatId = selectedChat._id;
+      console.log('🔍 [ChatBox] Sending image to chat:', chatId);
       
       // ⚡ OPTIMISTIC UPDATE: Add image message immediately
       const optimisticImageMessage = {
@@ -593,14 +608,22 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       setTimeout(scrollToBottom, 100);
       
       // Send image message via API
+      const messagePayload = { 
+        message: '',
+        messageType: 'image',
+        imageData: image.imageData,
+        mimeType: image.mimeType,
+        filename: image.filename
+      };
+      
+      console.log('🔍 [ChatBox] Sending message payload:', {
+        ...messagePayload,
+        imageData: `[${messagePayload.imageData?.length} chars]`
+      });
+      
       try {
-        await agentApi.post(`/chats/${chatId}/message`, { 
-          message: '',
-          messageType: 'image',
-          imageData: image.imageData,
-          mimeType: image.mimeType,
-          filename: image.filename
-        });
+        const apiResponse = await agentApi.post(`/chats/${chatId}/message`, messagePayload);
+        console.log('✅ [ChatBox] Message sent successfully:', apiResponse.status);
         
         // Mark messages as read
         await agentApi.post(`/chats/${chatId}/mark-read`);
@@ -618,6 +641,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         showNotification('Image sent successfully', 'success');
         
       } catch (sendError) {
+        console.error('❌ [ChatBox] Failed to send image message:', sendError);
+        console.error('❌ [ChatBox] Send error response:', sendError.response?.data);
+        console.error('❌ [ChatBox] Send error status:', sendError.response?.status);
+        
         // ❌ Mark image message as failed
         setSelectedChat(prev => ({
           ...prev,
@@ -632,7 +659,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       }
       
     } catch (error) {
-      console.error('Error sending image:', error);
+      console.error('❌ [ChatBox] Error sending image:', error);
       showNotification('Failed to send image', 'error');
     } finally {
       setIsLoading(false);
@@ -1658,20 +1685,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       await agentAuth.deleteMessage(selectedChat._id, message._id);
 
-      // Update local state
+      // Update local state - completely remove deleted messages from view
       setSelectedChat(prev => ({
         ...prev,
-        messages: (prev.messages || []).map((msg, idx) => {
-          if (idx === messageIndex) {
-            return {
-              ...msg,
-              message: '[This message has been deleted]',
-              isDeleted: true,
-              deletedAt: new Date()
-            };
-          }
-          return msg;
-        })
+        messages: (prev.messages || []).filter((msg, idx) => idx !== messageIndex)
       }));
       
     } catch (error) {
@@ -2558,7 +2575,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               )}
 
-              {([...(selectedChat?.messages || [])].reverse()).map((msg, idx) => {
+              {([...(selectedChat?.messages || [])].reverse()).filter(msg => !msg.isDeleted).map((msg, idx) => {
                 const origIndex = (selectedChat?.messages?.length || 0) - 1 - idx;
                 return (
                   <div key={msg._id || origIndex} className="mb-3">

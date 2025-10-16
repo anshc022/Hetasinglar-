@@ -52,21 +52,27 @@ const ImageSelector = ({ isOpen, onClose, onSelectImage, onSendImage, escortProf
     try {
       setLoading(true);
       setError('');
-      console.log('Fetching images for escort profile:', escortProfileId);
+      console.log('🔍 [ImageSelector] Fetching images for escort profile:', escortProfileId);
+      console.log('🔍 [ImageSelector] Agent Auth object:', !!agentAuth);
       
       // Fetch images specifically for this escort profile
       const response = await agentAuth.getImages(escortProfileId);
-      console.log('Images response:', response);
+      console.log('🔍 [ImageSelector] Full API response:', response);
       
       if (response && response.images) {
         setImages(response.images);
-        console.log('Successfully loaded', response.images.length, 'images');
+        console.log('✅ [ImageSelector] Successfully loaded', response.images.length, 'images');
+        if (response.images.length > 0) {
+          console.log('🔍 [ImageSelector] Sample image:', response.images[0]);
+        }
       } else {
-        console.warn('No images in response:', response);
+        console.warn('⚠️ [ImageSelector] No images in response:', response);
         setImages([]);
       }
     } catch (error) {
-      console.error('Error loading images:', error);
+      console.error('❌ [ImageSelector] Error loading images:', error);
+      console.error('❌ [ImageSelector] Error response:', error.response?.data);
+      console.error('❌ [ImageSelector] Error status:', error.response?.status);
       setError('Failed to load images. Please try again.');
       setImages([]);
     } finally {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agentAuth } from '../../services/agentApi';
 import imageCompression from 'browser-image-compression';
+import MultipleImageDragDrop from '../shared/MultipleImageDragDrop';
 import { 
   FaUser, 
   FaUpload, 
@@ -31,9 +32,10 @@ const AddEscortProfile = () => {
     firstName: '',
     gender: 'female',
     profileImage: '',
-    country: '',
+    profileImages: [], // New field for multiple images
+    country: 'SE',
     region: '',
-    relationshipStatus: 'single',
+    relationshipStatus: '',
     interests: [],
     profession: '',
     height: '',
@@ -41,22 +43,76 @@ const AddEscortProfile = () => {
   });
 
   const [imagePreview, setImagePreview] = useState(null);
+  const [profileImages, setProfileImages] = useState([]); // New state for multiple images
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [validationErrors, setValidationErrors] = useState({});
   const [availableStates, setAvailableStates] = useState([]);
   const [stateLabel, setStateLabel] = useState('Region/State');
+  const [relationshipStatuses, setRelationshipStatuses] = useState([]);
+  const [swedishRegions, setSwedishRegions] = useState([]);
+
+  // Fetch relationship statuses and Swedish regions on mount
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const token = localStorage.getItem('agentToken');
+        
+        // Fetch relationship statuses
+        const relationshipResponse = await fetch('/api/agents/relationship-statuses', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (relationshipResponse.ok) {
+          const relationshipData = await relationshipResponse.json();
+          setRelationshipStatuses(relationshipData.statuses || []);
+        }
+
+        // Fetch Swedish regions
+        const regionsResponse = await fetch('/api/agents/swedish-regions', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (regionsResponse.ok) {
+          const regionsData = await regionsResponse.json();
+          setSwedishRegions(regionsData.regions || []);
+        }
+      } catch (error) {
+        console.error('Error fetching dropdown data:', error);
+      }
+    };
+
+    fetchDropdownData();
+  }, []);
 
   // Update available states when country changes
   useEffect(() => {
     if (formData.country) {
-      const states = getStatesForCountry(formData.country);
-      setAvailableStates(states);
-      setStateLabel(getStateLabelForCountry(formData.country));
+      if (formData.country === 'SE' || formData.country === 'Sweden') {
+        // Use Swedish regions for Sweden
+        setAvailableStates(swedishRegions.map(region => ({ value: region, label: region })));
+        setStateLabel('Län (Region)');
+      } else {
+        // Use existing logic for other countries
+        const states = getStatesForCountry(formData.country);
+        setAvailableStates(states);
+        setStateLabel(getStateLabelForCountry(formData.country));
+      }
       
       // Clear region if country changed and previous region is not valid for new country
-      if (formData.region && countryHasStates(formData.country)) {
-        const validRegion = states.some(state => state.value === formData.region || state.label === formData.region);
+      if (formData.region) {
+        const isSweden = formData.country === 'SE' || formData.country === 'Sweden';
+        const validRegion = isSweden 
+          ? swedishRegions.includes(formData.region)
+          : (countryHasStates(formData.country) && 
+             getStatesForCountry(formData.country).some(state => state.value === formData.region || state.label === formData.region));
+        
         if (!validRegion) {
           setFormData(prev => ({ ...prev, region: '' }));
         }
@@ -65,7 +121,7 @@ const AddEscortProfile = () => {
       setAvailableStates([]);
       setStateLabel('Region/State');
     }
-  }, [formData.country, formData.region]);
+  }, [formData.country, swedishRegions]);
 
   // Helper function to get readable names from codes
   const getReadableLocationNames = () => {
@@ -89,6 +145,11 @@ const AddEscortProfile = () => {
     if (!formData.firstName.trim()) errors.firstName = 'First name is required';
     if (!formData.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
     if (!formData.country.trim()) errors.country = 'Country is required';
+    
+    // Region validation for Sweden
+    if ((formData.country === 'SE' || formData.country === 'Sweden') && !formData.region.trim()) {
+      errors.region = 'Län (Region) is required for Sweden';
+    }
     
     // Username validation
     if (formData.username && formData.username.length < 3) {
@@ -150,7 +211,13 @@ const AddEscortProfile = () => {
         regionCode: formData.region,
         interests: formData.interests.filter(i => i.trim()),
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
-        height: parseInt(formData.height) || null
+        height: parseInt(formData.height) || null,
+        profileImages: profileImages.map(img => img.data), // Include multiple images
+        imageMetadata: profileImages.map(img => ({ // Include metadata
+          name: img.name,
+          size: img.size,
+          type: img.type
+        }))
       });
 
       setSuccessMessage('Profile created successfully!');
@@ -254,6 +321,15 @@ const AddEscortProfile = () => {
     if (fileInput) fileInput.value = '';
   };
 
+  // Handler for multiple images
+  const handleMultipleImagesChange = (images) => {
+    setProfileImages(images);
+    setFormData(prev => ({ 
+      ...prev, 
+      profileImages: images.map(img => img.data) // Store base64 data
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
@@ -296,93 +372,112 @@ const AddEscortProfile = () => {
         {/* Form */}
         <div className="bg-gray-900 rounded-lg shadow-xl border border-gray-800">
           <form onSubmit={handleSubmit} className="p-6 space-y-8">
-            {/* Profile Image Section */}
-            <div className="space-y-4">
+            {/* Profile Images Section */}
+            <div className="space-y-6">
               <h2 className="text-lg font-medium text-white flex items-center space-x-2">
                 <FaImage className="w-5 h-5 text-blue-400" />
-                <span>Profile Photo</span>
+                <span>Profile Photos</span>
               </h2>
               
-              <div className="flex items-start space-x-6">
-                {/* Image Preview */}
-                <div className="flex-shrink-0">
-                  <div className="relative">
-                    <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-800">
-                      {imagePreview ? (
-                        <img
-                          src={imagePreview}
-                          alt="Profile preview"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <FaUser className="w-12 h-12 text-gray-600" />
-                        </div>
+              {/* Main Profile Photo */}
+              <div className="space-y-4">
+                <h3 className="text-md font-medium text-gray-300">Main Profile Photo</h3>
+                <div className="flex items-start space-x-6">
+                  {/* Image Preview */}
+                  <div className="flex-shrink-0">
+                    <div className="relative">
+                      <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-800">
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt="Profile preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <FaUser className="w-12 h-12 text-gray-600" />
+                          </div>
+                        )}
+                      </div>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                        >
+                          <FaTrash className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
-                    {imagePreview && (
-                      <button
-                        type="button"
-                        onClick={removeImage}
-                        className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                      >
-                        <FaTrash className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Upload Controls */}
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Upload a profile photo
-                    </label>
-                    <p className="text-sm text-gray-400 mb-3">
-                      JPG, PNG or GIF. Max file size 10MB. Images will be automatically optimized.
-                    </p>
                   </div>
                   
-                  {/* Upload Progress */}
-                  {isUploading && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>Processing image...</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        ></div>
-                      </div>
+                  {/* Upload Controls */}
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Upload main profile photo
+                      </label>
+                      <p className="text-sm text-gray-400 mb-3">
+                        JPG, PNG or GIF. Max file size 10MB. This will be the primary photo shown in listings.
+                      </p>
                     </div>
-                  )}
-                  
-                  <div className="flex space-x-3">
-                    <label className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 cursor-pointer transition-colors">
-                      <FaUpload className="w-4 h-4 text-gray-300" />
-                      <span className="text-sm text-gray-300">Choose file</span>
-                      <input
-                        type="file"
-                        id="profileImage"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        disabled={isUploading}
-                      />
-                    </label>
-                    {imagePreview && (
-                      <button
-                        type="button"
-                        onClick={removeImage}
-                        className="px-4 py-2 text-red-600 hover:text-red-700 transition-colors"
-                      >
-                        Remove
-                      </button>
+                    
+                    {/* Upload Progress */}
+                    {isUploading && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm text-gray-600">
+                          <span>Processing image...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     )}
+                    
+                    <div className="flex space-x-3">
+                      <label className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 cursor-pointer transition-colors">
+                        <FaUpload className="w-4 h-4 text-gray-300" />
+                        <span className="text-sm text-gray-300">Choose file</span>
+                        <input
+                          type="file"
+                          id="profileImage"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={isUploading}
+                        />
+                      </label>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="px-4 py-2 text-red-600 hover:text-red-700 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Additional Photos */}
+              <div className="space-y-4">
+                <h3 className="text-md font-medium text-gray-300">Additional Photos</h3>
+                <p className="text-sm text-gray-400">
+                  Add up to 10 additional photos. Drag and drop multiple images or click to select.
+                </p>
+                <MultipleImageDragDrop
+                  images={profileImages}
+                  onImagesChange={handleMultipleImagesChange}
+                  maxImages={10}
+                  maxSizePerImageMB={10}
+                  className="mt-4"
+                />
               </div>
             </div>
 
@@ -495,11 +590,7 @@ const AddEscortProfile = () => {
                     onChange={handleChange}
                   >
                     <option value="">Select Country</option>
-                    {COUNTRIES.map(country => (
-                      <option key={country.value} value={country.value}>
-                        {country.label}
-                      </option>
-                    ))}
+                    <option value="SE">Sweden</option>
                   </select>
                   {validationErrors.country && (
                     <p className="mt-1 text-sm text-red-400">{validationErrors.country}</p>
@@ -510,11 +601,17 @@ const AddEscortProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     <FaMapMarkerAlt className="inline mr-2" />
                     {stateLabel}
+                    {(formData.country === 'SE' || formData.country === 'Sweden') && (
+                      <span className="text-red-400 ml-1">*</span>
+                    )}
                   </label>
-                  {formData.country && countryHasStates(formData.country) ? (
+                  {formData.country && (countryHasStates(formData.country) || formData.country === 'SE' || formData.country === 'Sweden') ? (
                     <select
                       name="region"
-                      className="w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      required={(formData.country === 'SE' || formData.country === 'Sweden')}
+                      className={`w-full px-3 py-2 border bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                        validationErrors.region ? 'border-red-500 bg-red-900/30' : 'border-gray-700'
+                      }`}
                       value={formData.region}
                       onChange={handleChange}
                     >
@@ -535,6 +632,9 @@ const AddEscortProfile = () => {
                       placeholder={formData.country ? `Enter ${stateLabel.toLowerCase()}` : "Select country first"}
                       disabled={!formData.country}
                     />
+                  )}
+                  {validationErrors.region && (
+                    <p className="mt-1 text-sm text-red-400">{validationErrors.region}</p>
                   )}
                   {!formData.country && (
                     <p className="mt-1 text-sm text-gray-400">Please select a country first</p>
@@ -558,11 +658,29 @@ const AddEscortProfile = () => {
                     value={formData.relationshipStatus}
                     onChange={handleChange}
                   >
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
-                    <option value="other">Other</option>
+                    <option value="">Select Relationship Status</option>
+                    {relationshipStatuses.length > 0 ? (
+                      relationshipStatuses.map(status => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))
+                    ) : (
+                      // Fallback options if API fails
+                      <>
+                        <option value="Single">Single</option>
+                        <option value="In a Relationship">In a Relationship</option>
+                        <option value="Married">Married</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Widowed">Widowed</option>
+                        <option value="It's Complicated">It's Complicated</option>
+                        <option value="Open Relationship">Open Relationship</option>
+                        <option value="Separated">Separated</option>
+                        <option value="Living Apart">Living Apart</option>
+                        <option value="Mingle">Mingle</option>
+                        <option value="Prefer Not to Say">Prefer Not to Say</option>
+                      </>
+                    )}
                   </select>
                 </div>
 

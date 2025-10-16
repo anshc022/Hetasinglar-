@@ -294,8 +294,24 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       }
     });
 
+    // Handle message deletion events
+    const deletionUnsub = websocketService.onMessage((data) => {
+      if (data.type === 'messageDeleted' && selectedChat?.id === data.chatId) {
+        setSelectedChat(prev => {
+          if (!prev) return prev;
+          
+          // Remove the deleted message from the user's view
+          return {
+            ...prev,
+            messages: prev.messages.filter(msg => msg._id !== data.messageId)
+          };
+        });
+      }
+    });
+
     return () => {
       messageUnsub();
+      deletionUnsub();
       websocketService.disconnect();
     };
   }, [selectedChat?.id, setSelectedChat, scrollToBottom]);
@@ -554,17 +570,17 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
           </div>
         )}
         
-        {messages.map((msg, index) => (
+        {messages.filter(msg => !msg.isDeleted).map((msg, index) => (
           <div
             key={index}
             className={`flex ${msg.isSent ? 'justify-end' : 'justify-start'} items-end gap-2`}
           >
             <div className={`max-w-[70%] relative group ${
               msg.isSent ? 'bg-rose-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100'
-            } rounded-2xl px-4 py-2 shadow-sm ${(msg.isDeleted && msg.isSent) ? 'opacity-50 bg-gray-400 dark:bg-gray-600' : ''}`}>
+            } rounded-2xl px-4 py-2 shadow-sm`}>
               
               {/* Edit/Delete buttons for user's own messages */}
-              {msg.isSent && !msg.isDeleted && msg.messageType !== 'image' && msg.text !== '📷 Image' && (
+              {msg.isSent && msg.messageType !== 'image' && msg.text !== '📷 Image' && (
                 <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 rounded-lg flex">
                   <button
                     onClick={() => handleStartEditMessage(index, msg.text)}
