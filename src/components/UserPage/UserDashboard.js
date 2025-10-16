@@ -11,6 +11,7 @@ import SubscriptionPlans from './SubscriptionPlans';
 import config from '../../config/environment';
 import { MagnetLines } from '../ui/MagnetLines';
 import ThemeToggle from '../ui/ThemeToggle';
+import { useSwedishTranslation } from '../../utils/swedishTranslations';
 
 // Reusable SVG Icon components (replacing emoji usage for consistent styling)
 const IconWarning = ({ className = 'w-4 h-4' }) => (
@@ -63,7 +64,10 @@ const IconGlobe = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
-const MessageItem = ({ chat, isSelected, onClick }) => (
+const MessageItem = ({ chat, isSelected, onClick }) => {
+  const { t } = useSwedishTranslation();
+  
+  return (
   <motion.div
     onClick={onClick}
     className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ${
@@ -114,7 +118,7 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
               <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`}></div>
               <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`} style={{ animationDelay: '0.2s' }}></div>
               <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSelected ? 'bg-pink-200' : 'bg-rose-400'}`} style={{ animationDelay: '0.4s' }}></div>
-              <span className={`text-xs ml-1 ${isSelected ? 'text-pink-100' : 'text-rose-500'}`}>typing...</span>
+              <span className={`text-xs ml-1 ${isSelected ? 'text-pink-100' : 'text-rose-500'}`}>{t('typing')}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 w-full">
@@ -130,7 +134,8 @@ const MessageItem = ({ chat, isSelected, onClick }) => (
       )}
     </div>
   </motion.div>
-);
+  );
+};
 
 const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onChatsUpdate }) => {
   const [newMessage, setNewMessage] = useState('');
@@ -2048,6 +2053,7 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState(null);
   const { token } = useAuth();
+  const { t } = useSwedishTranslation();
 
   useEffect(() => {
     const fetchLikedProfiles = async () => {
@@ -2111,10 +2117,10 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
                 <IconHeartSpark className="w-6 h-6" />
-                Liked Profiles
+                {t('likedProfiles')}
               </h2>
               <p className="text-pink-100 dark:text-pink-200 text-sm sm:text-base mt-1">
-                Profiles you've liked • {pagination?.totalLikes || 0} total
+                {t('profilesYouLiked')} • {pagination?.totalLikes || 0} {t('total')}
               </p>
             </div>
           </div>
@@ -2284,6 +2290,7 @@ const LikedProfilesSection = ({ setActiveSection, setSelectedChat, handleStartCh
 
 const UserDashboard = () => {
   const { user, token, logout } = useAuth();
+  const { t } = useSwedishTranslation();
   const [loading, setLoading] = useState(true);
   const [selectedChat, setSelectedChat] = useState(null);
   const [activeSection, setActiveSection] = useState('members');
@@ -2653,7 +2660,7 @@ const UserDashboard = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-sm">Help</span>
+                <span className="text-sm">{t('help')}</span>
               </button>
               
               {/* Logout */}
@@ -2666,7 +2673,7 @@ const UserDashboard = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v-8" />
                 </svg>
-                <span className="text-xs sm:text-sm">Logout</span>
+                <span className="text-xs sm:text-sm">{t('logout')}</span>
               </motion.button>
             </div>
           </div>
@@ -2680,9 +2687,9 @@ const UserDashboard = () => {
             {/* Navigation Tabs */}
             <div className="flex space-x-2 sm:space-x-6 lg:space-x-8 min-w-max">
               {[
-                              { key: 'members', label: 'Members', icon: <IconUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                              { key: 'messages', label: 'Chat', icon: <FiMessageSquare className="w-4 h-4 sm:w-5 sm:h-5" /> , badge: getTotalUnreadCount() > 0 ? getTotalUnreadCount() : null },
-                              { key: 'liked-profiles', label: 'Liked', icon: <IconHeartSpark className="w-4 h-4 sm:w-5 sm:h-5" /> }
+                              { key: 'members', label: t('members'), icon: <IconUsers className="w-4 h-4 sm:w-5 sm:h-5" /> },
+                              { key: 'messages', label: t('chat'), icon: <FiMessageSquare className="w-4 h-4 sm:w-5 sm:h-5" /> , badge: getTotalUnreadCount() > 0 ? getTotalUnreadCount() : null },
+                              { key: 'liked-profiles', label: t('liked'), icon: <IconHeartSpark className="w-4 h-4 sm:w-5 sm:h-5" /> }
                             ].map((tab) => (
                 <button
                   key={tab.key}
@@ -2713,7 +2720,7 @@ const UserDashboard = () => {
                   <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM10 4a6 6 0 110 12 6 6 0 010-12z"/>
                 </svg>
                 <span className="text-xs sm:text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                  <span className="hidden sm:inline">{userCoins} Credits</span>
+                  <span className="hidden sm:inline">{userCoins} {t('credits')}</span>
                   <span className="sm:hidden">{userCoins}</span>
                 </span>
               </div>
@@ -2723,8 +2730,8 @@ const UserDashboard = () => {
                 onClick={() => setActiveSection('subscription-plans')}
                 className="bg-rose-500 dark:bg-rose-600 text-white px-2 py-1 sm:px-4 sm:py-2 rounded-lg hover:bg-rose-600 dark:hover:bg-rose-700 transition-all duration-200 font-medium text-xs sm:text-sm"
               >
-                <span className="hidden sm:inline">Buy Credits</span>
-                <span className="sm:hidden">Buy</span>
+                <span className="hidden sm:inline">{t('buyCredits')}</span>
+                <span className="sm:hidden">{t('buy')}</span>
               </button>
 
               {/* Profile Button */}
@@ -2735,7 +2742,7 @@ const UserDashboard = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="hidden sm:inline">Profile</span>
+                <span className="hidden sm:inline">{t('profile')}</span>
               </button>
             </div>
           </div>

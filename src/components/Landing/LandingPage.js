@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import Footer from '../Layout/Footer';
 import './LandingPage.css';
 
@@ -76,7 +77,10 @@ const TestimonialCard = ({ name, image, rating, text, delay }) => (
   </motion.div>
 );
 
-const ProfileCard = ({ name, delay, navigate, image }) => (
+const ProfileCard = ({ name, delay, navigate, image }) => {
+  const { t } = useSwedishTranslation();
+  
+  return (
   <motion.div
     initial={{ opacity: 0, y: 30, scale: 0.9 }}
     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -111,7 +115,7 @@ const ProfileCard = ({ name, delay, navigate, image }) => (
       {/* Status */}
       <div className="flex items-center justify-center gap-2 text-white/90">
         <div className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-        <span className="text-sm font-medium">Active Now</span>
+        <span className="text-sm font-medium">{t('activeNow')}</span>
       </div>
     </div>
 
@@ -124,14 +128,16 @@ const ProfileCard = ({ name, delay, navigate, image }) => (
         whileTap={{ scale: 0.95 }}
         onClick={() => navigate('/register')}
       >
-        Say Hi 👋
+        {t('sayHi')} 👋
       </motion.button>
     </div>
   </motion.div>
-);
+  );
+};
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { t } = useSwedishTranslation();
   const scrollRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -152,24 +158,24 @@ const LandingPage = () => {
 
   const testimonials = [
     {
-      name: "Sarah Johnson",
+      name: "Anna Lindberg",
       rating: 5,
-      text: "I found my soulmate on HetaSinglar! The platform is amazing and the matching system really works."
+      text: t('testimonial1')
     },
     {
-      name: "Mike Chen",
+      name: "Erik Svensson",
       rating: 5,
-      text: "Best dating app I've ever used. Met my girlfriend here and we're planning our future together!"
+      text: t('testimonial2')
     },
     {
-      name: "Emma Davis",
+      name: "Maria Johansson",
       rating: 5,
-      text: "The user experience is incredible. Clean, modern interface and genuine people. Highly recommended!"
+      text: t('testimonial3')
     },
     {
-      name: "James Wilson",
+      name: "Lars Andersson", 
       rating: 5,
-      text: "Found my perfect match within weeks! The connection we have is incredible. Thank you HetaSinglar!"
+      text: t('testimonial4')
     },
     {
       name: "Lisa Anderson",
@@ -378,16 +384,16 @@ const LandingPage = () => {
               {/* Desktop Navigation */}
               <div className="hidden lg:flex items-center gap-8">
                 <a href="#features" className="text-white/90 hover:text-white font-medium transition-colors">
-                  Features
+                  {t('features')}
                 </a>
                 <a href="#testimonials" className="text-white/90 hover:text-white font-medium transition-colors">
-                  Reviews
+                  {t('reviews')}
                 </a>
                 <button 
                   onClick={() => navigate('/pricing')} 
                   className="text-white/90 hover:text-white font-medium transition-colors"
                 >
-                  Pricing
+                  {t('pricing')}
                 </button>
               </div>
 
@@ -399,7 +405,7 @@ const LandingPage = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  Login
+                  {t('login')}
                 </motion.button>
                 <motion.button
                   onClick={() => navigate('/register')}
@@ -408,7 +414,7 @@ const LandingPage = () => {
                   whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  Join Now
+                  {t('joinNow')}
                 </motion.button>
               </div>
 
@@ -442,14 +448,14 @@ const LandingPage = () => {
                       className="text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Features
+                      {t('features')}
                     </a>
                     <a 
                       href="#testimonials" 
                       className="text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Reviews
+                      {t('reviews')}
                     </a>
                     <button 
                       onClick={() => {
@@ -458,7 +464,7 @@ const LandingPage = () => {
                       }}
                       className="text-left text-white/90 hover:text-white font-medium transition-colors py-2 border-b border-white/20"
                     >
-                      Pricing
+                      {t('pricing')}
                     </button>
                   </div>
 
@@ -473,7 +479,7 @@ const LandingPage = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      Login
+                      {t('login')}
                     </motion.button>
                     <motion.button
                       onClick={() => {
@@ -485,7 +491,7 @@ const LandingPage = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      Join Now
+                      {t('joinNow')}
                     </motion.button>
                   </div>
                 </div>
@@ -549,7 +555,7 @@ const LandingPage = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, duration: 0.8 }}
             >
-              Find Your Perfect Match
+              {t('heroTitle')}
             </motion.h1>
             
             <motion.p
@@ -558,8 +564,7 @@ const LandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
             >
-              Join millions of people discovering meaningful connections through our 
-              AI-powered matching system. Your soulmate is just a click away.
+              {t('heroSubtitle')}
             </motion.p>
 
             <motion.div
@@ -576,7 +581,7 @@ const LandingPage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <span className="flex items-center gap-3">
-                  Start Dating Today
+                  {t('startDatingToday')}
                   <HeartIcon />
                 </span>
               </motion.button>
@@ -588,7 +593,7 @@ const LandingPage = () => {
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
               >
-                I Have an Account
+                {t('iHaveAccount')}
               </motion.button>
             </motion.div>
           </motion.div>
@@ -604,7 +609,7 @@ const LandingPage = () => {
             className="text-center mb-20"
           >
             <h2 className="text-5xl font-bold text-gray-800 mb-6">
-              Find your flirt today!
+              {t('findYourFlirt')}
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Newly Registered Women
@@ -785,7 +790,7 @@ const LandingPage = () => {
             className="text-center mb-20"
           >
             <h2 className="text-5xl font-bold text-gray-800 mb-6">
-              People Love <span className="bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">HetaSinglar</span>
+              {t('peopleLove')} <span className="bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">HetaSinglar</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Testimonials

@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { resendOtp } from '../../services/api';
+import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import AuthLayout from './AuthLayout';
 
 const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useSwedishTranslation();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -34,9 +36,9 @@ const LoginPage = () => {
       if (err.message?.includes('email') && err.message?.includes('verif')) {
         setShowVerificationPrompt(true);
         setVerificationEmail(formData.username);
-        setError('Your email address is not verified. Please check your email and verify your account to continue.');
+        setError(t('emailNotVerified'));
       } else {
-        setError(err.message || 'Login failed. Please check your credentials.');
+        setError(err.message || t('loginFailed'));
       }
     } finally {
       setLoading(false);
@@ -47,9 +49,9 @@ const LoginPage = () => {
     setResendLoading(true);
     try {
       await resendOtp({ email: verificationEmail });
-      setError('Verification email sent! Please check your inbox and verify your account.');
+      setError(t('verificationEmailSent'));
     } catch (err) {
-      setError('Failed to send verification email. Please try again.');
+      setError(t('verificationEmailFailed'));
     } finally {
       setResendLoading(false);
     }
@@ -64,8 +66,8 @@ const LoginPage = () => {
 
   return (
     <AuthLayout
-      title="Welcome Back! ✨"
-      subtitle="Sign in to continue your journey"
+      title={t('welcomeBack')}
+      subtitle={t('signInToContinue')}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Username Field */}
@@ -76,7 +78,7 @@ const LoginPage = () => {
           className="space-y-2"
         >
           <label htmlFor="username" className="block text-sm font-semibold text-gray-700">
-            Username or Email
+            {t('usernameOrEmail')}
           </label>
           <input
             type="text"
@@ -85,7 +87,7 @@ const LoginPage = () => {
             value={formData.username}
             onChange={handleChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Enter your username or email"
+            placeholder={t('enterUsernameOrEmail')}
             required
             disabled={loading}
           />
@@ -99,7 +101,7 @@ const LoginPage = () => {
           className="space-y-2"
         >
           <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
-            Password
+            {t('password')}
           </label>
           <input
             type="password"
@@ -108,7 +110,7 @@ const LoginPage = () => {
             value={formData.password}
             onChange={handleChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Enter your password"
+            placeholder={t('enterPassword')}
             required
             disabled={loading}
           />
@@ -118,7 +120,7 @@ const LoginPage = () => {
               to="/forgot-password"
               className="text-sm text-rose-600 hover:text-rose-700 hover:underline transition-colors font-medium"
             >
-              Forgot password?
+              {t('forgotPassword')}
             </Link>
           </div>
         </motion.div>
@@ -143,7 +145,7 @@ const LoginPage = () => {
               >
                 <div className="text-center">
                   <p className="text-red-700 text-sm mb-3">
-                    📧 Need to verify your email? We can resend the verification link.
+                    📧 {t('needVerifyEmail')}
                   </p>
                   <button
                     type="button"
@@ -158,14 +160,14 @@ const LoginPage = () => {
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                           className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
                         />
-                        <span>Sending...</span>
+                        <span>{t('sending')}</span>
                       </div>
                     ) : (
-                      'Resend Verification Email'
+                      t('resendVerificationEmail')
                     )}
                   </button>
                   <p className="text-gray-600 text-xs mt-2">
-                    Or <Link to="/register" className="text-red-600 hover:underline">create a new account</Link>
+                    {t('or')} <Link to="/register" className="text-red-600 hover:underline">{t('createNewAccount')}</Link>
                   </p>
                 </div>
               </motion.div>
@@ -188,11 +190,11 @@ const LoginPage = () => {
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
               />
-              <span>Signing In...</span>
+              <span>{t('signingIn')}</span>
             </div>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              Sign In ✨
+              {t('signIn')} ✨
             </span>
           )}
         </motion.button>
@@ -206,12 +208,12 @@ const LoginPage = () => {
         transition={{ delay: 0.8 }}
       >
         <p className="text-gray-600">
-          Don't have an account?{' '}
+          {t('dontHaveAccount')}{' '}
           <Link
             to="/register"
             className="text-rose-600 hover:text-rose-700 font-semibold hover:underline transition-colors"
           >
-            Join HetaSinglar
+            {t('joinHetaSinglar')}
           </Link>
         </p>
       </motion.div>

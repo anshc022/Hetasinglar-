@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../../services/api';
+import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import AuthLayout from './AuthLayout';
 import RecaptchaComponent from '../common/RecaptchaComponent';
 import './AuthStyles.css';
@@ -37,6 +38,7 @@ const RegisterPage = () => {
   const { login, setAuthData } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useSwedishTranslation();
   
   const [formData, setFormData] = useState({
     username: '',
@@ -285,10 +287,10 @@ const RegisterPage = () => {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('username')}</label>
                 <motion.input
                   type="text"
-                  placeholder="Choose username"
+                  placeholder={t('chooseUsername')}
                   className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
                     fieldErrors.username ? 'border-red-400' : 'border-white/30'
                   } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
@@ -303,10 +305,10 @@ const RegisterPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('email')}</label>
                 <motion.input
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder={t('enterEmail')}
                   className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
                     fieldErrors.email ? 'border-red-400' : 'border-white/30'
                   } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
@@ -322,7 +324,7 @@ const RegisterPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('dateOfBirth')}</label>
               <motion.input
                 type="date"
                 className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
@@ -349,7 +351,7 @@ const RegisterPage = () => {
             exit={{ opacity: 0, x: -50 }}
             className="space-y-6"
           >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Choose Your Gender</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">{t('chooseGender')}</h3>
             
             <div className="flex justify-center gap-6">
               <motion.button
@@ -364,7 +366,7 @@ const RegisterPage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <MaleIcon />
-                <span className="text-lg">Male</span>
+                <span className="text-lg">{t('male')}</span>
               </motion.button>
 
               <motion.button
@@ -379,7 +381,7 @@ const RegisterPage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 <FemaleIcon />
-                <span className="text-lg">Female</span>
+                <span className="text-lg">{t('female')}</span>
               </motion.button>
             </div>
 
@@ -513,8 +515,8 @@ const RegisterPage = () => {
 
   return (
     <AuthLayout 
-      title={showOtpVerification ? "Verify Your Email" : showSuccess ? "Welcome!" : "Join HetaSinglar"} 
-      subtitle={showOtpVerification ? "We sent a verification code to your email" : showSuccess ? "Registration completed successfully!" : "Create your account and find love today ❤️"}
+      title={showOtpVerification ? t('verifyEmail') : showSuccess ? t('welcomeExclamation') : t('joinHetaSinglarTitle')} 
+      subtitle={showOtpVerification ? t('verificationCodeSent') : showSuccess ? t('registrationCompleted') : t('createAccountFindLove')}
     >
       {showSuccess ? (
         // Success Screen
