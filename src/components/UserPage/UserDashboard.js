@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -1360,39 +1360,98 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     location: ''
   });
   const { token } = useAuth();
+  const LIKES_PAGE_SIZE = 500;
+
+  const fetchAllLikedEscortIds = useCallback(async (authToken) => {
+    if (!authToken) {
+      return new Set();
+    }
+
+    const likedSet = new Set();
+    let currentPage = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const likeResponse = await likeService.getUserLikes(authToken, currentPage, LIKES_PAGE_SIZE);
+
+      const likes = Array.isArray(likeResponse?.likes) ? likeResponse.likes : [];
+      for (const like of likes) {
+        const escortRef = like?.escortId;
+        if (!escortRef) {
+          continue;
+        }
+        if (typeof escortRef === 'string') {
+          likedSet.add(escortRef);
+        } else if (escortRef?._id) {
+          likedSet.add(escortRef._id.toString());
+        }
+      }
+
+      const pagination = likeResponse?.pagination;
+      if (pagination?.hasMore) {
+        currentPage += 1;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return likedSet;
+  }, [LIKES_PAGE_SIZE]);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchMembers = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        setLoading(true);
-  const response = await escorts.getEscortProfiles({ full: true });
-        setMembers(response.data || response || []);
-        
-        // Check which profiles are already liked
-        if (token && (response.data || response)) {
-          const memberIds = (response.data || response).map(member => member._id);
-          const likeChecks = await Promise.allSettled(
-            memberIds.map(id => likeService.checkLikeStatus(id, token))
-          );
-          
-          const newLikedProfiles = new Set();
-          likeChecks.forEach((result, index) => {
-            if (result.status === 'fulfilled' && result.value.isLiked) {
-              newLikedProfiles.add(memberIds[index]);
-            }
-          });
-          setLikedProfiles(newLikedProfiles);
+        const normalizeEscorts = (escortResponse) => {
+          if (Array.isArray(escortResponse)) {
+            return escortResponse;
+          }
+          if (Array.isArray(escortResponse?.data)) {
+            return escortResponse.data;
+          }
+          if (Array.isArray(escortResponse?.items)) {
+            return escortResponse.items;
+          }
+          return [];
+        };
+
+        const escortsPromise = escorts.getEscortProfiles({ full: true });
+        const likesPromise = token ? fetchAllLikedEscortIds(token) : Promise.resolve(new Set());
+
+        const [escortResponse, likedIds] = await Promise.all([escortsPromise, likesPromise]);
+
+        if (!isMounted) {
+          return;
         }
+
+        const escortList = normalizeEscorts(escortResponse);
+        setMembers(escortList);
+
+        const likedProfileSet = likedIds instanceof Set ? likedIds : new Set(likedIds || []);
+        setLikedProfiles(likedProfileSet);
       } catch (err) {
         console.error('Error fetching members:', err);
-        setError('Failed to load members');
+        if (isMounted) {
+          setError('Failed to load members');
+          setLikedProfiles(new Set());
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchMembers();
-  }, [token]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchAllLikedEscortIds, token]);
 
   const handleLikeToggle = async (memberId) => {
     // Prevent multiple simultaneous requests for the same profile
