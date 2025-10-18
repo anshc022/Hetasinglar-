@@ -105,6 +105,15 @@ export const swedishTranslations = {
   interests: "Intressen",
   profession: "Yrke",
   description: "Beskrivning",
+  personalInformation: "Personlig information",
+  relationship: "Relation",
+  gender: "Kön",
+  height: "Längd",
+  aboutMe: "Om mig",
+  startChat: "Starta chatt",
+  close: "Stäng",
+  yearsOld: "år gammal",
+  id: "ID",
   
   // Gender
   female: "Kvinna",

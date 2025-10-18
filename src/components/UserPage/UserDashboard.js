@@ -1102,6 +1102,8 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
 
 // Profile Detail Modal Component
 const ProfileModal = ({ member, isOpen, onClose }) => {
+  const { t } = useSwedishTranslation();
+  
   if (!isOpen || !member) return null;
 
   // Calculate age from dateOfBirth
@@ -1164,7 +1166,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               {member.firstName || member.username}
             </h2>
             {age && (
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">{age} years old</p>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">{age} {t('yearsOld')}</p>
             )}
             {(member.country || member.region) && (
               <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1184,14 +1186,14 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
           {/* Personal Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-              Personal Information
+              {t('personalInformation')}
             </h3>
             
             <div className="grid grid-cols-2 gap-4 text-sm">
               {/* Relationship Status */}
               {member.relationshipStatus && (
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">Relationship</span>
+                  <span className="text-gray-500 dark:text-gray-400 block">{t('relationship')}</span>
                   <div className="flex items-center gap-2 mt-1">
                     <div className={`w-2 h-2 rounded-full ${
                       member.relationshipStatus === 'Single' ? 'bg-green-400' :
@@ -1208,7 +1210,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               {/* Gender */}
               {member.gender && (
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">Gender</span>
+                  <span className="text-gray-500 dark:text-gray-400 block">{t('gender')}</span>
                   <span className="text-gray-900 dark:text-gray-100 capitalize">{member.gender}</span>
                 </div>
               )}
@@ -1216,7 +1218,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               {/* Profession */}
               {member.profession && (
                 <div className="col-span-2">
-                  <span className="text-gray-500 dark:text-gray-400 block">Profession</span>
+                  <span className="text-gray-500 dark:text-gray-400 block">{t('profession')}</span>
                   <span className="text-gray-900 dark:text-gray-100">{member.profession}</span>
                 </div>
               )}
@@ -1224,7 +1226,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               {/* Height */}
               {member.height && (
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">Height</span>
+                  <span className="text-gray-500 dark:text-gray-400 block">{t('height')}</span>
                   <span className="text-gray-900 dark:text-gray-100">{member.height} cm</span>
                 </div>
               )}
@@ -1232,7 +1234,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               {/* Serial Number (if present) */}
               {member.serialNumber && (
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">ID</span>
+                  <span className="text-gray-500 dark:text-gray-400 block">{t('id')}</span>
                   <span className="text-gray-900 dark:text-gray-100 font-mono text-xs">#{member.serialNumber}</span>
                 </div>
               )}
@@ -1243,7 +1245,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
           {member.interests && member.interests.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-                Interests
+                {t('interests')}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {member.interests.map((interest, index) => (
@@ -1262,7 +1264,7 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
           {member.description && (
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-                About Me
+                {t('aboutMe')}
               </h3>
               <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line">
                 {member.description}
@@ -1279,13 +1281,13 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               }}
               className="flex-1 px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg font-medium transition-colors"
             >
-              Start Chat
+              {t('startChat')}
             </button>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
             >
-              Close
+              {t('close')}
             </button>
           </div>
         </div>
