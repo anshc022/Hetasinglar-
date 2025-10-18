@@ -287,7 +287,7 @@ const LandingPage = () => {
     {
       icon: "💕",
       title: "Smart Matching",
-      description: "Our AI-powered algorithm finds your perfect match based on compatibility and shared interests."
+      description: "Find your perfect match by browsing profiles and connecting with people who share your interests."
     },
     {
       icon: "🔒",

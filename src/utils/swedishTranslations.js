@@ -16,7 +16,7 @@ export const swedishTranslations = {
   
   // Landing page hero section
   heroTitle: "Hitta din perfekta match",
-  heroSubtitle: "Gå med miljoner människor som upptäcker meningsfulla kontakter genom vårt AI-drivna matchningssystem. Din själsfrände är bara ett klick bort.",
+  heroSubtitle: "Gå med miljoner människor som upptäcker meningsfulla kontakter. Utforska profiler och hitta någon speciell idag.",
   joinNow: "Gå med nu",
   startDatingToday: "Börja dejta idag",
   iHaveAccount: "Jag har redan ett konto",
@@ -64,7 +64,7 @@ export const swedishTranslations = {
   // Testimonials section
   peopleLove: "Folk älskar",
   findYourFlirt: "Hitta din flört idag!",
-  testimonial1: "Jag hittade min själsfrände på HetaSinglar! Plattformen är fantastisk och matchningssystemet fungerar verkligen.",
+  testimonial1: "Jag hittade min själsfrände på HetaSinglar! Plattformen är fantastisk och jag träffade verkligen rätt person.",
   testimonial2: "Bästa dejtingappen jag någonsin använt. Träffade min flickvän här och vi planerar vår framtid tillsammans!",
   testimonial3: "Användarupplevelsen är otrolig. Rent, modernt gränssnitt och genuina människor. Rekommenderas varmt!",
   testimonial4: "Hittade min perfekta match inom några veckor! Kopplingen vi har är otrolig. Tack HetaSinglar!",
