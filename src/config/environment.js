@@ -1,11 +1,10 @@
 // Environment configuration utility
 const isDev = (process.env.NODE_ENV || 'development') === 'development';
 
-// Production fallbacks - these should match your vercel.json
+// Production fallbacks - these should match your production environment
 const PRODUCTION_FALLBACKS = {
-  // Note: For production, you'll need HTTPS. For now using HTTP for development.
-  API_URL: 'http://apihetasinglar.duckdns.org:5000/api', // Working domain!
-  WS_URL: 'ws://apihetasinglar.duckdns.org:5000', // Working domain!
+  API_URL: 'https://apihetasinglar.duckdns.org/api', // Production API with HTTPS
+  WS_URL: 'wss://apihetasinglar.duckdns.org', // Production WebSocket with WSS
   FRONTEND_URL: 'https://hetasinglar.vercel.app'
 };
 

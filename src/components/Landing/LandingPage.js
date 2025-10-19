@@ -142,18 +142,18 @@ const LandingPage = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const profiles = [
-    { name: 'Gunilla', image: 'https://images.unsplash.com/photo-1494790108755-2616b612b550?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Eva', image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Fanny', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Bettina', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Ulrika', image: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Marianne', image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Malin', image: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Madeleine', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Sabrina', image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Julia', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Emma', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=600&fit=crop&crop=face' },
-    { name: 'Sofia', image: 'https://images.unsplash.com/photo-1506863530036-1efeddceb993?w=400&h=600&fit=crop&crop=face' }
+    { name: 'Astrid', image: '/landing-img/5ac8806f-e80e-4af9-92cc-e37b9fbf0fed.jpg' },
+    { name: 'Ingrid', image: '/landing-img/7ed1154c-b35d-4c57-8b68-2ffe1d143a16.jpg' },
+    { name: 'Linnea', image: '/landing-img/136a8039-eef3-41b3-ab30-0126bc6fc765.jpg' },
+    { name: 'Maja', image: '/landing-img/942730c6-4909-4c40-89ef-fbf682938170.jpg' },
+    { name: 'Saga', image: '/landing-img/95dbfe18-a2ee-47da-b326-870b1c22db6e.jpg' },
+    { name: 'Elin', image: '/landing-img/ae1343ca-1367-453a-8628-7a2bea97ffac.jpg' },
+    { name: 'Elsa', image: '/landing-img/b971d777-91ee-4186-9ed5-cccb3f036be6.jpg' },
+    { name: 'Wilma', image: '/landing-img/e65a4651-5ce3-404e-9680-c7ddeba266be.jpg' },
+    { name: 'Alva', image: '/landing-img/e92b3e30-b1b9-4fa7-99e6-38ffd4ce39bd.jpg' },
+    { name: 'Ebba', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Vera', image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=600&fit=crop&crop=face' },
+    { name: 'Klara', image: 'https://images.unsplash.com/photo-1506863530036-1efeddceb993?w=400&h=600&fit=crop&crop=face' }
   ];
 
   const testimonials = [
