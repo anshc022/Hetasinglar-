@@ -39,7 +39,7 @@ jobs:
     - name: Deploy to EC2
       run: |
         # Create deployment package
-        tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json .env.production *.config.js 2>/dev/null || tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json .env.production
+        tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json *.config.js 2>/dev/null || tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json
         
         # Upload to EC2
         scp -i ~/.ssh/id_rsa frontend-deploy.tar.gz ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
