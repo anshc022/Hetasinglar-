@@ -5,7 +5,7 @@ const isDev = (process.env.NODE_ENV || 'development') === 'development';
 const PRODUCTION_FALLBACKS = {
   API_URL: 'https://apihetasinglar.duckdns.org/api', // Production API with HTTPS
   WS_URL: 'wss://apihetasinglar.duckdns.org', // Production WebSocket with WSS
-  FRONTEND_URL: (typeof window !== 'undefined' && window.location && window.location.origin) || 'http://hetasinglar.se'
+  FRONTEND_URL: (typeof window !== 'undefined' && window.location && window.location.origin) || 'http://hotsingles.se'
 };
 
 const config = {

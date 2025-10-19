@@ -73,35 +73,39 @@ jobs:
           
           # Create nginx configuration
           sudo tee /etc/nginx/conf.d/hetasinglar.conf > /dev/null << 'NGINX_EOF'
-        server {
-            listen 80;
-            server_name hetasinglar.se www.hetasinglar.se 16.171.8.139 _;
-            
-            root /var/www/hetasinglar-frontend;
-            index index.html;
-            
-            # Security headers
-            add_header X-Frame-Options "SAMEORIGIN" always;
-            add_header X-XSS-Protection "1; mode=block" always;
-            add_header X-Content-Type-Options "nosniff" always;
-            add_header Referrer-Policy "no-referrer-when-downgrade" always;
-            
-            # Gzip compression
-            gzip on;
-            gzip_vary on;
-            gzip_min_length 1024;
-            gzip_types text/plain text/css text/xml text/javascript application/javascript application/json;
-            
-            # Handle React Router (SPA)
-            location / {
-                try_files $uri $uri/ /index.html;
-            }
-            
-            # Cache static assets
-            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            server {
+              listen 80 default_server;
+              server_name hotsingles.se www.hotsingles.se 16.171.8.139 _;
+
+              root /var/www/hetasinglar-frontend;
+              index index.html;
+
+              # Security headers
+              add_header X-Frame-Options "SAMEORIGIN" always;
+              add_header X-XSS-Protection "1; mode=block" always;
+              add_header X-Content-Type-Options "nosniff" always;
+              add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+              # Gzip compression
+              gzip on;
+              gzip_vary on;
+              gzip_min_length 1024;
+              gzip_types text/plain text/css text/xml text/javascript application/javascript application/json;
+
+              # Handle React Router (SPA) with named fallback
+              location / {
+                try_files $uri $uri/ @spa_fallback;
+              }
+
+              location @spa_fallback {
+                try_files /index.html =404;
+              }
+
+              # Cache static assets
+              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
                 expires 1d;
+              }
             }
-        }
         NGINX_EOF
           
           # Copy build files to web directory
@@ -121,7 +125,7 @@ jobs:
     - name: Verify deployment
       run: |
         echo "🚀 Deployment completed!"
-        echo "Frontend should be available at: http://hetasinglar.se"
+        echo "Frontend should be available at: http://hotsingles.se (and http://16.171.8.139)"
         
         # Optional: Check if the site is responding
         sleep 10
