@@ -75,7 +75,7 @@ jobs:
           sudo tee /etc/nginx/conf.d/hetasinglar.conf > /dev/null << 'NGINX_EOF'
         server {
             listen 80;
-            server_name hetasinglar.duckdns.org 16.171.8.139 _;
+            server_name hetasinglar.se www.hetasinglar.se 16.171.8.139 _;
             
             root /var/www/hetasinglar-frontend;
             index index.html;
@@ -121,7 +121,7 @@ jobs:
     - name: Verify deployment
       run: |
         echo "🚀 Deployment completed!"
-        echo "Frontend should be available at: http://hetasinglar.duckdns.org"
+        echo "Frontend should be available at: http://hetasinglar.se"
         
         # Optional: Check if the site is responding
         sleep 10
