@@ -43,12 +43,12 @@ rm /tmp/frontend-deploy.zip
 # Install Node.js if needed
 if ! command -v node > /dev/null; then
     curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-    sudo yum install -y nodejs
+    sudo dnf install -y nodejs
 fi
 
 # Install nginx if needed
 if ! command -v nginx > /dev/null; then
-    sudo amazon-linux-extras install -y nginx1
+    sudo dnf install -y nginx
 fi
 
 # Create nginx config

@@ -124,13 +124,13 @@ fi
 if ! command -v node &> /dev/null; then
     echo "Installing Node.js..."
     curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-    sudo yum install -y nodejs
+    sudo dnf install -y nodejs
 fi
 
 # Install nginx if not present
 if ! command -v nginx &> /dev/null; then
     echo "Installing Nginx..."
-    sudo amazon-linux-extras install -y nginx1
+    sudo dnf install -y nginx
 fi
 
 # Install dependencies

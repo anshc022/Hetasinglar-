@@ -33,13 +33,13 @@ log_step "Step 1: Installing system dependencies..."
 if ! command -v node &> /dev/null; then
     log_info "Installing Node.js..."
     curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-    sudo yum install -y nodejs
+    sudo dnf install -y nodejs
 fi
 
 # Install nginx if not already installed
 if ! command -v nginx &> /dev/null; then
     log_info "Installing Nginx..."
-    sudo amazon-linux-extras install -y nginx1
+    sudo dnf install -y nginx
 fi
 
 # Verify installations
@@ -276,7 +276,7 @@ log_step "Step 9: Setting up SSL (Let's Encrypt)..."
 # Install certbot for SSL
 if ! command -v certbot &> /dev/null; then
     log_info "Installing Certbot for SSL..."
-    sudo yum install -y certbot python3-certbot-nginx
+    sudo dnf install -y certbot python3-certbot-nginx
 fi
 
 log_warn "SSL certificate setup:"
