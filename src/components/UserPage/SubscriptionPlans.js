@@ -17,6 +17,14 @@ const SubscriptionPlans = ({ isInDashboard = false, onPurchaseSuccess }) => {
   const { theme } = useTheme();
   const navigate = useNavigate();
 
+  // Redirect logged-in users to dashboard if accessing standalone subscription page
+  useEffect(() => {
+    if (user && token && !isInDashboard) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+  }, [user, token, isInDashboard, navigate]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
