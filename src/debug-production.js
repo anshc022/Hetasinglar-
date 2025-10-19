@@ -4,7 +4,7 @@
 const config = {
   API_URL: 'https://apihetasinglar.duckdns.org/api',
   WS_URL: 'wss://apihetasinglar.duckdns.org',
-  FRONTEND_URL: 'http://hotsingles.se'
+  FRONTEND_URL: 'http://hetasinglar.se'
 };
 
 async function debugProductionConnection() {

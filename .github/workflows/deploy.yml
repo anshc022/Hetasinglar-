@@ -75,7 +75,7 @@ jobs:
           sudo tee /etc/nginx/conf.d/hetasinglar.conf > /dev/null << 'NGINX_EOF'
             server {
               listen 80 default_server;
-              server_name hotsingles.se www.hotsingles.se 16.171.8.139 _;
+              server_name hetasinglar.se www.hetasinglar.se 16.171.8.139 _;
 
               root /var/www/hetasinglar-frontend;
               index index.html;
@@ -125,7 +125,7 @@ jobs:
     - name: Verify deployment
       run: |
         echo "🚀 Deployment completed!"
-        echo "Frontend should be available at: http://hotsingles.se (and http://16.171.8.139)"
+        echo "Frontend should be available at: http://hetasinglar.se (and http://16.171.8.139)"
         
         # Optional: Check if the site is responding
         sleep 10
