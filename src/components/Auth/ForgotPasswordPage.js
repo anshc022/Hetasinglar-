@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
 import config from '../../config/environment';
+import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import './AuthStyles.css';
 
 const ForgotPasswordPage = () => {
@@ -10,6 +11,7 @@ const ForgotPasswordPage = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const { t } = useSwedishTranslation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,10 +32,10 @@ const ForgotPasswordPage = () => {
       if (response.ok) {
         setSent(true);
       } else {
-        setError(data.message || 'Failed to send reset email');
+        setError(data.message || t('failedToSendResetEmail'));
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
@@ -42,8 +44,8 @@ const ForgotPasswordPage = () => {
   if (sent) {
     return (
       <AuthLayout
-        title="Email Sent! 📧"
-        subtitle="Check your inbox for reset instructions"
+        title={t('emailSent')}
+        subtitle={t('checkInboxForInstructions')}
       >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -56,7 +58,7 @@ const ForgotPasswordPage = () => {
           
           <div>
             <p className="text-gray-700 mb-4">
-              We've sent password reset instructions to:
+              {t('sentResetInstructionsTo')}
             </p>
             <p className="font-semibold text-rose-600 bg-rose-50 px-4 py-2 rounded-lg">
               {email}
@@ -65,11 +67,12 @@ const ForgotPasswordPage = () => {
 
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <p className="text-blue-800 text-sm">
-              <strong>📱 What's next?</strong><br/>
-              1. Check your email inbox (and spam folder)<br/>
-              2. Click the reset link in the email<br/>
-              3. Enter your new password<br/>
-              4. Sign in with your new password
+              <strong>{t('whatsNext')}</strong><br/>
+              {t('resetSteps').split('\\n').map((step, index) => (
+                <React.Fragment key={index}>
+                  {step}<br/>
+                </React.Fragment>
+              ))}
             </p>
           </div>
 
@@ -84,14 +87,14 @@ const ForgotPasswordPage = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              Send Another Reset Email
+              {t('sendAnotherResetEmail')}
             </motion.button>
 
             <Link
               to="/login"
               className="block w-full py-3 bg-gradient-to-r from-rose-500 via-pink-500 to-red-500 text-white text-center rounded-xl font-bold hover:shadow-lg transition-all"
             >
-              Back to Login ✨
+              {t('backToLogin')}
             </Link>
           </div>
         </motion.div>
@@ -101,8 +104,8 @@ const ForgotPasswordPage = () => {
 
   return (
     <AuthLayout
-      title="Forgot Password? 🔒"
-      subtitle="Enter your email to reset your password"
+      title={t('forgotPasswordTitle')}
+      subtitle={t('forgotPasswordSubtitle')}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Email Field */}
@@ -113,7 +116,7 @@ const ForgotPasswordPage = () => {
           className="space-y-2"
         >
           <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
-            Email Address
+            {t('emailAddress')}
           </label>
           <input
             type="email"
@@ -121,12 +124,12 @@ const ForgotPasswordPage = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all duration-200 placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Enter your email address"
+            placeholder={t('enterEmailAddress')}
             required
             disabled={loading}
           />
           <p className="text-sm text-gray-500 mt-2">
-            We'll send you a link to reset your password
+            {t('sendResetLink')}
           </p>
         </motion.div>
 
@@ -158,11 +161,11 @@ const ForgotPasswordPage = () => {
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
               />
-              <span>Sending Reset Email...</span>
+              <span>{t('sendingResetEmail')}</span>
             </div>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              Send Reset Email 📧
+              {t('sendResetEmail')}
             </span>
           )}
         </motion.button>
@@ -176,12 +179,12 @@ const ForgotPasswordPage = () => {
         transition={{ delay: 0.8 }}
       >
         <p className="text-gray-600">
-          Remember your password?{' '}
+          {t('rememberPassword')}{' '}
           <Link
             to="/login"
             className="text-rose-600 hover:text-rose-700 font-semibold hover:underline transition-colors"
           >
-            Back to Login
+            {t('backToLoginLink')}
           </Link>
         </p>
       </motion.div>

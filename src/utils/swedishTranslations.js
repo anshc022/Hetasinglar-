@@ -201,7 +201,27 @@ export const swedishTranslations = {
   aboutUs: "Om oss",
   contactUs: "Kontakta oss",
   helpCenter: "Hjälpcenter",
-  safetyTips: "Säkerhetstips"
+  safetyTips: "Säkerhetstips",
+  
+  // Forgot Password page
+  forgotPasswordTitle: "Glömt lösenordet? 🔒",
+  forgotPasswordSubtitle: "Ange din e-post för att återställa ditt lösenord",
+  emailAddress: "E-postadress",
+  enterEmailAddress: "Ange din e-postadress",
+  sendResetLink: "Vi skickar dig en länk för att återställa ditt lösenord",
+  sendResetEmail: "Skicka återställningsmail 📧",
+  sendingResetEmail: "Skickar återställningsmail...",
+  emailSent: "E-post skickad! 📧",
+  checkInboxForInstructions: "Kontrollera din inkorg för återställningsinstruktioner",
+  sentResetInstructionsTo: "Vi har skickat återställningsinstruktioner till:",
+  whatsNext: "📱 Vad händer nu?",
+  resetSteps: "1. Kontrollera din e-post (och skräppostmappen)\\n2. Klicka på återställningslänken i e-posten\\n3. Ange ditt nya lösenord\\n4. Logga in med ditt nya lösenord",
+  sendAnotherResetEmail: "Skicka ett nytt återställningsmail",
+  backToLogin: "Tillbaka till inloggning ✨",
+  rememberPassword: "Kommer du ihåg ditt lösenord?",
+  backToLoginLink: "Tillbaka till inloggning",
+  failedToSendResetEmail: "Misslyckades att skicka återställningsmail",
+  networkError: "Nätverksfel. Försök igen."
 };
 
 // Hook for using Swedish translations
