@@ -4,7 +4,7 @@ echo "🧪 Testing New Frontend Instance Connection"
 echo "==========================================="
 
 # Configuration
-EC2_HOST="16.171.8.139"
+EC2_HOST="13.48.194.178"
 EC2_USER="ec2-user"
 KEY_PATH="../backend/api-Hetasinglar/hetasinglar-key.pem"
 
@@ -55,7 +55,7 @@ EOF
     echo "Next steps:"
     echo "1. Run deployment: ./deploy-to-separate-instance.sh"
     echo "2. Or use PowerShell: ./deploy-to-separate-instance.ps1"
-    echo "3. Update DNS to point hetasinglar.duckdns.org to 16.171.8.139"
+    echo "3. Update DNS to point hetasinglar.duckdns.org to 13.48.194.178"
 else
     echo -e "${RED}❌ SSH connection failed${NC}"
     echo ""

@@ -5,7 +5,7 @@ Write-Host "Deploying Frontend to AWS EC2" -ForegroundColor Blue
 Write-Host "=============================" -ForegroundColor Blue
 
 # Configuration
-$EC2_HOST = "16.171.8.139"
+$EC2_HOST = "13.48.194.178"
 $EC2_USER = "ec2-user"
 $KEY_PATH = "f:\vercal\Hetasinglar\backend\api-Hetasinglar\hetasinglar-key.pem"
 
