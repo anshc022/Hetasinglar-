@@ -32,20 +32,27 @@ jobs:
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        echo "$SSH_KEY" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+        ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+      env:
+        SSH_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+        SSH_HOST: ${{ secrets.EC2_HOST }}
+        SSH_USER: ${{ secrets.EC2_USER }}
         
     - name: Deploy to EC2
+      env:
+        SSH_HOST: ${{ secrets.EC2_HOST }}
+        SSH_USER: ${{ secrets.EC2_USER }}
       run: |
         # Create deployment package
         tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json *.config.js 2>/dev/null || tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json
         
         # Upload to EC2
-        scp -i ~/.ssh/id_rsa frontend-deploy.tar.gz ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/
+        scp -i ~/.ssh/id_rsa frontend-deploy.tar.gz $SSH_USER@$SSH_HOST:/tmp/
         
         # Deploy on EC2
-        ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+        ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST << 'EOF'
           set -e
           
           # Create frontend directory
@@ -177,15 +184,18 @@ jobs:
         EOF
         
     - name: Verify deployment
+      env:
+        SSH_HOST: ${{ secrets.EC2_HOST }}
+        SSH_USER: ${{ secrets.EC2_USER }}
       run: |
         echo "🚀 Deployment completed!"
         
         # Check if SSL is configured
-        if ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "test -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem"; then
+        if ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "test -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem"; then
           echo "Frontend should be available at: https://hetasinglar.se (SSL enabled)"
           # Check HTTPS
           sleep 10
-          if curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.EC2_HOST }} | grep -q "200\|301\|302"; then
+          if curl -s -o /dev/null -w "%{http_code}" https://$SSH_HOST | grep -q "200\|301\|302"; then
             echo "✅ HTTPS Site is responding!"
           else
             echo "⚠️ HTTPS Site may need a few moments to start"
@@ -194,7 +204,7 @@ jobs:
           echo "Frontend should be available at: http://hetasinglar.se (HTTP only)"
           # Check HTTP
           sleep 10
-          if curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }} | grep -q "200\|301\|302"; then
+          if curl -s -o /dev/null -w "%{http_code}" http://$SSH_HOST | grep -q "200\|301\|302"; then
             echo "✅ HTTP Site is responding!"
           else
             echo "⚠️ HTTP Site may need a few moments to start"
