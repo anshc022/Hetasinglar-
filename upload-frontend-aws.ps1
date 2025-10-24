@@ -5,7 +5,7 @@ Write-Host "📤 HetaSinglar Frontend Upload to AWS EC2" -ForegroundColor Blue
 Write-Host "==========================================" -ForegroundColor Blue
 
 # Configuration - Update these with your AWS details
-$EC2_HOST = "13.48.194.178"  # Your frontend EC2 instance IP
+$EC2_HOST = "13.48.43.224"  # Your frontend EC2 instance IP
 $EC2_USER = "ec2-user"
 $KEY_PATH = "f:\vercal\Hetasinglar\backend\api-Hetasinglar\hetasinglar-key.pem"  # Full path to your EC2 key file
 $REMOTE_DIR = "/home/ec2-user/hetasinglar-frontend"

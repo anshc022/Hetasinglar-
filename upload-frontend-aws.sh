@@ -16,7 +16,7 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 log_step() { echo -e "${BLUE}🔧 $1${NC}"; }
 
 # Configuration - Update these with your AWS details
-EC2_HOST="13.48.194.178"  # Your frontend EC2 instance IP
+EC2_HOST="13.48.43.224"  # Your frontend EC2 instance IP
 EC2_USER="ec2-user"
 KEY_PATH="../backend/api-Hetasinglar/hetasinglar-key.pem"  # Path to your EC2 key file
 REMOTE_DIR="/home/ec2-user/hetasinglar-frontend"

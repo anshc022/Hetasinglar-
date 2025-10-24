@@ -130,7 +130,7 @@ jobs:
             sudo tee /etc/nginx/conf.d/hetasinglar.conf > /dev/null << 'NGINX_EOF'
               server {
                 listen 80 default_server;
-                server_name hetasinglar.se www.hetasinglar.se 13.48.194.178 _;
+                server_name hetasinglar.se www.hetasinglar.se 13.48.43.224 _;
 
                 root /var/www/hetasinglar-frontend;
                 index index.html;

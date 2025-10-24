@@ -4,7 +4,7 @@ echo "🚀 Quick Frontend Deployment Test"
 echo "================================="
 
 # Configuration
-EC2_HOST="13.48.194.178"
+EC2_HOST="13.48.43.224"
 EC2_USER="ec2-user"
 KEY_PATH="../backend/api-Hetasinglar/hetasinglar-key.pem"
 
