@@ -120,6 +120,31 @@ export const UK_REGIONS = [
   { value: 'NIR', label: 'Northern Ireland', region: 'Northern Ireland' }
 ];
 
+// Swedish Counties (Län)
+export const SWEDISH_REGIONS = [
+  { value: 'AB', label: 'Stockholm', region: 'Eastern Sweden' },
+  { value: 'C', label: 'Uppsala', region: 'Eastern Sweden' },
+  { value: 'D', label: 'Södermanland', region: 'Eastern Sweden' },
+  { value: 'E', label: 'Östergötland', region: 'Eastern Sweden' },
+  { value: 'F', label: 'Jönköping', region: 'Southern Sweden' },
+  { value: 'G', label: 'Kronoberg', region: 'Southern Sweden' },
+  { value: 'H', label: 'Kalmar', region: 'Southern Sweden' },
+  { value: 'I', label: 'Gotland', region: 'Southern Sweden' },
+  { value: 'K', label: 'Blekinge', region: 'Southern Sweden' },
+  { value: 'M', label: 'Skåne', region: 'Southern Sweden' },
+  { value: 'N', label: 'Halland', region: 'Western Sweden' },
+  { value: 'O', label: 'Västra Götaland', region: 'Western Sweden' },
+  { value: 'S', label: 'Värmland', region: 'Western Sweden' },
+  { value: 'T', label: 'Örebro', region: 'Central Sweden' },
+  { value: 'U', label: 'Västmanland', region: 'Central Sweden' },
+  { value: 'W', label: 'Dalarna', region: 'Central Sweden' },
+  { value: 'X', label: 'Gävleborg', region: 'Northern Sweden' },
+  { value: 'Y', label: 'Västernorrland', region: 'Northern Sweden' },
+  { value: 'Z', label: 'Jämtland', region: 'Northern Sweden' },
+  { value: 'AC', label: 'Västerbotten', region: 'Northern Sweden' },
+  { value: 'BD', label: 'Norrbotten', region: 'Northern Sweden' }
+];
+
 // Country list with their respective state/region systems
 export const COUNTRIES = [
   { 
@@ -150,6 +175,13 @@ export const COUNTRIES = [
     stateLabel: 'Region',
     states: UK_REGIONS
   },
+  { 
+    value: 'SE', 
+    label: 'Sweden', 
+    hasStates: true,
+    stateLabel: 'Län (County)',
+    states: SWEDISH_REGIONS
+  },
   // Countries without state/region breakdown (text input for region)
   { value: 'DE', label: 'Germany', hasStates: false },
   { value: 'FR', label: 'France', hasStates: false },
@@ -159,7 +191,6 @@ export const COUNTRIES = [
   { value: 'BE', label: 'Belgium', hasStates: false },
   { value: 'CH', label: 'Switzerland', hasStates: false },
   { value: 'AT', label: 'Austria', hasStates: false },
-  { value: 'SE', label: 'Sweden', hasStates: false },
   { value: 'NO', label: 'Norway', hasStates: false },
   { value: 'DK', label: 'Denmark', hasStates: false },
   { value: 'FI', label: 'Finland', hasStates: false },

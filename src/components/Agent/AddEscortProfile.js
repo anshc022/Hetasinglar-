@@ -50,9 +50,8 @@ const AddEscortProfile = () => {
   const [availableStates, setAvailableStates] = useState([]);
   const [stateLabel, setStateLabel] = useState('Region/State');
   const [relationshipStatuses, setRelationshipStatuses] = useState([]);
-  const [swedishRegions, setSwedishRegions] = useState([]);
 
-  // Fetch relationship statuses and Swedish regions on mount
+  // Fetch relationship statuses on mount
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -70,19 +69,6 @@ const AddEscortProfile = () => {
           const relationshipData = await relationshipResponse.json();
           setRelationshipStatuses(relationshipData.statuses || []);
         }
-
-        // Fetch Swedish regions
-        const regionsResponse = await fetch('/api/agents/swedish-regions', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (regionsResponse.ok) {
-          const regionsData = await regionsResponse.json();
-          setSwedishRegions(regionsData.regions || []);
-        }
       } catch (error) {
         console.error('Error fetching dropdown data:', error);
       }
@@ -94,24 +80,15 @@ const AddEscortProfile = () => {
   // Update available states when country changes
   useEffect(() => {
     if (formData.country) {
-      if (formData.country === 'SE' || formData.country === 'Sweden') {
-        // Use Swedish regions for Sweden
-        setAvailableStates(swedishRegions.map(region => ({ value: region, label: region })));
-        setStateLabel('Län (Region)');
-      } else {
-        // Use existing logic for other countries
-        const states = getStatesForCountry(formData.country);
-        setAvailableStates(states);
-        setStateLabel(getStateLabelForCountry(formData.country));
-      }
+      // Use the standard country/state system for all countries including Sweden
+      const states = getStatesForCountry(formData.country);
+      setAvailableStates(states);
+      setStateLabel(getStateLabelForCountry(formData.country));
       
       // Clear region if country changed and previous region is not valid for new country
       if (formData.region) {
-        const isSweden = formData.country === 'SE' || formData.country === 'Sweden';
-        const validRegion = isSweden 
-          ? swedishRegions.includes(formData.region)
-          : (countryHasStates(formData.country) && 
-             getStatesForCountry(formData.country).some(state => state.value === formData.region || state.label === formData.region));
+        const validRegion = countryHasStates(formData.country) && 
+          states.some(state => state.value === formData.region || state.label === formData.region);
         
         if (!validRegion) {
           setFormData(prev => ({ ...prev, region: '' }));
@@ -121,7 +98,7 @@ const AddEscortProfile = () => {
       setAvailableStates([]);
       setStateLabel('Region/State');
     }
-  }, [formData.country, swedishRegions]);
+  }, [formData.country]);
 
   // Helper function to get readable names from codes
   const getReadableLocationNames = () => {
@@ -146,9 +123,10 @@ const AddEscortProfile = () => {
     if (!formData.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
     if (!formData.country.trim()) errors.country = 'Country is required';
     
-    // Region validation for Sweden
-    if ((formData.country === 'SE' || formData.country === 'Sweden') && !formData.region.trim()) {
-      errors.region = 'Län (Region) is required for Sweden';
+    // Region validation for countries that require it
+    if (countryHasStates(formData.country) && !formData.region.trim()) {
+      const stateLabel = getStateLabelForCountry(formData.country);
+      errors.region = `${stateLabel} is required for ${COUNTRIES.find(c => c.value === formData.country)?.label}`;
     }
     
     // Username validation
@@ -590,7 +568,11 @@ const AddEscortProfile = () => {
                     onChange={handleChange}
                   >
                     <option value="">Select Country</option>
-                    <option value="SE">Sweden</option>
+                    {COUNTRIES.map(country => (
+                      <option key={country.value} value={country.value}>
+                        {country.label}
+                      </option>
+                    ))}
                   </select>
                   {validationErrors.country && (
                     <p className="mt-1 text-sm text-red-400">{validationErrors.country}</p>
@@ -601,14 +583,14 @@ const AddEscortProfile = () => {
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     <FaMapMarkerAlt className="inline mr-2" />
                     {stateLabel}
-                    {(formData.country === 'SE' || formData.country === 'Sweden') && (
+                    {countryHasStates(formData.country) && (
                       <span className="text-red-400 ml-1">*</span>
                     )}
                   </label>
-                  {formData.country && (countryHasStates(formData.country) || formData.country === 'SE' || formData.country === 'Sweden') ? (
+                  {formData.country && countryHasStates(formData.country) ? (
                     <select
                       name="region"
-                      required={(formData.country === 'SE' || formData.country === 'Sweden')}
+                      required={countryHasStates(formData.country)}
                       className={`w-full px-3 py-2 border bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
                         validationErrors.region ? 'border-red-500 bg-red-900/30' : 'border-gray-700'
                       }`}
