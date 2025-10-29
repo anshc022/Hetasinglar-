@@ -823,10 +823,10 @@ const EscortProfilesTab = ({
                   </div>
                 </div>
                 
-                {/* Interests & Bio */}
+                {/* Interests & Description */}
                 <div className="md:col-span-2 space-y-4">
                   <h3 className="text-lg font-semibold text-white border-b border-gray-700 pb-2">
-                    Interests & Bio
+                    Interests & Description
                   </h3>
                   
                   <div>
@@ -861,18 +861,18 @@ const EscortProfilesTab = ({
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Bio
+                      Description
                     </label>
                     {isEditMode ? (
                       <textarea
-                        value={editForm.bio || ''}
-                        onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                        value={editForm.description || ''}
+                        onChange={(e) => setEditForm({...editForm, description: e.target.value})}
                         rows={4}
                         className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter bio description..."
+                        placeholder="Enter profile description..."
                       />
                     ) : (
-                      <p className="text-white">{selectedProfile.bio || 'No bio available'}</p>
+                      <p className="text-white">{selectedProfile.description || 'No description available'}</p>
                     )}
                   </div>
                 </div>
@@ -1004,6 +1004,8 @@ const EscortProfilesTab = ({
                           
                           const updatedProfileData = {
                             ...editForm,
+                            // Ensure description respects backend max length
+                            description: (editForm.description || '').toString().slice(0, 1000).trim(),
                             country: countryName,
                             region: regionName,
                             countryCode: editForm.country,

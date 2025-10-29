@@ -1962,6 +1962,15 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                   <span className="truncate drop-shadow-sm">{member.country || member.region || 'Unknown'}</span>
                 </div>
 
+                {/* Brief description preview (if available) */}
+                {member.description && (
+                  <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2">
+                    {member.description.length > 120
+                      ? `${member.description.slice(0, 120)}…`
+                      : member.description}
+                  </p>
+                )}
+
                 {/* Enhanced Profile Stats */}
                 <div className="hidden sm:flex flex-col gap-2 mt-3 text-xs">
                   {/* Online Status */}

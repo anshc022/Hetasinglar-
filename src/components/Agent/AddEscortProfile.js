@@ -37,6 +37,7 @@ const AddEscortProfile = () => {
     region: '',
     relationshipStatus: '',
     interests: [],
+    description: '',
     profession: '',
     height: '',
     dateOfBirth: ''
@@ -148,6 +149,11 @@ const AddEscortProfile = () => {
     if (formData.height && (formData.height < 100 || formData.height > 250)) {
       errors.height = 'Height must be between 100-250 cm';
     }
+
+    // Description length validation (backend max 1000 chars)
+    if (formData.description && formData.description.length > 1000) {
+      errors.description = 'Description must be at most 1000 characters';
+    }
     
     return errors;
   };
@@ -188,6 +194,7 @@ const AddEscortProfile = () => {
         countryCode: formData.country,
         regionCode: formData.region,
         interests: formData.interests.filter(i => i.trim()),
+        description: formData.description?.trim() || '',
         dateOfBirth: new Date(formData.dateOfBirth).toISOString(),
         height: parseInt(formData.height) || null,
         profileImages: profileImages.map(img => img.data), // Include multiple images
@@ -717,6 +724,23 @@ const AddEscortProfile = () => {
                     placeholder="e.g., Dancing, Reading, Traveling"
                   />
                   <p className="mt-1 text-sm text-gray-500">Separate interests with commas</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Write a short description about yourself and your services (max 1000 characters)"
+                  />
+                  {validationErrors.description && (
+                    <p className="mt-1 text-sm text-red-400">{validationErrors.description}</p>
+                  )}
                 </div>
               </div>
             </div>
