@@ -45,8 +45,8 @@ jobs:
         SSH_HOST: ${{ secrets.EC2_HOST }}
         SSH_USER: ${{ secrets.EC2_USER }}
       run: |
-        # Create deployment package
-        tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json *.config.js 2>/dev/null || tar -czf frontend-deploy.tar.gz build/ src/ public/ package*.json
+        # Create deployment package (only production build)
+        tar -czf frontend-deploy.tar.gz build/
         
         # Upload to EC2
         scp -i ~/.ssh/id_rsa frontend-deploy.tar.gz $SSH_USER@$SSH_HOST:/tmp/
@@ -55,30 +55,25 @@ jobs:
         ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST << 'EOF'
           set -e
           
-          # Create frontend directory
+          # Recreate clean frontend work directory to avoid permission issues
+          sudo rm -rf /home/ec2-user/hetasinglar-frontend
           sudo mkdir -p /home/ec2-user/hetasinglar-frontend
           sudo chown ec2-user:ec2-user /home/ec2-user/hetasinglar-frontend
-          
+
           # Extract deployment package
           cd /home/ec2-user/hetasinglar-frontend
-          # Clean old contents to avoid tar overwrite/utime errors
-          rm -rf ./*
           tar -xzf /tmp/frontend-deploy.tar.gz
           rm /tmp/frontend-deploy.tar.gz
-          
-          # Install Node.js if not present
-          if ! command -v node &> /dev/null; then
-            curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
-            sudo dnf install -y nodejs
-          fi
           
           # Install nginx if not present
           if ! command -v nginx &> /dev/null; then
             sudo dnf install -y nginx
           fi
-          
-          # Install dependencies
-          npm install --production
+
+          # Ensure rsync exists for efficient sync to web root
+          if ! command -v rsync &> /dev/null; then
+            sudo dnf install -y rsync
+          fi
           
           # Check if SSL certificate exists and create appropriate nginx configuration
           if [ -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem ]; then
@@ -171,9 +166,9 @@ jobs:
         NGINX_EOF
           fi
           
-          # Copy build files to web directory
+          # Sync build files to web directory (clean deletes removed assets)
           sudo mkdir -p /var/www/hetasinglar-frontend
-          sudo cp -r build/* /var/www/hetasinglar-frontend/
+          sudo rsync -a --delete build/ /var/www/hetasinglar-frontend/
           sudo chown -R nginx:nginx /var/www/hetasinglar-frontend/
           sudo chmod -R 755 /var/www/hetasinglar-frontend/
           
