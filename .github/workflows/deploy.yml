@@ -174,8 +174,22 @@ jobs:
           
           # Test and restart nginx
           sudo nginx -t
+          # Open firewall ports if firewalld is present (some AMIs don't use it)
+          if command -v firewall-cmd &> /dev/null; then
+            sudo firewall-cmd --permanent --add-service=http || true
+            sudo firewall-cmd --permanent --add-service=https || true
+            sudo firewall-cmd --reload || true
+          fi
           sudo systemctl enable nginx
           sudo systemctl restart nginx
+
+          # Quick diagnostics
+          echo "--- nginx status (head) ---"
+          sudo systemctl status nginx --no-pager | head -n 50 || true
+          echo "--- listeners on :80 / :443 ---"
+          (sudo ss -ltnp | grep -E ':80|:443' || true)
+          echo "--- curl localhost ---"
+          (curl -s -o /dev/null -w "%{http_code}\n" http://localhost || true)
           
           echo "✅ Frontend deployment completed successfully!"
         EOF
@@ -192,7 +206,7 @@ jobs:
           echo "Frontend should be available at: https://hetasinglar.se (SSL enabled)"
           # Check HTTPS
           sleep 10
-          if curl -s -o /dev/null -w "%{http_code}" https://$SSH_HOST | grep -q "200\|301\|302"; then
+          if curl -s -o /dev/null -w "%{http_code}" https://hetasinglar.se | grep -q "200\|301\|302"; then
             echo "✅ HTTPS Site is responding!"
           else
             echo "⚠️ HTTPS Site may need a few moments to start"
@@ -201,7 +215,7 @@ jobs:
           echo "Frontend should be available at: http://hetasinglar.se (HTTP only)"
           # Check HTTP
           sleep 10
-          if curl -s -o /dev/null -w "%{http_code}" http://$SSH_HOST | grep -q "200\|301\|302"; then
+          if curl -s -o /dev/null -w "%{http_code}" http://hetasinglar.se | grep -q "200\|301\|302"; then
             echo "✅ HTTP Site is responding!"
           else
             echo "⚠️ HTTP Site may need a few moments to start"
