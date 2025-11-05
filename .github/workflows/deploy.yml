@@ -61,6 +61,8 @@ jobs:
           
           # Extract deployment package
           cd /home/ec2-user/hetasinglar-frontend
+          # Clean old contents to avoid tar overwrite/utime errors
+          rm -rf ./*
           tar -xzf /tmp/frontend-deploy.tar.gz
           rm /tmp/frontend-deploy.tar.gz
           
