@@ -208,9 +208,24 @@ export const auth = {
 export const escorts = {
   async getEscortProfiles(options = {}) {
     try {
-      const { full = true, params = {} } = options;
-      const searchParams = new URLSearchParams({ ...(full ? { full: 'true' } : {}), ...params });
-      const url = `/agents/escorts/active${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+      // OPTIMIZED: Default to minimal data unless full is explicitly needed
+      const { full = false, params = {} } = options;
+      
+      // Add pagination for better performance
+      const defaultParams = {
+        page: 1,
+        pageSize: 50,
+        ...params
+      };
+      
+      // Only add full=true if explicitly requested and needed
+      if (full) {
+        defaultParams.full = 'true';
+        console.warn('⚠️ Using full escort profile query - consider if all fields are needed');
+      }
+      
+      const searchParams = new URLSearchParams(defaultParams);
+      const url = `/agents/escorts/active?${searchParams.toString()}`;
       const response = await api.get(url);
       return response.data;
     } catch (error) {
