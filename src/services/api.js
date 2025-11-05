@@ -229,7 +229,27 @@ export const escorts = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      throw error.response?.data || error;
+      // Graceful fallback: if server error, retry once with safer defaults
+      const status = error.response?.status;
+      if (!options._retried && (status === 500 || status === 502 || status === 503)) {
+        console.warn('Retrying escorts/active with safe defaults due to server error...', status);
+        const safeParams = {
+          page: 1,
+          pageSize: 30,
+          ...(options.params || {})
+        };
+        const retryOpts = { full: false, params: safeParams, _retried: true };
+        try {
+          const searchParams = new URLSearchParams(retryOpts.params);
+          const url = `/agents/escorts/active?${searchParams.toString()}`;
+          const resp = await api.get(url);
+          return resp.data;
+        } catch (e) {
+          // fall-through to throw below
+          console.error('Fallback request failed:', e);
+        }
+      }
+      throw error.response?.data || { message: 'Failed to fetch escorts', status };
     }
   },
 
