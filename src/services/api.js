@@ -209,12 +209,12 @@ export const escorts = {
   async getEscortProfiles(options = {}) {
     try {
       // OPTIMIZED: Default to minimal data unless full is explicitly needed
-      const { full = false, params = {} } = options;
+      const { full = false, params = {}, fetchAll = false } = options;
       
       // Add pagination for better performance
       const defaultParams = {
         page: 1,
-        pageSize: 50,
+        pageSize: full ? 100 : 50,
         ...params
       };
       
@@ -224,10 +224,32 @@ export const escorts = {
         console.warn('⚠️ Using full escort profile query - consider if all fields are needed');
       }
       
-      const searchParams = new URLSearchParams(defaultParams);
-      const url = `/agents/escorts/active?${searchParams.toString()}`;
-      const response = await api.get(url);
-      return response.data;
+      if (!fetchAll) {
+        const searchParams = new URLSearchParams(defaultParams);
+        const url = `/agents/escorts/active?${searchParams.toString()}`;
+        const response = await api.get(url);
+        return response.data;
+      }
+
+      // Fetch-all mode: keep requesting pages until the server indicates no more
+      let page = Number(defaultParams.page) || 1;
+      const pageSize = Number(defaultParams.pageSize) || 50;
+      let allItems = [];
+      let hasMore = true;
+
+      while (hasMore) {
+        const pageParams = new URLSearchParams({ ...defaultParams, page: String(page), pageSize: String(pageSize) });
+        const url = `/agents/escorts/active?${pageParams.toString()}`;
+        const resp = await api.get(url);
+        const items = Array.isArray(resp.data) ? resp.data : resp.data?.items || [];
+        allItems = allItems.concat(items);
+        const headerHasMore = String(resp.headers['x-has-more'] || '').toLowerCase() === 'true';
+        hasMore = headerHasMore && items.length > 0;
+        page += 1;
+        // Safety stop to prevent accidental infinite loops
+        if (page > 50) break;
+      }
+      return allItems;
     } catch (error) {
       // Graceful fallback: if server error, retry once with safer defaults
       const status = error.response?.status;
