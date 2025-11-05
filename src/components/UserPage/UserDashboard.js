@@ -1421,7 +1421,8 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
           return [];
         };
 
-        const escortsPromise = escorts.getEscortProfiles({ full: true });
+  // Fetch all pages to show all available members (not just first page)
+  const escortsPromise = escorts.getEscortProfiles({ full: true, fetchAll: true });
         const likesPromise = token ? fetchAllLikedEscortIds(token) : Promise.resolve(new Set());
 
         const [escortResponse, likedIds] = await Promise.all([escortsPromise, likesPromise]);
