@@ -1,9 +1,0 @@
-# Upload the fixed build to your server
-# Replace 'your-server-ip' and 'your-web-directory' with actual values
-
-# Upload the build files
-scp -r f:\vercal\Hetasinglar\frontend\Hetasinglar-\build\* user@your-server-ip:/var/www/hetasinglar/
-
-# Or upload the zip and extract on server
-scp f:\vercal\Hetasinglar\frontend\Hetasinglar-\hetasinglar-fixed-build.zip user@your-server-ip:/tmp/
-ssh user@your-server-ip "cd /var/www/hetasinglar && rm -rf * && unzip /tmp/hetasinglar-fixed-build.zip"
