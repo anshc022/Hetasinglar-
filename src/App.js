@@ -24,6 +24,7 @@ import PrivacyPolicy from './components/Legal/PrivacyPolicy';
 import CookiePolicy from './components/Legal/CookiePolicy';
 import ContactUs from './components/Legal/ContactUs';
 import ComingSoon from './components/Legal/ComingSoon';
+import Terms from './components/Legal/Terms';
 import './App.css';
 
 function App() {
@@ -73,7 +74,7 @@ function App() {
           <Route path="/safety" element={<ComingSoon />} />
           <Route path="/report" element={<ComingSoon />} />
           <Route path="/faq" element={<ComingSoon />} />
-          <Route path="/terms" element={<ComingSoon />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/guidelines" element={<ComingSoon />} />
           <Route path="/data-protection" element={<ComingSoon />} />
           

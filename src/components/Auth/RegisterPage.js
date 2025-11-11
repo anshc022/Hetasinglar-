@@ -131,6 +131,16 @@ const RegisterPage = () => {
       const response = await auth.register(registerData);
       // Direct registration path: if token returned, login immediately
       if (response?.access_token && response?.user) {
+        // Optional: show welcome bonus info if provided by backend
+        if (response?.welcomeBonus && Number(response.welcomeBonus) > 0) {
+          try {
+            // Keep it lightweight without adding dependencies
+            alert(`Välkommen! Du fick +${response.welcomeBonus} mynt i välkomstbonus.`);
+          } catch (e) {
+            // no-op if alerts are blocked
+          }
+        }
+
         setAuthData(response.user, response.access_token);
         navigate('/dashboard', { replace: true });
         return;

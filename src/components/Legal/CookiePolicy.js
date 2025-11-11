@@ -14,52 +14,48 @@ const CookiePolicy = () => {
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Cookie Policy</h1>
-            <p className="text-gray-600">Last updated: {new Date().toLocaleDateString()}</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Cookiepolicy</h1>
+            <p className="text-gray-600">Giltigt från: 2025-11-10</p>
+            <p className="text-sm text-gray-500 mt-2">ASJ GROUP LTD · 71-75 Shelton Street, Covent Garden, London, WC2H 9JQ · E-post: <a href="mailto:support@hetasinglar.se" className="text-purple-600 hover:underline">support@hetasinglar.se</a></p>
           </div>
 
           {/* Content */}
           <div className="prose max-w-none text-gray-700">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">What are cookies?</h2>
-            <p className="mb-6">
-              Cookies are small data files that are placed on your computer or mobile device when you 
-              visit a website. They are widely used to make websites work more efficiently and to 
-              provide information to website owners.
-            </p>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Vad är cookies?</h2>
+            <p className="mb-6">Cookies är små textfiler som lagras på din enhet (dator, mobil, surfplatta) när du besöker en webbplats. De används för att möjliggöra grundläggande funktioner, förbättra prestanda, analysera användning och komma ihåg dina preferenser.</p>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">How we use cookies</h2>
-            <p className="mb-6">
-              We use cookies for several purposes:
-            </p>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Hur vi använder cookies</h2>
+            <p className="mb-6">Vi använder cookies för att:</p>
             <ul className="list-disc ml-6 mb-6">
-              <li>Authentication - to remember when you're logged in</li>
-              <li>Preferences - to remember your settings and preferences</li>
-              <li>Analytics - to understand how visitors use our site</li>
-              <li>Performance - to improve site performance and user experience</li>
+              <li>Autentisera användare och hålla dig inloggad</li>
+              <li>Spara inställningar och preferenser</li>
+              <li>Analysera trafik och användarbeteende för att förbättra tjänsten</li>
+              <li>Förbättra prestanda och användarupplevelse</li>
             </ul>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Types of cookies we use</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Typer av cookies vi använder</h2>
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Essential cookies</h3>
-              <p className="mb-4">These cookies are necessary for the website to function properly.</p>
-              
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Analytics cookies</h3>
-              <p className="mb-4">These help us understand how visitors interact with our website.</p>
-              
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Functional cookies</h3>
-              <p className="mb-4">These enable enhanced functionality and personalization.</p>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Nödvändiga (Essential)</h3>
+              <p className="mb-4">Krävs för att webbplatsens grundfunktioner ska fungera (inloggning, säker sessionshantering).</p>
+
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Funktionscookies</h3>
+              <p className="mb-4">Ger förbättrad funktionalitet och personalisering (språk, UI-inställningar).</p>
+
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Analyscookies</h3>
+              <p className="mb-4">Hjälper oss förstå hur användare interagerar med plattformen så vi kan optimera upplevelsen.</p>
             </div>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Managing cookies</h2>
-            <p className="mb-6">
-              You can control and/or delete cookies as you wish. You can delete all cookies that are 
-              already on your computer and you can set most browsers to prevent them from being placed.
-            </p>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Hantering av cookies</h2>
+            <p className="mb-6">Du kan när som helst blockera eller radera cookies via inställningar i din webbläsare. Om du blockerar nödvändiga cookies kan vissa funktioner sluta fungera korrekt. Mer information finns på <a href="https://www.aboutcookies.org" target="_blank" rel="noopener" className="text-purple-600 hover:underline">aboutcookies.org</a>.</p>
 
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">Contact Us</h2>
-            <p className="mb-6">
-              If you have any questions about our use of cookies, please contact us at cookies@hetasinglar.com
-            </p>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. Tredjepartscookies</h2>
+            <p className="mb-6">Eventuella tredjepartscookies (t.ex. betalnings- eller analysleverantörer) styrs av respektive leverantörs egna policyer. Vi strävar efter att endast använda betrodda leverantörer.</p>
+
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Uppdateringar</h2>
+            <p className="mb-6">Denna cookiepolicy kan uppdateras. Större ändringar kommuniceras till användare och datumet ovan uppdateras.</p>
+
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Kontakt</h2>
+            <p className="mb-6">Frågor om cookies? Kontakta oss: <a href="mailto:support@hetasinglar.se" className="text-purple-600 hover:underline">support@hetasinglar.se</a></p>
           </div>
 
           {/* Back Button */}
@@ -71,7 +67,7 @@ const CookiePolicy = () => {
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Back to Home
+              Till startsidan
             </Link>
           </div>
         </motion.div>
