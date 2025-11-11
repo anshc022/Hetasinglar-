@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
-import TermsOfService from '../Policies/TermsOfService';
-import PrivacyPolicy from '../Policies/PrivacyPolicy';
+// Removed modal imports (policies now standalone pages)
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   const { t } = useSwedishTranslation();
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
+  // Modal state removed since we now link directly to pages
 
   return (
     <>
@@ -45,22 +43,9 @@ const Footer = () => {
             <div>
               <h4 className="text-lg font-semibold mb-4 text-rose-600">Juridiskt</h4>
               <ul className="space-y-2">
-                <li>
-                  <button 
-                    onClick={() => setShowPrivacy(true)}
-                    className="text-gray-600 hover:text-rose-600"
-                  >
-                    {t('privacyPolicy') || 'Integritetspolicy'}
-                  </button>
-                </li>
-                <li>
-                  <button 
-                    onClick={() => setShowTerms(true)}
-                    className="text-gray-600 hover:text-rose-600"
-                  >
-                    {t('termsOfService') || 'Användarvillkor'}
-                  </button>
-                </li>
+                <li><Link to="/privacy" className="text-gray-600 hover:text-rose-600">{t('privacyPolicy') || 'Integritetspolicy'}</Link></li>
+                <li><Link to="/cookies" className="text-gray-600 hover:text-rose-600">{t('cookiePolicy') || 'Cookiepolicy'}</Link></li>
+                <li><Link to="/terms" className="text-gray-600 hover:text-rose-600">{t('termsOfService') || 'Användarvillkor'}</Link></li>
               </ul>
             </div>
           </div>
@@ -73,37 +58,16 @@ const Footer = () => {
                 © {currentYear} HetaSinglar. Alla rättigheter förbehållna.
               </div>
               <div className="flex items-center gap-6 text-sm text-gray-500">
-                <button 
-                  onClick={() => setShowTerms(true)}
-                  className="hover:text-rose-600 transition-colors"
-                >
-                  Villkor
-                </button>
-                <button 
-                  onClick={() => setShowPrivacy(true)}
-                  className="hover:text-rose-600 transition-colors"
-                >
-                  Integritet
-                </button>
+                <Link to="/privacy" className="hover:text-rose-600 transition-colors">Integritet</Link>
+                <Link to="/cookies" className="hover:text-rose-600 transition-colors">Cookiepolicy</Link>
+                <Link to="/terms" className="hover:text-rose-600 transition-colors">Villkor</Link>
               </div>
             </div>
           </div>
         </div>
       </footer>
 
-      {showTerms && (
-        <TermsOfService 
-          isModal={true} 
-          onClose={() => setShowTerms(false)} 
-        />
-      )}
-      
-      {showPrivacy && (
-        <PrivacyPolicy 
-          isModal={true} 
-          onClose={() => setShowPrivacy(false)} 
-        />
-      )}
+      {/* Removed inline modals; policies now exist as dedicated routes */}
     </>
   );
 };
