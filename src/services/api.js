@@ -149,23 +149,6 @@ export const auth = {
     }
   },
 
-  async verifyOtp(data) {
-    try {
-      const response = await api.post('/auth/verify-otp', data);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
-    }
-  },
-
-  async resendOtp(data) {
-    try {
-      const response = await api.post('/auth/resend-otp', data);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
-    }
-  },
 
   async forgotPassword(email) {
     try {
@@ -372,7 +355,6 @@ export const chats = {
 };
 
 // Individual function exports for convenience
-export const verifyOtp = auth.verifyOtp;
-export const resendOtp = auth.resendOtp;
+// Legacy OTP helpers removed (flow deprecated)
 
 export default api;

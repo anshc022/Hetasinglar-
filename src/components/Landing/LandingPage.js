@@ -135,6 +135,205 @@ const ProfileCard = ({ name, delay, navigate, image }) => {
   );
 };
 
+// Inline authentication panel (Login + Register + OTP verify) embedded into landing hero
+const InlineAuthPanel = ({ onClose }) => {
+  const { t } = useSwedishTranslation();
+  const { login, setAuthData } = require('../context/AuthContext').useAuth();
+  const { auth } = require('../../services/api');
+  const navigate = useNavigate();
+
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'verify'
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    dateOfBirth: '',
+    sex: ''
+  });
+  // OTP flow removed
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
+
+  const resetMessages = () => { setError(null); setInfo(null); };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    resetMessages();
+    if (!form.username || !form.password) {
+      setError(t('loginFailed')); return;
+    }
+    try {
+      setLoading(true);
+      const res = await login(form.username, form.password);
+      navigate('/dashboard');
+      onClose && onClose();
+    } catch (err) {
+      setError(err?.message || t('loginFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    resetMessages();
+    if (!form.username || !form.email || !form.password) {
+      setError('Username, email & password required'); return;
+    }
+    try {
+      setLoading(true);
+      const res = await auth.register({
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        dateOfBirth: form.dateOfBirth || undefined,
+        sex: form.sex || undefined
+      });
+      // Direct registration: if token returned, log in immediately
+      if (res?.access_token && res?.user) {
+        setAuthData(res.user, res.access_token);
+        navigate('/dashboard');
+        onClose && onClose();
+        return;
+      }
+      // Fallback: switch to login
+      setInfo('Registered successfully');
+      setMode('login');
+    } catch (err) {
+      setError(err?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OTP verify/resend removed
+
+  const commonInputClasses = "w-full px-4 py-3 rounded-xl bg-white/80 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 transition text-gray-800 placeholder-gray-400";
+
+  return (
+    <div className="relative max-w-xl mx-auto mt-10">
+      <div className="absolute -inset-1 bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 rounded-3xl opacity-30 blur"></div>
+      <div className="relative rounded-3xl bg-white/90 backdrop-blur-xl p-8 shadow-2xl border border-white/40">
+        {/* Tabs */}
+        <div className="flex justify-between mb-6">
+          <button
+            className={`flex-1 py-3 font-semibold rounded-xl mr-2 transition ${mode==='login' ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            onClick={() => { setMode('login'); resetMessages(); }}
+            aria-selected={mode==='login'}
+          >{t('login')}</button>
+          <button
+            className={`flex-1 py-3 font-semibold rounded-xl ml-2 transition ${mode==='register' ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+            onClick={() => { setMode('register'); resetMessages(); }}
+            aria-selected={mode==='register'}
+          >{t('joinNow')}</button>
+        </div>
+
+        {mode === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-4" aria-label="Login form">
+            <input
+              name="username"
+              autoComplete="username"
+              placeholder={t('usernameOrEmail')}
+              className={commonInputClasses}
+              value={form.username}
+              onChange={handleChange}
+            />
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder={t('password')}
+              className={commonInputClasses}
+              value={form.password}
+              onChange={handleChange}
+            />
+            {error && <div className="text-rose-600 text-sm font-medium" role="alert">{error}</div>}
+            {info && <div className="text-green-600 text-sm font-medium" role="status">{info}</div>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold shadow-lg hover:shadow-xl transition disabled:opacity-60"
+            >{loading ? t('signingIn') : t('signIn')}</button>
+            <div className="text-center text-sm text-gray-600">
+              <button type="button" onClick={() => navigate('/forgot-password')} className="text-rose-600 hover:underline">
+                {t('forgotPassword')}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === 'register' && (
+          <form onSubmit={handleRegister} className="space-y-4" aria-label="Registration form">
+            <input
+              name="username"
+              placeholder={t('chooseUsername')}
+              className={commonInputClasses}
+              value={form.username}
+              onChange={handleChange}
+            />
+            <input
+              name="email"
+              type="email"
+              placeholder={t('enterEmail')}
+              className={commonInputClasses}
+              value={form.email}
+              onChange={handleChange}
+            />
+            <input
+              name="password"
+              type="password"
+              placeholder={t('enterPassword')}
+              className={commonInputClasses}
+              value={form.password}
+              onChange={handleChange}
+            />
+            <div className="flex gap-4">
+              <input
+                name="dateOfBirth"
+                type="date"
+                className={`${commonInputClasses} flex-1`}
+                value={form.dateOfBirth}
+                onChange={handleChange}
+              />
+              <select
+                name="sex"
+                className={`${commonInputClasses} flex-1`}
+                value={form.sex}
+                onChange={handleChange}
+              >
+                <option value="">{t('chooseGender')}</option>
+                <option value="male">{t('male')}</option>
+                <option value="female">{t('female')}</option>
+              </select>
+            </div>
+            {error && <div className="text-rose-600 text-sm font-medium" role="alert">{error}</div>}
+            {info && <div className="text-green-600 text-sm font-medium" role="status">{info}</div>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold shadow-lg hover:shadow-xl transition disabled:opacity-60"
+            >{loading ? t('sending') : t('joinNow')}</button>
+          </form>
+        )}
+
+        {/* OTP verify UI removed */}
+
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"
+          aria-label="Close auth panel"
+        >×</button>
+      </div>
+    </div>
+  );
+};
+
 const LandingPage = () => {
   const navigate = useNavigate();
   const { t } = useSwedishTranslation();
@@ -567,34 +766,13 @@ const LandingPage = () => {
               {t('heroSubtitle')}
             </motion.p>
 
+            {/* Inline authentication panel replaces separate CTA buttons */}
             <motion.div
-              className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
             >
-              <motion.button
-                onClick={() => navigate('/register')}
-                className="group px-12 py-6 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
-                  rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 btn-glow"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="flex items-center gap-3">
-                  {t('startDatingToday')}
-                  <HeartIcon />
-                </span>
-              </motion.button>
-
-              <motion.button
-                onClick={() => navigate('/login')}
-                className="group px-12 py-6 glass-effect border-2 border-white/40 text-gray-700 text-xl font-bold 
-                  rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300"
-                whileHover={{ scale: 1.05, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {t('iHaveAccount')}
-              </motion.button>
+              <InlineAuthPanel />
             </motion.div>
           </motion.div>
         </div>

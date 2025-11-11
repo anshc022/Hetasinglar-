@@ -477,41 +477,10 @@ const SignupSection = ({ onLoginClick }) => {
 };
 
 const ForgotSection = ({ onBackClick }) => {
-  const [step, setStep] = useState('email'); // email, otp, newPassword
+  const [step, setStep] = useState('email'); // email, sent
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resendDisabled, setResendDisabled] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
-
-  const startResendTimer = () => {
-    setResendDisabled(true);
-    setResendTimer(30); // 30 seconds cooldown
-  };
-
-  useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      setResendDisabled(false);
-    }
-  }, [resendTimer]);
-
-  const handleResendOTP = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await auth.resendOTP(usernameOrEmail);
-      startResendTimer();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to resend OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmitEmail = async (e) => {
     e.preventDefault();
@@ -523,55 +492,9 @@ const ForgotSection = ({ onBackClick }) => {
     setLoading(true);
     try {
       await auth.forgotPassword(usernameOrEmail.trim());
-      setStep('otp');
+      setStep('sent');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to send OTP');
-      if (Array.isArray(err.response?.data?.detail)) {
-        setError(err.response.data.detail[0]?.msg || 'Failed to send OTP');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    if (!otp.trim()) {
-      setError('Please enter the OTP');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    try {
-      await auth.verifyOTP(usernameOrEmail, otp.trim());
-      setStep('newPassword');
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid OTP');
-      if (Array.isArray(err.response?.data?.detail)) {
-        setError(err.response.data.detail[0]?.msg || 'Invalid OTP');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    try {
-      await auth.resetPassword(usernameOrEmail, otp, newPassword);
-      alert('Password reset successful');
-      onBackClick();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to reset password');
-      if (Array.isArray(err.response?.data?.detail)) {
-        setError(err.response.data.detail[0]?.msg || 'Failed to reset password');
-      }
+      setError(err.response?.data?.message || err.response?.data?.detail || 'Failed to send reset instructions');
     } finally {
       setLoading(false);
     }
@@ -590,11 +513,11 @@ const ForgotSection = ({ onBackClick }) => {
       {step === 'email' && (
         <form onSubmit={handleSubmitEmail} className="space-y-4">
           <p className="text-gray-600 text-center mb-6">
-            Enter your email address or username
+            Enter your email address to receive a password reset link
           </p>
           <input
             type="text"
-            placeholder="Email or Username"
+            placeholder="Email"
             value={usernameOrEmail}
             onChange={(e) => setUsernameOrEmail(e.target.value)}
             className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
@@ -605,68 +528,23 @@ const ForgotSection = ({ onBackClick }) => {
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-lg hover:opacity-90 transition duration-300"
           >
-            {loading ? 'Sending...' : 'Send OTP'}
+            {loading ? 'Sending...' : 'Send reset link'}
           </button>
         </form>
       )}
 
-      {step === 'otp' && (
-        <form onSubmit={handleVerifyOTP} className="space-y-4">
-          <p className="text-gray-600 text-center mb-6">
-            Enter the OTP sent to your email
+      {step === 'sent' && (
+        <div className="space-y-4 text-center">
+          <p className="text-gray-700">
+            If an account exists for that email, we've sent a password reset link. Please check your inbox.
           </p>
-          <input
-            type="text"
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
-            required
-          />
-          <div className="flex flex-col gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-lg hover:opacity-90 transition duration-300"
-            >
-              {loading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-            <button
-              type="button"
-              onClick={handleResendOTP}
-              disabled={resendDisabled || loading}
-              className="w-full py-2 text-rose-600 hover:text-rose-700 disabled:text-gray-400"
-            >
-              {resendDisabled 
-                ? `Resend OTP in ${resendTimer}s` 
-                : 'Resend OTP'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {step === 'newPassword' && (
-        <form onSubmit={handleResetPassword} className="space-y-4">
-          <p className="text-gray-600 text-center mb-6">
-            Enter your new password
-          </p>
-          <input
-            type="password"
-            placeholder="New Password (min 8 characters)"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
-            required
-            minLength={8}
-          />
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-red-600 via-rose-500 to-pink-600 text-white rounded-lg hover:opacity-90 transition duration-300"
+            onClick={onBackClick}
+            className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors"
           >
-            {loading ? 'Resetting...' : 'Reset Password'}
+            Back to Login
           </button>
-        </form>
+        </div>
       )}
 
       <div className="mt-6 text-center">

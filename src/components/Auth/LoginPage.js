@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { resendOtp } from '../../services/api';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import AuthLayout from './AuthLayout';
 
@@ -16,15 +15,13 @@ const LoginPage = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showVerificationPrompt, setShowVerificationPrompt] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [verificationEmail, setVerificationEmail] = useState('');
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setShowVerificationPrompt(false);
+    
 
     try {
       await login(formData.username, formData.password);
@@ -32,30 +29,13 @@ const LoginPage = () => {
     } catch (err) {
       console.error('Login error:', err);
       
-      // Check if error is related to email verification
-      if (err.message?.includes('email') && err.message?.includes('verif')) {
-        setShowVerificationPrompt(true);
-        setVerificationEmail(formData.username);
-        setError(t('emailNotVerified'));
-      } else {
-        setError(err.message || t('loginFailed'));
-      }
+      setError(err.message || t('loginFailed'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendVerification = async () => {
-    setResendLoading(true);
-    try {
-      await resendOtp({ email: verificationEmail });
-      setError(t('verificationEmailSent'));
-    } catch (err) {
-      setError(t('verificationEmailFailed'));
-    } finally {
-      setResendLoading(false);
-    }
-  };
+  
 
   const handleChange = (e) => {
     setFormData({
@@ -136,42 +116,7 @@ const LoginPage = () => {
               ⚠️ {error}
             </p>
             
-            {/* Verification Prompt */}
-            {showVerificationPrompt && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-4 pt-4 border-t border-red-200"
-              >
-                <div className="text-center">
-                  <p className="text-red-700 text-sm mb-3">
-                    📧 {t('needVerifyEmail')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleResendVerification}
-                    disabled={resendLoading}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    {resendLoading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                        />
-                        <span>{t('sending')}</span>
-                      </div>
-                    ) : (
-                      t('resendVerificationEmail')
-                    )}
-                  </button>
-                  <p className="text-gray-600 text-xs mt-2">
-                    {t('or')} <Link to="/register" className="text-red-600 hover:underline">{t('createNewAccount')}</Link>
-                  </p>
-                </div>
-              </motion.div>
-            )}
+            
           </motion.div>
         )}
 
