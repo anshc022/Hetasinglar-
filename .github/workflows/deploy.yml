@@ -88,7 +88,7 @@ jobs:
 
               # HTTPS server
               server {
-                listen 443 ssl;
+                listen 443 ssl http2;
                 server_name hetasinglar.se www.hetasinglar.se;
 
                 # SSL Certificate configuration
@@ -100,6 +100,7 @@ jobs:
                 ssl_prefer_server_ciphers on;
                 ssl_session_timeout 1d;
                 ssl_session_cache shared:SSL:50m;
+                add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
                 root /var/www/hetasinglar-frontend;
                 index index.html;
@@ -116,11 +117,18 @@ jobs:
 
                 # Handle React Router (SPA) with proper fallback
                 location / {
-                  try_files $uri $uri/ @spa_fallback;
+                  try_files $uri /index.html;
                 }
 
-                location @spa_fallback {
-                  try_files /index.html =404;
+                # API proxy to backend server
+                location /api/ {
+                  proxy_pass http://13.48.194.178:5000/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_buffering off;
                 }
 
                 # Cache static assets
@@ -151,11 +159,18 @@ jobs:
 
                 # Handle React Router (SPA) with proper fallback
                 location / {
-                  try_files $uri $uri/ @spa_fallback;
+                  try_files $uri /index.html;
                 }
 
-                location @spa_fallback {
-                  try_files /index.html =404;
+                # API proxy to backend server (HTTP only)
+                location /api/ {
+                  proxy_pass http://13.48.194.178:5000/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_buffering off;
                 }
 
                 # Cache static assets
@@ -200,9 +215,8 @@ jobs:
         SSH_USER: ${{ secrets.EC2_USER }}
       run: |
         echo "🚀 Deployment completed!"
-        
-        # Check if SSL is configured
-        if ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "test -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem"; then
+        # Check if SSL is configured (use sudo for consistent permissions)
+        if ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "sudo test -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem"; then
           echo "Frontend should be available at: https://hetasinglar.se (SSL enabled)"
           # Check HTTPS
           sleep 10
@@ -221,3 +235,7 @@ jobs:
             echo "⚠️ HTTP Site may need a few moments to start"
           fi
         fi
+        echo "--- Remote listeners ---"
+        ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "(ss -ltnp 2>/dev/null | grep -E ':80|:443') || true"
+        echo "--- nginx status (tail) ---"
+        ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "sudo systemctl status nginx --no-pager | tail -n 50 || true"
