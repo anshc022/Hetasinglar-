@@ -75,8 +75,8 @@ jobs:
             sudo dnf install -y rsync
           fi
           
-          # Check if SSL certificate exists and create appropriate nginx configuration
-          if [ -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem ]; then
+          # Check if SSL certificate exists and create appropriate nginx configuration (use sudo for symlink traversal perms)
+          if sudo test -f /etc/letsencrypt/live/hetasinglar.se/fullchain.pem; then
             echo "SSL certificate found - configuring HTTPS"
             sudo tee /etc/nginx/conf.d/hetasinglar.conf > /dev/null << 'NGINX_EOF'
               # HTTP server - redirect to HTTPS
