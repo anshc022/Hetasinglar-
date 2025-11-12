@@ -1,4 +1,4 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { escorts } from '../../services/api';
 import { likeService } from '../../services/likeService';
@@ -228,7 +228,13 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
   });
   const { token } = useAuth();
   const [visibleCount, setVisibleCount] = useState(INITIAL_MEMBER_BATCH);
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const sentinelRef = useRef(null);
+  const supportsIntersectionObserver = useMemo(
+    () => typeof window !== 'undefined' && 'IntersectionObserver' in window,
+    []
+  );
   const normalizedFilters = useMemo(() => ({
     lookingFor: filters.lookingFor?.toLowerCase().trim() || '',
     relationStatus: filters.relationStatus?.toLowerCase().trim() || '',
@@ -493,6 +499,58 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     setVisibleCount((prev) => Math.min(prev + LOAD_MORE_STEP, filteredMembers.length));
   }, [filteredMembers.length]);
 
+  useEffect(() => {
+    if (!supportsIntersectionObserver) {
+      return undefined;
+    }
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) {
+      return undefined;
+    }
+
+    if (visibleMembers.length >= filteredMembers.length) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting || isAutoLoading) {
+          return;
+        }
+
+        setIsAutoLoading(true);
+        handleLoadMoreMembers();
+      },
+      { rootMargin: '200px 0px' }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    supportsIntersectionObserver,
+    filteredMembers.length,
+    visibleMembers.length,
+    handleLoadMoreMembers,
+    isAutoLoading
+  ]);
+
+  useEffect(() => {
+    if (!isAutoLoading) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsAutoLoading(false);
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAutoLoading]);
+
   const resetFilters = () => {
     setSearchQuery('');
     setShowFilters(false);
@@ -531,7 +589,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="bg-gradient-to-r from-pink-500 to-rose-500 dark:from-pink-600 dark:to-rose-600 rounded-xl shadow-lg border border-pink-300/50 dark:border-pink-500/30 overflow-hidden transition-colors duration-300">
+      <div className="bg-gradient-to-r from-pink-500 via-rose-500 to-purple-500 dark:from-pink-600 dark:via-rose-600 dark:to-purple-600 rounded-2xl shadow-xl border border-pink-300/40 dark:border-pink-500/20 overflow-hidden transition-colors duration-300">
         <div className="px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
@@ -540,7 +598,9 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-white">Find Your Perfect Match</h3>
+              <h3 className="text-lg sm:text-2xl font-bold font-rouge text-transparent bg-clip-text bg-gradient-to-r from-white via-rose-100 to-pink-100 drop-shadow-md">
+                Find Your Perfect Match
+              </h3>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-white/90 bg-white/20 px-3 py-1 rounded-full">{filteredMembers.length} found</span>
@@ -1046,11 +1106,18 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
               </div>
             ))}
           </div>
+          <div ref={sentinelRef} className="h-2 w-full" aria-hidden="true"></div>
+          {isAutoLoading && visibleMembers.length < filteredMembers.length && (
+            <div className="flex justify-center items-center py-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="w-6 h-6 border-2 border-pink-300 border-t-transparent rounded-full animate-spin mr-3"></div>
+              Loading more profiles...
+            </div>
+          )}
           {filteredMembers.length > visibleMembers.length && (
             <div className="flex justify-center mt-4">
               <button
                 onClick={handleLoadMoreMembers}
-                className="px-4 py-2 bg-white/80 hover:bg-white text-gray-700 rounded-lg border border-white/40 shadow-sm transition-colors"
+                className="px-6 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 Show more profiles
               </button>

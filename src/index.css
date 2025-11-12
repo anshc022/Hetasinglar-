@@ -4,6 +4,11 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Rouge+Script&family=Italiana&display=swap');
 
+.font-rouge {
+  font-family: 'Rouge Script', cursive;
+  letter-spacing: 0.02em;
+}
+
 /* Smooth scrolling for the entire page */
 html {
   scroll-behavior: smooth;

@@ -1428,7 +1428,7 @@ const UserDashboard = () => {
                   <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">HetaSinglar</h1>
+              <h1 className="text-lg sm:text-2xl font-bold font-rouge text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-pink-400 to-purple-400 dark:from-rose-200 dark:via-pink-300 dark:to-purple-300 drop-shadow-sm">HetaSinglar</h1>
             </div>
 
             {/* User Info and Actions */}
