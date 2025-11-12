@@ -538,6 +538,8 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
            chat.reminderHandled !== true;
   }).sort((a,b) => (b.hoursSinceLastCustomer || 0) - (a.hoursSinceLastCustomer || 0)) : [];
 
+  const hasWatchableChats = queueCount > 0 || unreadCount > 0;
+
   return (
     <div className="bg-gray-800 rounded-lg p-2 md:p-4 shadow-lg overflow-x-auto">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
@@ -637,20 +639,23 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
             </svg>
             <span>{likesLoading ? 'Refreshing...' : 'Refresh Data'}</span>
           </button>
-          {(queueCount > 0 || unreadCount > 0) && (
-            <button 
-              onClick={handleWatchNowClick}
-              className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2 text-xs md:text-base"
-            >
-              <FaEye />
-              <span>Watch Now</span>
-              {(queueCount + unreadCount > 1) && (
-                <span className="text-xs bg-blue-600 px-2 py-1 rounded-full">
-                  {unreadCount > 0 ? `${unreadCount} unread` : `${queueCount} queue`}
-                </span>
-              )}
-            </button>
-          )}
+          <button 
+            onClick={handleWatchNowClick}
+            disabled={!hasWatchableChats}
+            className={`px-3 py-2 rounded-lg flex items-center gap-2 text-xs md:text-base transition-colors ${
+              hasWatchableChats 
+                ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                : 'bg-gray-700 text-gray-300 cursor-not-allowed'
+            }`}
+          >
+            <FaEye />
+            <span>Watch Now</span>
+            {hasWatchableChats && (queueCount + unreadCount > 1) && (
+              <span className="text-xs bg-blue-600 px-2 py-1 rounded-full">
+                {unreadCount > 0 ? `${unreadCount} unread` : `${queueCount} queue`}
+              </span>
+            )}
+          </button>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -780,6 +785,11 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               
               const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
               const userPresence = getUserPresence(chat.customerId?._id);
+              const assignedAgent = chat.assignedAgent || ((chat.agentId && typeof chat.agentId === 'object' && (chat.agentId.name || chat.agentId.agentId)) ? {
+                _id: chat.agentId._id || chat.agentId.id || null,
+                name: chat.agentId.name,
+                agentId: chat.agentId.agentId
+              } : null);
               
               // Determine row styling based on chat type
               let rowStyling = 'border-l-4 hover:bg-gray-700/30 transition-colors';
@@ -866,18 +876,18 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                   </td>
                   <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden md:table-cell">
                     <div className="flex flex-col">
-                      {chat.assignedAgent ? (
+                      {assignedAgent ? (
                         <>
                           <span className={`block font-medium truncate text-xs ${
-                            chat.assignedAgent.isFromMessage 
+                            assignedAgent.isFromMessage 
                               ? 'text-amber-300' 
                               : 'text-cyan-200'
                           }`}>
-                            {chat.assignedAgent.name}
+                            {assignedAgent.name}
                           </span>
-                          {chat.assignedAgent.agentId && chat.assignedAgent.agentId !== 'Unknown' && (
+                          {assignedAgent.agentId && assignedAgent.agentId !== 'Unknown' && (
                             <span className="text-xs text-gray-400 truncate">
-                              ID: {chat.assignedAgent.agentId}
+                              ID: {assignedAgent.agentId}
                             </span>
                           )}
                         </>

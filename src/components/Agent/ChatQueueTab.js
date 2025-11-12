@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FaEye, 
@@ -17,6 +17,46 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
   const [filterStatus, setFilterStatus] = useState('all'); // all, unread, panic, active
   const [sortBy, setSortBy] = useState('lastActive'); // lastActive, unreadCount, customerName
   const [showFilters, setShowFilters] = useState(false);
+
+  const currentAgentInfo = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {};
+    }
+    try {
+      const stored = window.localStorage.getItem('agent');
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      return {};
+    }
+  }, []);
+
+  const getAssignedAgent = (chatItem) => {
+    if (!chatItem) return null;
+    if (chatItem.assignedAgent) {
+      return chatItem.assignedAgent;
+    }
+    if (chatItem.agentId && typeof chatItem.agentId === 'object') {
+      const details = chatItem.agentId;
+      if (details && (details.name || details.agentId)) {
+        const identifier = details._id || details.id || null;
+        return {
+          _id: identifier,
+          name: details.name,
+          agentId: details.agentId
+        };
+      }
+    }
+    return null;
+  };
+
+  const matchesCurrentAgent = (agent) => {
+    if (!agent) return false;
+    const assignedId = agent._id ? String(agent._id) : null;
+    const assignedCode = agent.agentId || null;
+    const currentId = currentAgentInfo && currentAgentInfo._id ? String(currentAgentInfo._id) : null;
+    const currentCode = currentAgentInfo && currentAgentInfo.agentId ? currentAgentInfo.agentId : null;
+    return (assignedId && currentId && assignedId === currentId) || (assignedCode && currentCode && assignedCode === currentCode);
+  };
 
   // Function to get user presence status
   const getUserPresence = (userId) => {
@@ -218,6 +258,9 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                 Escort
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                Assigned Agent
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -238,6 +281,8 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               ).length || 0;
               const lastMessage = chat.messages?.[chat.messages.length - 1];
               const userPresence = getUserPresence(chat.customerId?._id);
+              const assignedAgent = getAssignedAgent(chat);
+              const isAssignedToCurrentAgent = matchesCurrentAgent(assignedAgent);
               
               return (
                 <tr 
@@ -283,6 +328,22 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                     <div className="text-sm text-white">
                       {chat.escortId?.firstName || chat.escortId?.name || chat.escortName || 'N/A'}
                     </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {assignedAgent ? (
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-medium ${isAssignedToCurrentAgent ? 'text-green-300' : 'text-cyan-200'}`}>
+                          {isAssignedToCurrentAgent ? 'You' : (assignedAgent.name || assignedAgent.agentId || 'Assigned')}
+                        </span>
+                        {assignedAgent.agentId && assignedAgent.agentId !== 'Unknown' && (
+                          <span className="text-xs text-gray-400">
+                            ID: {assignedAgent.agentId}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-red-400">Unassigned</span>
+                    )}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-1">
@@ -352,7 +413,7 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               );
             }) : (
               <tr>
-                <td colSpan="6" className="px-4 py-8 text-center">
+                <td colSpan="7" className="px-4 py-8 text-center">
                   <div className="text-gray-400">
                     <FaComments className="mx-auto h-12 w-12 mb-4 opacity-50" />
                     <p className="text-lg">No chats found</p>

@@ -405,24 +405,88 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       return;
     }
 
-    try {
-      await chats.deleteMessage(selectedChat.id, message._id || messageIndex);
+    const currentChatId = selectedChat.id;
 
-      // Update local state
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: prev.messages.map((msg, idx) => {
-          if (idx === messageIndex) {
-            return {
-              ...msg,
-              text: '[This message has been deleted]',
-              isDeleted: true,
-              deletedAt: new Date()
-            };
+    try {
+      await chats.deleteMessage(currentChatId, message._id || messageIndex);
+
+      const targetMessageId = message._id;
+      const computePreview = (msg) => {
+        if (!msg) return '';
+        if (msg.messageType === 'image' || msg.text === '📷 Image' || msg.text?.startsWith('[Image:')) {
+          return '📷 Image';
+        }
+        return msg.text || '';
+      };
+      const computeTimestamp = (msg, fallback) => {
+        if (!msg) return fallback || '';
+        if (msg.time) return msg.time;
+        if (msg.createdAt) {
+          try {
+            return new Date(msg.createdAt).toLocaleString();
+          } catch (err) {
+            return fallback || '';
           }
-          return msg;
-        })
-      }));
+        }
+        return fallback || '';
+      };
+      let nextMessagesForParent = null;
+      let nextLastMessageForParent = '';
+      let nextTimeForParent = '';
+      let shouldSyncParentChats = false;
+
+      setSelectedChat(prev => {
+        if (!prev || prev.id !== currentChatId) return prev;
+        const filtered = prev.messages.filter((msg, idx) => {
+          if (targetMessageId) {
+            return msg._id !== targetMessageId;
+          }
+          return idx !== messageIndex;
+        });
+        const lastEntry = filtered[filtered.length - 1] || null;
+        const nextLastMessage = computePreview(lastEntry);
+        const nextTime = computeTimestamp(lastEntry, prev.time);
+
+        nextMessagesForParent = filtered;
+        nextLastMessageForParent = nextLastMessage;
+        nextTimeForParent = nextTime;
+        shouldSyncParentChats = true;
+
+        return {
+          ...prev,
+          messages: filtered,
+          lastMessage: nextLastMessage,
+          time: nextTime
+        };
+      });
+
+      if (onChatsUpdate && shouldSyncParentChats) {
+        onChatsUpdate(prevChats => prevChats.map(chat => {
+          if (chat.id !== currentChatId) {
+            return chat;
+          }
+
+          const updatedChatMessages = nextMessagesForParent
+            ? nextMessagesForParent
+            : (chat.messages || []).filter((msg, idx) => {
+                if (targetMessageId && msg?._id) {
+                  return msg._id !== targetMessageId;
+                }
+                if (!targetMessageId && typeof messageIndex === 'number') {
+                  return idx !== messageIndex;
+                }
+                return true;
+              });
+
+          const chatLastMessage = updatedChatMessages[updatedChatMessages.length - 1] || null;
+          return {
+            ...chat,
+            messages: updatedChatMessages,
+            lastMessage: nextLastMessageForParent || computePreview(chatLastMessage),
+            time: nextTimeForParent || computeTimestamp(chatLastMessage, chat.time)
+          };
+        }));
+      }
 
       setError(null);
       
