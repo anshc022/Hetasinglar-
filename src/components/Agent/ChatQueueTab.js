@@ -140,9 +140,14 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
   }, [chats, userPresence]);
 
   const handleChatClick = (chat) => {
-    if (chat?.escortId?._id && chat?._id) {
-      navigate(`/agent/live-queue/${chat.escortId._id}?chatId=${chat._id}`);
+    if (!chat || !chat._id) {
+      return;
     }
+    if (typeof onOpenChat === 'function') {
+      onOpenChat(chat._id, chat);
+      return;
+    }
+    navigate(`/agent/chat/${chat._id}`);
   };
 
   return (
@@ -261,6 +266,9 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                 Assigned Agent
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                Moderator
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -283,6 +291,7 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               const userPresence = getUserPresence(chat.customerId?._id);
               const assignedAgent = getAssignedAgent(chat);
               const isAssignedToCurrentAgent = matchesCurrentAgent(assignedAgent);
+              const moderators = Array.isArray(chat.moderators) ? chat.moderators : [];
               
               return (
                 <tr 
@@ -343,6 +352,33 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                       </div>
                     ) : (
                       <span className="text-xs text-red-400">Unassigned</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {moderators.length > 0 ? (
+                      <div className="flex flex-col">
+                        {moderators.slice(0, 2).map((mod, index) => {
+                          const pseudoAgent = {
+                            _id: mod.agentId || mod._id || null,
+                            agentId: mod.agentCode || mod.agentId || null
+                          };
+                          const isCurrentModerator = matchesCurrentAgent(pseudoAgent);
+                          const label = isCurrentModerator ? 'You' : (mod.name || mod.agentName || pseudoAgent.agentId || 'Moderator');
+                          return (
+                            <span
+                              key={`${pseudoAgent._id || pseudoAgent.agentId || mod.joinedAt || index}`}
+                              className={`text-sm font-medium ${isCurrentModerator ? 'text-green-300' : 'text-blue-200'}`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                        {moderators.length > 2 && (
+                          <span className="text-xs text-gray-400">+{moderators.length - 2} more</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-red-400">No Moderator</span>
                     )}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
@@ -413,7 +449,7 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               );
             }) : (
               <tr>
-                <td colSpan="7" className="px-4 py-8 text-center">
+                <td colSpan="8" className="px-4 py-8 text-center">
                   <div className="text-gray-400">
                     <FaComments className="mx-auto h-12 w-12 mb-4 opacity-50" />
                     <p className="text-lg">No chats found</p>

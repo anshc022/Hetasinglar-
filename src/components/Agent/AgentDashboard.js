@@ -254,10 +254,12 @@ const StatCard = ({ title, value, icon, color }) => (
   </motion.div>
 );
 
-const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading }) => {
+const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading, currentAgent = null }) => {
   // Store the current chat index for sequential viewing
   const [currentChatIndex, setCurrentChatIndex] = useState(0);
   const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders', 'likes'
+  const currentAgentId = currentAgent?._id || currentAgent?.id || null;
+  const currentAgentCode = currentAgent?.agentId || currentAgent?.agentCode || null;
   
   // Delete last agent message in this chat (soft delete)
   const handleDeleteLastAgentMessage = async (chat) => {
@@ -322,6 +324,17 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
       alert(msg);
     }
   };
+
+  const openChat = useCallback((chat) => {
+    if (!chat || !chat._id) {
+      return;
+    }
+    if (typeof onOpenChat === 'function') {
+      onOpenChat(chat._id, chat);
+      return;
+    }
+    navigate(`/agent/chat/${chat._id}`);
+  }, [onOpenChat, navigate]);
   
   // Filter chats based on current filter - using chatType from backend
   const filteredChats = useMemo(() => {
@@ -685,7 +698,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                     <td className="px-2 py-2 text-red-300 whitespace-nowrap">{lastAgent ? format(lastAgent, 'PP p') : '-'}</td>
                     <td className="px-2 py-2">
                       <button
-                        onClick={() => navigate(`/agent/live-queue/${chat.escortId._id}?chatId=${chat._id}`)}
+                        onClick={() => openChat(chat)}
                         className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] shadow shadow-red-900/50"
                       >
                         Open Chat
@@ -771,6 +784,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[180px] sm:min-w-[200px]">User / Last Message</th>
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden sm:table-cell">Escort Profile</th>
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[130px] hidden md:table-cell">Assigned Agent</th>
+                  <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[130px] hidden md:table-cell">Moderator</th>
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[100px]">Status</th>
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden lg:table-cell">Messages/Likes</th>
                   <th className="px-2 py-2 lg:px-4 lg:py-3 text-left min-w-[120px] hidden xl:table-cell">Last Active</th>
@@ -790,6 +804,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                 name: chat.agentId.name,
                 agentId: chat.agentId.agentId
               } : null);
+              const moderators = Array.isArray(chat.moderators) ? chat.moderators : [];
               
               // Determine row styling based on chat type
               let rowStyling = 'border-l-4 hover:bg-gray-700/30 transition-colors';
@@ -905,6 +920,38 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                       )}
                     </div>
                   </td>
+                  <td className="px-2 py-2 lg:px-4 lg:py-3 align-top hidden md:table-cell">
+                    {moderators.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {moderators.slice(0, 2).map((mod, index) => {
+                          const moderatorId = mod.agentId || mod._id || null;
+                          const moderatorCode = mod.agentCode || mod.agentId || null;
+                          const isCurrentModerator = (
+                            (currentAgentId && moderatorId && String(moderatorId) === String(currentAgentId)) ||
+                            (currentAgentCode && moderatorCode && moderatorCode === currentAgentCode)
+                          );
+                          const label = isCurrentModerator
+                            ? 'You'
+                            : (mod.name || mod.agentName || moderatorCode || 'Moderator');
+                          return (
+                            <span
+                              key={`${moderatorId || moderatorCode || mod.joinedAt || index}`}
+                              className={`text-xs font-medium ${isCurrentModerator ? 'text-green-300' : 'text-blue-200'}`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                        {moderators.length > 2 && (
+                          <span className="text-xs text-gray-400">
+                            +{moderators.length - 2} more
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-red-400 font-semibold">No Moderator</span>
+                    )}
+                  </td>
                   <td className="px-2 py-2 lg:px-4 lg:py-3 align-top">
                     <div className="flex flex-col gap-1">
                       <span className={`px-2 py-1 rounded-full text-xs ${
@@ -939,7 +986,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                   <td className="px-2 py-2 lg:px-4 lg:py-3 align-top">
                     <div className="flex flex-col lg:flex-row gap-1 lg:gap-2">
                       <button 
-                        onClick={() => navigate(`/agent/live-queue/${chat.escortId._id}?chatId=${chat._id}`)}
+                        onClick={() => openChat(chat)}
                         className="p-1.5 lg:p-2 text-white rounded-lg flex items-center justify-center lg:gap-2 bg-blue-500 hover:bg-blue-600 text-xs"
                         title="Open Live Chat"
                       >
@@ -1070,7 +1117,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               {/* Show empty state only if no chats AND no likes */}
               {(!Array.isArray(sortedChats) || sortedChats.length === 0) && (!Array.isArray(likes) || likes.length === 0) && (
                 <tr>
-                  <td colSpan="3" className="px-2 py-8 text-center text-gray-400">
+                  <td colSpan="8" className="px-2 py-8 text-center text-gray-400">
                     {filterType === 'panic' && 'No panic room chats'}
                     {filterType === 'queue' && 'No unread messages in queue'}
                     {filterType === 'unread' && 'No unread messages'}
@@ -1111,6 +1158,24 @@ const AgentDashboard = () => {
   // Likes state
   const [likes, setLikes] = useState([]);
   const [likesLoading, setLikesLoading] = useState(false);
+  const normalizeChat = useCallback((chat) => {
+    if (!chat) {
+      return chat;
+    }
+
+    const unreadCount = chat.unreadCount || 0;
+    const reminderActive = !!chat.reminderActive;
+    const baseChatType = chat.chatType || (chat.isInPanicRoom ? 'panic' : (unreadCount > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle')));
+
+    return {
+      ...chat,
+      unreadCount,
+      reminderActive,
+      reminderCount: chat.reminderCount || 0,
+      chatType: baseChatType,
+      moderators: Array.isArray(chat.moderators) ? chat.moderators : []
+    };
+  }, []);
   
   // Fetch likes data for agent dashboard
   const fetchLikesData = useCallback(async () => {
@@ -1139,6 +1204,7 @@ const AgentDashboard = () => {
       try {
         const agentData = await agentAuth.getProfile();
         setAgent(agentData);
+        websocketService.identifyAgent(agentData);
       } catch (error) {
         console.error('Failed to fetch agent profile:', error);
       }
@@ -1151,11 +1217,24 @@ const AgentDashboard = () => {
 
     // Create websocket connection for real-time updates
     websocketService.connect();
-    websocketService.setUserId('agent');
+  websocketService.identifyAgent({});
     socketRef.current = websocketService;
     
     // Set up message handlers
     const messageHandler = (data) => {
+      if (data.type === 'chat_moderator_update') {
+        setChats(prevChats => prevChats.map(chat => {
+          if (chat._id === data.chatId) {
+            return {
+              ...chat,
+              moderators: Array.isArray(data.moderators) ? data.moderators : []
+            };
+          }
+          return chat;
+        }));
+        return;
+      }
+
       if (data.type === 'queue:update' || data.type === 'live_queue_update') {
         // Refresh live queue data
         if (window.fetchLiveQueueData) {
@@ -1457,7 +1536,7 @@ const AgentDashboard = () => {
             sentMessages: cachedDashboard.agentStats.totalMessagesSent || 0,
             onlineMembers: cachedDashboard.onlineCustomers || 0
           });
-          setChats(cachedQueue);
+          setChats(Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : []);
           setMyEscorts(cachedEscorts);
           
           setLoading(false); // Show UI immediately with cached data
@@ -1469,11 +1548,12 @@ const AgentDashboard = () => {
           agentAuth.getLiveQueue(),
           agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
         ]);
-        const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+        const liveQueueBase = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+        const normalizedLiveQueue = Array.isArray(liveQueueBase) ? liveQueueBase.map(normalizeChat) : [];
 
         // Cache the fresh data
         cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000); // 2 min cache
-        cacheService.set('live_queue', liveQueue, 1 * 60 * 1000); // 1 min cache
+        cacheService.set('live_queue', normalizedLiveQueue, 1 * 60 * 1000); // 1 min cache
         cacheService.set('all_escorts', escortData, 5 * 60 * 1000); // 5 min cache - changed from 'my_escorts' to 'all_escorts'
 
         setStats({
@@ -1482,7 +1562,7 @@ const AgentDashboard = () => {
           onlineMembers: dashboardStats.onlineCustomers || 0
         });
 
-        setChats(liveQueue);
+        setChats(normalizedLiveQueue);
         setMyEscorts(escortData);
         
         // Fetch initial likes data
@@ -1490,11 +1570,12 @@ const AgentDashboard = () => {
 
         // Initialize user presence from initial data
         const presenceMap = new Map();
-        liveQueue.forEach(chat => {
+        normalizedLiveQueue.forEach(chat => {
           if (chat.customerId?._id) {
+            const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
             presenceMap.set(chat.customerId._id.toString(), {
               isOnline: chat.isUserActive || false,
-              lastSeen: chat.lastActive || chat.updatedAt,
+              lastSeen: lastSeenSource,
               status: chat.isUserActive ? 'online' : 'offline'
             });
           }
@@ -1516,22 +1597,16 @@ const AgentDashboard = () => {
         // Use existing agentAuth helper so we get chatType, reminderActive, etc.
         const liveQueue = await agentAuth.getLiveQueue();
         
-        const normalized = Array.isArray(liveQueue) ? liveQueue.map(c => ({
-          ...c,
-          // Guarantee presence of fields used by UI
-          unreadCount: c.unreadCount || 0,
-          reminderActive: !!c.reminderActive,
-          reminderCount: c.reminderCount || 0,
-          chatType: c.chatType || (c.isInPanicRoom ? 'panic' : (c.unreadCount > 0 ? 'queue' : (c.reminderActive ? 'reminder' : 'idle')))
-        })) : [];
+        const normalized = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
         setChats(normalized);
         // Presence map
         const presenceMap = new Map();
         normalized.forEach(chat => {
           if (chat.customerId?._id) {
+            const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
             presenceMap.set(chat.customerId._id.toString(), {
               isOnline: chat.isUserActive || false,
-              lastSeen: chat.lastActive || chat.updatedAt,
+              lastSeen: lastSeenSource,
               status: chat.isUserActive ? 'online' : 'offline'
             });
           }
@@ -1575,7 +1650,7 @@ const AgentDashboard = () => {
     // }, 15000); // Poll every 15 seconds
     
     // return () => clearInterval(interval);
-  }, [navigate, activeTab, fetchLikesData]);
+  }, [navigate, activeTab, fetchLikesData, normalizeChat]);
 
   // Sync chats to sessionStorage for auto-advance functionality
   useEffect(() => {
@@ -1599,7 +1674,7 @@ const AgentDashboard = () => {
     // Remove auto-update - use manual refresh button instead
     // const interval = setInterval(updatePanicRoomCount, 60000); // Update every minute
     // return () => clearInterval(interval);
-  }, []);
+  }, [normalizeChat]);
 
   const handleLogout = () => {
     agentAuth.logout();
@@ -1714,9 +1789,10 @@ const AgentDashboard = () => {
       const presenceMap = new Map();
       liveQueue.forEach(chat => {
         if (chat.customerId?._id) {
+          const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
           presenceMap.set(chat.customerId._id.toString(), {
             isOnline: chat.isUserActive || false,
-            lastSeen: chat.lastActive || chat.updatedAt,
+            lastSeen: lastSeenSource,
             status: chat.isUserActive ? 'online' : 'offline'
           });
         }
@@ -1740,7 +1816,7 @@ const AgentDashboard = () => {
       try {
   const response = await agentAuth.getLiveQueue();
   const liveQueue = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
-        setChats(liveQueue);
+        setChats(Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : []);
       } catch (error) {
         console.error('Error fetching live queue:', error);
       }
@@ -1885,6 +1961,7 @@ const AgentDashboard = () => {
             onStartChatFromLike={handleStartChatFromLike}
             fetchLikesData={fetchLikesData}
             likesLoading={likesLoading}
+            currentAgent={agent}
           />
         )}
 

@@ -15,6 +15,7 @@ class WebSocketService {
     this.currentChatId = null;
     this.isAgent = false;
     this.messageQueue = [];
+    this.agentMetadata = null;
     this.connectionPromise = null;
   }
 
@@ -22,20 +23,65 @@ class WebSocketService {
     this.userId = userId;
     this.isAgent = userId === 'agent';
     console.log('WebSocket client info set:', { userId, isAgent: this.isAgent });
-    
-    // Send client info to server
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'client_info',
-        userId: this.userId,
-        role: this.isAgent ? 'agent' : 'customer',
-        chatId: this.currentChatId
-      }));
-    }
+    this.sendClientInfo();
   }
 
   setCurrentChatId(chatId) {
+    if (this.currentChatId === chatId) {
+      return;
+    }
     this.currentChatId = chatId;
+    this.sendClientInfo();
+  }
+
+  identifyAgent(agentData = {}) {
+    this.isAgent = true;
+    const inferredId = agentData._id || agentData.id || this.userId || 'agent';
+    this.userId = inferredId;
+    this.agentMetadata = {
+      id: agentData._id || agentData.id || inferredId,
+      code: agentData.agentId || agentData.agentCode || agentData.code || null,
+      name: agentData.name || agentData.fullName || 'Agent'
+    };
+    this.sendClientInfo();
+  }
+
+  sendClientInfo() {
+    if (!this.userId) {
+      return;
+    }
+
+    const payload = {
+      type: 'client_info',
+      userId: this.userId,
+      role: this.isAgent ? 'agent' : 'customer',
+      chatId: this.currentChatId || null
+    };
+
+    if (this.isAgent && this.agentMetadata) {
+      if (this.agentMetadata.id) {
+        payload.agentId = this.agentMetadata.id;
+      }
+      if (this.agentMetadata.code) {
+        payload.agentCode = this.agentMetadata.code;
+      }
+      if (this.agentMetadata.name) {
+        payload.agentName = this.agentMetadata.name;
+      }
+    }
+
+    // Keep only the latest client_info payload in the queue
+    this.messageQueue = this.messageQueue.filter(msg => msg.type !== 'client_info');
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify(payload));
+      } catch (err) {
+        console.error('Error sending client info:', err?.message || err);
+      }
+    } else {
+      this.messageQueue.push(payload);
+    }
   }
 
   connect() {
@@ -70,18 +116,7 @@ class WebSocketService {
           console.log('WebSocket connected');
           reconnectAttempts = 0; // Reset reconnect attempts on successful connection
           
-          if (this.userId) {
-            try {
-              this.ws.send(JSON.stringify({
-                type: 'client_info',
-                userId: this.userId,
-                role: this.isAgent ? 'agent' : 'customer',
-                chatId: this.currentChatId
-              }));
-            } catch (sendError) {
-              console.error('Error sending client info:', sendError.message);
-            }
-          }
+          this.sendClientInfo();
           
           while (this.messageQueue.length > 0) {
             let currentMessage = this.messageQueue.shift();

@@ -1003,8 +1003,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     };
 
     // Identify as agent when connecting
-    websocketService.setUserId('agent');
     websocketService.connect();
+  websocketService.identifyAgent({});
     
     const messageHandler = (data) => {
       if (data.type === 'chat_message') {
@@ -1602,6 +1602,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       try {
         const agentData = await agentAuth.getProfile();
         setCurrentAgent(agentData);
+        websocketService.identifyAgent(agentData);
       } catch (error) {
         // Failed to fetch agent profile, not critical
       }
@@ -1609,6 +1610,26 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     fetchAgentProfile();
   }, []);
+
+  useEffect(() => {
+    if (!currentAgent) {
+      return;
+    }
+
+    const chatId = selectedChat?._id || null;
+
+    if (chatId) {
+      websocketService.setCurrentChatId(chatId);
+    } else {
+      websocketService.setCurrentChatId(null);
+    }
+
+    return () => {
+      if (chatId) {
+        websocketService.setCurrentChatId(null);
+      }
+    };
+  }, [selectedChat?._id, currentAgent?._id]);
 
   // Handle message editing
   const handleStartEditMessage = (messageIndex, currentMessage) => {
