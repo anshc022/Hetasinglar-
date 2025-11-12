@@ -235,6 +235,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     () => typeof window !== 'undefined' && 'IntersectionObserver' in window,
     []
   );
+  const { t } = useSwedishTranslation();
   const normalizedFilters = useMemo(() => ({
     lookingFor: filters.lookingFor?.toLowerCase().trim() || '',
     relationStatus: filters.relationStatus?.toLowerCase().trim() || '',
@@ -847,264 +848,210 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
       {filteredMembers.length > 0 ? (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
-            {visibleMembers.map((member) => (
-              <div
-                key={member._id}
-                onClick={() => handleProfileClick(member)}
-                className="bg-white/20 dark:bg-gray-800/30 backdrop-blur-lg rounded-2xl shadow-lg shadow-pink-200/40 dark:shadow-gray-900/40 border border-white/30 dark:border-gray-600/30 hover:bg-white/30 dark:hover:bg-gray-700/40 hover:border-pink-200/50 dark:hover:border-gray-500/50 overflow-hidden group relative cursor-pointer"
-                style={{
-                  background:
-                    'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(252,231,243,0.35) 50%, rgba(254,202,202,0.25) 100%)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px 0 rgba(244, 114, 182, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-                }}
-              >
-              <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-pink-100/20 pointer-events-none rounded-2xl"></div>
-              <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/20 to-transparent pointer-events-none rounded-t-2xl"></div>
+            {visibleMembers.map((member) => {
+              const age = member.dateOfBirth ? new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear() : null;
+              const isLiked = likedProfiles.has(member._id);
+              const isLikeUpdating = likeLoading.has(member._id);
 
-              <div className="relative aspect-[3/4] bg-gradient-to-br from-pink-50/50 to-rose-100/50 overflow-hidden rounded-t-2xl backdrop-blur-sm">
-                {member.profileImage ? (
-                  <img
-                    src={member.profileImage}
-                    alt={member.firstName || member.username}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100/70 via-rose-50/60 to-purple-100/70 text-pink-400 text-xl sm:text-2xl lg:text-3xl font-bold backdrop-blur-sm">
-                    {(member.firstName || member.username)?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-
-                <div className="absolute inset-0 bg-gradient-to-t from-pink-900/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center backdrop-blur-sm">
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!likeLoading.has(member._id)) {
-                          handleLikeToggle(member._id);
-                        }
-                      }}
-                      disabled={likeLoading.has(member._id)}
-                      className={`w-12 h-12 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/35 transition-all duration-200 border border-white/40 shadow-lg ${
-                        likedProfiles.has(member._id) ? 'shadow-red-500/30' : 'shadow-pink-500/30'
-                      } ${likeLoading.has(member._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title={
-                        likeLoading.has(member._id)
-                          ? 'Loading...'
-                          : likedProfiles.has(member._id)
-                          ? 'Unlike'
-                          : 'Like'
-                      }
-                      style={{
-                        background: likedProfiles.has(member._id)
-                          ? 'linear-gradient(145deg, rgba(239,68,68,0.3) 0%, rgba(220,38,38,0.2) 100%)'
-                          : 'linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(244,114,182,0.2) 100%)',
-                        backdropFilter: 'blur(15px)',
-                        boxShadow: '0 4px 20px rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
-                      }}
-                    >
-                      <svg
-                        className={`w-5 h-5 drop-shadow-sm ${likedProfiles.has(member._id) ? 'text-red-300' : 'text-white'}`}
-                        fill={likedProfiles.has(member._id) ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveSection('messages');
-                        setSelectedChat({
-                          escortId: member._id,
-                          escortName: member.firstName || member.username || 'Member',
-                          profileImage: member.profileImage,
-                          messages: [],
-                          isOnline: true,
-                          time: new Date().toLocaleString()
-                        });
-                        handleStartChat(member._id, {
-                          escortName: member.firstName || member.username || 'Member',
-                          profileImage: member.profileImage
-                        });
-                      }}
-                      className="w-12 h-12 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/35 transition-all duration-200 border border-white/40 shadow-lg shadow-pink-500/30"
-                      title="Message"
-                      style={{
-                        background:
-                          'linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(244,114,182,0.2) 100%)',
-                        backdropFilter: 'blur(15px)',
-                        boxShadow: '0 4px 20px rgba(244, 114, 182, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
-                      }}
-                    >
-                      <FiMessageSquare className="w-5 h-5 text-white drop-shadow-sm" />
-                    </button>
-                  </div>
-                </div>
-
-                {member.dateOfBirth && (
-                  <div
-                    className="absolute top-3 right-3 text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/30"
-                    style={{
-                      background: 'linear-gradient(145deg, rgba(0,0,0,0.6) 0%, rgba(244,114,182,0.4) 100%)',
-                      backdropFilter: 'blur(10px)',
-                      boxShadow: '0 2px 10px rgba(244, 114, 182, 0.2)'
-                    }}
-                  >
-                    {new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()}
-                  </div>
-                )}
-
+              return (
                 <div
-                  className="absolute top-3 left-3 w-3 h-3 bg-green-400 rounded-full border-2 border-white"
-                  style={{ boxShadow: '0 0 10px rgba(34, 197, 94, 0.5), 0 2px 4px rgba(244, 114, 182, 0.2)' }}
-                ></div>
-              </div>
+                  key={member._id}
+                  onClick={() => handleProfileClick(member)}
+                  className="group relative cursor-pointer rounded-2xl bg-white/80 dark:bg-gray-800/80 border border-rose-100/60 dark:border-gray-700/60 shadow-sm hover:-translate-y-1 hover:shadow-lg transition-transform duration-200 overflow-hidden"
+                >
+                  <div className="relative aspect-[3/4] bg-gradient-to-br from-pink-50/40 via-rose-100/30 to-purple-100/30 dark:from-gray-700/40 dark:via-gray-700/30 dark:to-gray-800/40 overflow-hidden">
+                    {member.profileImage ? (
+                      <img
+                        src={member.profileImage}
+                        alt={member.firstName || member.username}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-rose-100/80 dark:bg-gray-700/60 text-pink-500 dark:text-pink-300 text-xl sm:text-2xl lg:text-3xl font-bold">
+                        {(member.firstName || member.username)?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
 
-              <div className="p-3 sm:p-4 relative z-10 bg-white/10 dark:bg-gray-700/20 backdrop-blur-sm rounded-b-2xl">
-                <h3 className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight mb-1 drop-shadow-sm">
-                  <span className="truncate block">{member.firstName || member.username}</span>
-                  {member.dateOfBirth && (
-                    <span className="text-xs font-normal text-gray-600 dark:text-gray-400 block">
-                      {new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()} years old
-                    </span>
-                  )}
-                </h3>
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/35 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate mb-2">
-                  <IconPin className="w-3.5 h-3.5 text-pink-400 dark:text-pink-300 flex-shrink-0 drop-shadow-sm" />
-                  <span className="truncate drop-shadow-sm">{member.country || member.region || 'Unknown'}</span>
-                </div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                      <div className="flex space-x-3 pointer-events-auto">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isLikeUpdating) {
+                              return;
+                            }
+                            handleLikeToggle(member._id);
+                          }}
+                          disabled={isLikeUpdating}
+                          className={`w-11 h-11 rounded-full flex items-center justify-center border transition-colors duration-200 ${isLiked ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-200/80' : 'bg-white/85 text-rose-500 border-rose-200 shadow-sm hover:bg-rose-50'} ${isLikeUpdating ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          title={
+                            isLikeUpdating
+                              ? 'Updating...'
+                              : isLiked
+                              ? 'Unlike'
+                              : 'Like'
+                          }
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill={isLiked ? 'currentColor' : 'none'}
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </button>
 
-                {member.description && (
-                  <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2 truncate whitespace-nowrap">
-                    {member.description}
-                  </p>
-                )}
-
-                <div className="hidden sm:flex flex-col gap-2 mt-3 text-xs">
-                  <div
-                    className="flex items-center gap-1 text-green-700 dark:text-green-400 px-2 py-1 rounded-full border border-white/30 dark:border-gray-600/30"
-                    style={{
-                      background:
-                        'linear-gradient(145deg, rgba(34,197,94,0.15) 0%, rgba(255,255,255,0.25) 100%)',
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.2)'
-                    }}
-                  >
-                    <div className="w-2 h-2 bg-green-400 rounded-full shadow-sm"></div>
-                    <span className="font-medium drop-shadow-sm">Online</span>
-                  </div>
-                  {member.profession && (
-                    <span
-                      className="text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full truncate max-w-20 font-medium border border-white/30 dark:border-gray-600/30"
-                      style={{
-                        background:
-                          'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(244,114,182,0.15) 100%)',
-                        backdropFilter: 'blur(8px)',
-                        boxShadow: '0 2px 8px rgba(244, 114, 182, 0.15)'
-                      }}
-                    >
-                      {member.profession}
-                    </span>
-                  )}
-
-                  {member.relationshipStatus && (
-                    <div className="flex items-center gap-1">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          member.relationshipStatus === 'single'
-                            ? 'bg-green-400'
-                            : member.relationshipStatus === 'in_relationship'
-                            ? 'bg-yellow-400'
-                            : member.relationshipStatus === 'married'
-                            ? 'bg-red-400'
-                            : 'bg-gray-400'
-                        }`}
-                      ></div>
-                      <span className="text-gray-600 dark:text-gray-400 capitalize text-xs">
-                        {member.relationshipStatus.replace('_', ' ')}
-                      </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSection('messages');
+                            setSelectedChat({
+                              escortId: member._id,
+                              escortName: member.firstName || member.username || 'Member',
+                              profileImage: member.profileImage,
+                              messages: [],
+                              isOnline: true,
+                              time: new Date().toLocaleString()
+                            });
+                            handleStartChat(member._id, {
+                              escortName: member.firstName || member.username || 'Member',
+                              profileImage: member.profileImage
+                            });
+                          }}
+                          className="w-11 h-11 rounded-full flex items-center justify-center bg-white/85 text-rose-500 border border-rose-200 shadow-sm hover:bg-rose-50 transition-colors duration-200"
+                          title="Message"
+                        >
+                          <FiMessageSquare className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 opacity-70">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Tap for details</span>
+                    {age && (
+                      <div className="absolute top-3 right-3 rounded-full bg-black/50 px-3 py-1.5 text-xs font-semibold text-white">
+                        {age}
+                      </div>
+                    )}
+
+                    <div className="absolute top-3 left-3 h-2.5 w-2.5 rounded-full bg-green-400 border-2 border-white shadow-sm"></div>
+                  </div>
+
+                  <div className="p-3 sm:p-4 bg-white/70 dark:bg-gray-800/70">
+                    <h3 className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight mb-1">
+                      <span className="truncate block">{member.firstName || member.username}</span>
+                      {age && (
+                        <span className="text-xs font-normal text-gray-600 dark:text-gray-400 block">
+                          {age} {t('yearsOld')}
+                        </span>
+                      )}
+                    </h3>
+
+                    <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate mb-2">
+                      <IconPin className="w-3.5 h-3.5 text-pink-400 dark:text-pink-300 flex-shrink-0" />
+                      <span className="truncate">{member.country || member.region || 'Unknown'}</span>
+                    </div>
+
+                    {member.description && (
+                      <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2 truncate whitespace-nowrap">
+                        {member.description}
+                      </p>
+                    )}
+
+                    <div className="hidden sm:flex flex-col gap-2 mt-3 text-xs">
+                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400 bg-green-50/80 dark:bg-green-900/30 px-2 py-1 rounded-full font-medium">
+                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span>{t('activeNow')}</span>
+                      </div>
+                      {member.profession && (
+                        <span className="text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full truncate max-w-20 font-medium bg-rose-50/80 dark:bg-rose-900/20">
+                          {member.profession}
+                        </span>
+                      )}
+
+                      {member.relationshipStatus && (
+                        <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 capitalize">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              member.relationshipStatus === 'single'
+                                ? 'bg-green-400'
+                                : member.relationshipStatus === 'in_relationship'
+                                ? 'bg-yellow-400'
+                                : member.relationshipStatus === 'married'
+                                ? 'bg-red-400'
+                                : 'bg-gray-400'
+                            }`}
+                          ></div>
+                          <span>{member.relationshipStatus.replace('_', ' ')}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 text-xs text-pink-400 dark:text-pink-300 opacity-70">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Tap for details</span>
+                      </div>
+                    </div>
+
+                    <div className="flex sm:hidden justify-center space-x-2 mt-3 pt-3 border-t border-rose-100 dark:border-gray-700/60">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isLikeUpdating) {
+                            return;
+                          }
+                          handleLikeToggle(member._id);
+                        }}
+                        disabled={isLikeUpdating}
+                        className={`flex-1 py-2.5 rounded-xl flex items-center justify-center border text-sm font-medium transition-colors duration-200 ${isLiked ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-white text-gray-700 border-gray-200'} ${isLikeUpdating ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        title={
+                          isLikeUpdating
+                            ? 'Updating...'
+                            : isLiked
+                            ? 'Unlike'
+                            : 'Like'
+                        }
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill={isLiked ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSection('messages');
+                          setSelectedChat({
+                            escortId: member._id,
+                            escortName: member.firstName || member.username || 'Member',
+                            profileImage: member.profileImage,
+                            messages: [],
+                            isOnline: true,
+                            time: new Date().toLocaleString()
+                          });
+                          handleStartChat(member._id, {
+                            escortName: member.firstName || member.username || 'Member',
+                            profileImage: member.profileImage
+                          });
+                        }}
+                        className="flex-1 py-2.5 rounded-xl flex items-center justify-center border border-rose-200 bg-rose-500 text-white text-sm font-medium transition-colors duration-200 hover:bg-rose-600"
+                        title="Message"
+                      >
+                        <FiMessageSquare className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex sm:hidden justify-center space-x-2 mt-3 pt-3 border-t border-white/30 dark:border-gray-600/30">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!likeLoading.has(member._id)) {
-                        handleLikeToggle(member._id);
-                      }
-                    }}
-                    disabled={likeLoading.has(member._id)}
-                    className={`flex-1 py-2.5 rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 dark:border-gray-600/40 ${
-                      likedProfiles.has(member._id) ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'
-                    } ${likeLoading.has(member._id) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={
-                      likeLoading.has(member._id)
-                        ? 'Loading...'
-                        : likedProfiles.has(member._id)
-                        ? 'Unlike'
-                        : 'Like'
-                    }
-                    style={{
-                      background: likedProfiles.has(member._id)
-                        ? 'linear-gradient(145deg, rgba(239,68,68,0.25) 0%, rgba(220,38,38,0.15) 100%)'
-                        : 'linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(229,231,235,0.35) 100%)',
-                      backdropFilter: 'blur(10px)',
-                      boxShadow: '0 4px 15px rgba(244, 114, 182, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-                    }}
-                  >
-                    <svg
-                      className="w-4 h-4 drop-shadow-sm"
-                      fill={likedProfiles.has(member._id) ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setActiveSection('messages');
-                      setSelectedChat({
-                        escortId: member._id,
-                        escortName: member.firstName || member.username || 'Member',
-                        profileImage: member.profileImage,
-                        messages: [],
-                        isOnline: true,
-                        time: new Date().toLocaleString()
-                      });
-                      handleStartChat(member._id, {
-                        escortName: member.firstName || member.username || 'Member',
-                        profileImage: member.profileImage
-                      });
-                    }}
-                    className="flex-1 py-2.5 text-white rounded-xl flex items-center justify-center transition-all duration-200 border border-white/40 dark:border-gray-600/40"
-                    title="Message"
-                    style={{
-                      background: 'linear-gradient(145deg, rgba(244,114,182,0.8) 0%, rgba(59,130,246,0.7) 100%)',
-                      backdropFilter: 'blur(10px)',
-                      boxShadow: '0 4px 20px rgba(244, 114, 182, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-                    }}
-                  >
-                    <FiMessageSquare className="w-4 h-4 drop-shadow-sm" />
-                  </button>
-                </div>
-              </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div ref={sentinelRef} className="h-2 w-full" aria-hidden="true"></div>
           {isAutoLoading && visibleMembers.length < filteredMembers.length && (

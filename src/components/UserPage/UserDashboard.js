@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { escorts, chats, users as userApi } from '../../services/api';
 import websocketService from '../../services/websocket';
@@ -14,6 +13,8 @@ import { IconWarning, IconUsers, IconHeartSpark, IconGlobe } from './UserIcons';
 import config from '../../config/environment';
 import ThemeToggle from '../ui/ThemeToggle';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
+
+const sectionTransition = { duration: 0.32, ease: [0.4, 0, 0.2, 1] };
 
 const MessageItem = ({ chat, isSelected, onClick }) => {
   const { t } = useSwedishTranslation();
@@ -1093,7 +1094,7 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
 
 const UserDashboard = () => {
   const { user, token, logout, setAuthData } = useAuth();
-  const setAuthDataRef = React.useRef(setAuthData);
+  const setAuthDataRef = useRef(setAuthData);
 
   useEffect(() => {
     setAuthDataRef.current = setAuthData;
@@ -1104,6 +1105,7 @@ const UserDashboard = () => {
   const [activeSection, setActiveSection] = useState('members');
   const [userCoins, setUserCoins] = useState(0);
   const [allUserChats, setAllUserChats] = useState([]); // Add state to track all chats
+  const contentRef = useRef(null);
 
   // Initialize chat data on component mount (not just when chat tab is opened)
   useEffect(() => {
@@ -1305,6 +1307,19 @@ const UserDashboard = () => {
   }, [activeSection]);
 
   useEffect(() => {
+    const node = contentRef.current;
+    if (!node) {
+      return;
+    }
+
+    try {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    } catch (err) {
+      // Gracefully ignore environments without smooth scroll support
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
     if (!token) {
       return;
     }
@@ -1480,12 +1495,19 @@ const UserDashboard = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveSection(tab.key)}
-                  className={`relative flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
+                  className={`relative overflow-hidden rounded-full flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
                     activeSection === tab.key
                       ? 'border-rose-500 text-rose-600 dark:text-rose-400'
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
+                  {activeSection === tab.key && (
+                    <motion.span
+                      layoutId="user-dashboard-tab-indicator"
+                      className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-rose-500/15 via-pink-500/10 to-purple-500/15 backdrop-blur-md"
+                      transition={sectionTransition}
+                    />
+                  )}
                   <span className="text-sm sm:text-lg">{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span className="sm:hidden text-xs">{tab.label.substring(0, 4)}</span>
@@ -1541,11 +1563,13 @@ const UserDashboard = () => {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="w-full"
+              ref={contentRef}
+              layout
+              initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }}
+              transition={sectionTransition}
+              className="relative w-full rounded-3xl bg-white/75 dark:bg-gray-900/55 border border-white/50 dark:border-gray-700/50 shadow-xl shadow-rose-100/40 dark:shadow-none backdrop-blur-xl px-3 sm:px-6 py-4 sm:py-6 transition-all duration-300"
             >
               {activeSection === 'messages' && (
                 <ChatSection 

@@ -35,6 +35,8 @@ import websocketService from '../../services/websocket';
 import notificationService from '../../services/notificationService';
 import { format, differenceInHours, formatDistanceToNow } from 'date-fns';
 
+const SUPPRESSION_STORAGE_PREFIX = 'agentDashboard:suppressed:';
+
 const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -438,6 +440,27 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
     });
   }, [filteredChats]);
 
+  const watchableChats = useMemo(() => {
+    if (!Array.isArray(sortedChats)) {
+      return [];
+    }
+
+    return sortedChats.filter((chat) => {
+      const unread = chat.unreadCount || 0;
+      const hasUnreadMessages = chat.hasUnreadAgentMessages === false;
+      const lastMessageFromCustomer = chat.lastMessage?.sender === 'customer';
+      const notInPanicRoom = !chat.isInPanicRoom && chat.chatType !== 'panic';
+
+      return notInPanicRoom && (
+        unread > 0 ||
+        hasUnreadMessages ||
+        lastMessageFromCustomer ||
+        chat.chatType === 'queue' ||
+        chat.chatType === 'unread'
+      );
+    });
+  }, [sortedChats]);
+
   // Function to get user presence status
   const getUserPresence = (userId) => {
     if (!userId) return { isOnline: false, lastSeen: null };
@@ -447,23 +470,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
 
   // Function to handle Watch Now click - starts with first unread chat and auto-advances
   const handleWatchNowClick = () => {
-    // Get all chats that need attention (broader criteria)
-    const watchableChats = Array.isArray(sortedChats) ? sortedChats.filter(chat => {
-      const unread = chat.unreadCount || 0;
-      const hasUnreadMessages = chat.hasUnreadAgentMessages === false;
-      const lastMessageFromCustomer = chat.lastMessage?.sender === 'customer';
-      const notInPanicRoom = !chat.isInPanicRoom && chat.chatType !== 'panic';
-      
-      return notInPanicRoom && (
-        unread > 0 || 
-        hasUnreadMessages || 
-        lastMessageFromCustomer ||
-        chat.chatType === 'queue' ||
-        chat.chatType === 'unread'
-      );
-    }) : [];
-    
-    if (watchableChats.length === 0) {
+    if (!watchableChats.length) {
       alert('No chats available to watch');
       return;
     }
@@ -551,7 +558,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
            chat.reminderHandled !== true;
   }).sort((a,b) => (b.hoursSinceLastCustomer || 0) - (a.hoursSinceLastCustomer || 0)) : [];
 
-  const hasWatchableChats = queueCount > 0 || unreadCount > 0;
+  const hasWatchableChats = watchableChats.length > 0;
 
   return (
     <div className="bg-gray-800 rounded-lg p-2 md:p-4 shadow-lg overflow-x-auto">
@@ -1155,6 +1162,42 @@ const AgentDashboard = () => {
   const [selectedEscortForImages, setSelectedEscortForImages] = useState(null);
   // Chats to hide after agent reply (until customer replies again)
   const [suppressedChatIds, setSuppressedChatIds] = useState(new Set());
+  const agentIdRef = useRef(null);
+
+  const loadSuppressedChatIdsFromStorage = useCallback((agentKey) => {
+    if (!agentKey) {
+      return new Set();
+    }
+
+    try {
+      const raw = localStorage.getItem(`${SUPPRESSION_STORAGE_PREFIX}${agentKey}`);
+      if (!raw) {
+        return new Set();
+      }
+
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((id) => typeof id === 'string' && id));
+      }
+    } catch (error) {
+      console.error('Failed to load suppressed chats from storage:', error);
+    }
+
+    return new Set();
+  }, []);
+
+  const persistSuppressedChatIdsToStorage = useCallback((agentKey, idsSet) => {
+    if (!agentKey || !(idsSet instanceof Set)) {
+      return;
+    }
+
+    try {
+      const serialized = JSON.stringify(Array.from(idsSet));
+      localStorage.setItem(`${SUPPRESSION_STORAGE_PREFIX}${agentKey}`, serialized);
+    } catch (error) {
+      console.error('Failed to persist suppressed chats to storage:', error);
+    }
+  }, []);
   // Likes state
   const [likes, setLikes] = useState([]);
   const [likesLoading, setLikesLoading] = useState(false);
@@ -1204,6 +1247,12 @@ const AgentDashboard = () => {
       try {
         const agentData = await agentAuth.getProfile();
         setAgent(agentData);
+        const profileKey = agentData?._id || agentData?.id || agentData?.agentId || null;
+        if (profileKey) {
+          agentIdRef.current = profileKey;
+          const storedSuppressed = loadSuppressedChatIdsFromStorage(profileKey);
+          setSuppressedChatIds(storedSuppressed);
+        }
         websocketService.identifyAgent(agentData);
       } catch (error) {
         console.error('Failed to fetch agent profile:', error);
@@ -1517,6 +1566,14 @@ const AgentDashboard = () => {
       notificationService.stopMonitoring();
     };
   }, []);
+
+  useEffect(() => {
+    const agentKey = agentIdRef.current;
+    if (!agentKey) {
+      return;
+    }
+    persistSuppressedChatIdsToStorage(agentKey, suppressedChatIds);
+  }, [suppressedChatIds, persistSuppressedChatIdsToStorage]);
 
   // Fetch initial dashboard data - OPTIMIZED with caching
   useEffect(() => {
