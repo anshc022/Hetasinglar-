@@ -1,6 +1,9 @@
 // Environment configuration utility
 const isDev = (process.env.NODE_ENV || 'development') === 'development';
 
+// Determine whether the developer explicitly wants to keep using the local API in dev
+const useLocalApiInDev = process.env.REACT_APP_USE_LOCAL_API === 'true';
+
 // Production fallbacks - these should match your production environment
 const PRODUCTION_FALLBACKS = {
   API_URL: 'https://apihetasinglar.duckdns.org/api', // Production API with HTTPS
@@ -8,14 +11,21 @@ const PRODUCTION_FALLBACKS = {
   FRONTEND_URL: (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://hetasinglar.se'
 };
 
+// Development fallbacks - default to production API unless explicitly forced to local
+const DEVELOPMENT_FALLBACKS = {
+  API_URL: useLocalApiInDev ? 'http://localhost:5000/api' : PRODUCTION_FALLBACKS.API_URL,
+  WS_URL: useLocalApiInDev ? 'ws://localhost:5000' : PRODUCTION_FALLBACKS.WS_URL,
+  FRONTEND_URL: 'http://localhost:8000'
+};
+
 const config = {
   // API Configuration - Use environment variables with fallbacks
   API_URL: process.env.REACT_APP_API_URL || 
-    (isDev ? 'http://localhost:5000/api' : PRODUCTION_FALLBACKS.API_URL),
+    (isDev ? DEVELOPMENT_FALLBACKS.API_URL : PRODUCTION_FALLBACKS.API_URL),
   WS_URL: process.env.REACT_APP_WS_URL || 
-    (isDev ? 'ws://localhost:5000' : PRODUCTION_FALLBACKS.WS_URL),
+    (isDev ? DEVELOPMENT_FALLBACKS.WS_URL : PRODUCTION_FALLBACKS.WS_URL),
   FRONTEND_URL: process.env.REACT_APP_FRONTEND_URL || 
-    (isDev ? 'http://localhost:8000' : PRODUCTION_FALLBACKS.FRONTEND_URL),
+    (isDev ? DEVELOPMENT_FALLBACKS.FRONTEND_URL : PRODUCTION_FALLBACKS.FRONTEND_URL),
   
   // Environment info
   NODE_ENV: process.env.NODE_ENV || 'development',
