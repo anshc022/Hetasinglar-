@@ -575,6 +575,20 @@ export const agentAuth = {
     }
   },
 
+  async checkExistingFirstContact(params = {}) {
+    try {
+      const response = await agentApi.get('/first-contact/check-existing', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Check existing contact error:', error);
+      const errPayload = error.response?.data ? { ...error.response.data } : { message: error.message };
+      if (error.response?.status) {
+        errPayload.status = error.response.status;
+      }
+      throw errPayload;
+    }
+  },
+
   async getFirstContactStats(params = {}) {
     try {
       const response = await agentApi.get('/first-contact/stats', { params });

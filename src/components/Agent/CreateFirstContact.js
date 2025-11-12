@@ -36,6 +36,9 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showRecentContacts, setShowRecentContacts] = useState(false);
   const [showNewCustomerNotification, setShowNewCustomerNotification] = useState(true);
+  const [checkingExistingContact, setCheckingExistingContact] = useState(false);
+  const [existingContact, setExistingContact] = useState(null);
+  const [existingContactError, setExistingContactError] = useState('');
   
   // Load initial data
   useEffect(() => {
@@ -73,6 +76,53 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
       loadAllCustomers();
     }
   }, [customerViewMode, customerSearch]);
+
+  // Check if a selected customer already has a chat with the selected escort
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!selectedCustomer || !selectedEscort) {
+      setExistingContact(null);
+      setExistingContactError('');
+      return undefined;
+    }
+
+    const fetchExistingContact = async () => {
+      setCheckingExistingContact(true);
+      setExistingContactError('');
+
+      try {
+        const response = await agentAuth.checkExistingFirstContact({
+          customerId: selectedCustomer,
+          escortId: selectedEscort
+        });
+
+        if (!isCancelled) {
+          setExistingContact(response.chat);
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+        if (error?.status === 404) {
+          setExistingContact(null);
+        } else {
+          setExistingContact(null);
+          setExistingContactError(error?.message || 'Failed to check existing contact');
+        }
+      } finally {
+        if (!isCancelled) {
+          setCheckingExistingContact(false);
+        }
+      }
+    };
+
+    fetchExistingContact();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedCustomer, selectedEscort]);
   
   // Auto-select newest customer if none selected and new customers arrive
   useEffect(() => {
@@ -151,7 +201,9 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
       };
 
       const response = await agentAuth.createFirstContact(contactData);
-      
+
+      setExistingContact(response.chat || null);
+      setExistingContactError('');
       setMessage({ type: 'success', text: response.message });
       
       // Reset form
@@ -197,6 +249,27 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenExistingChat = () => {
+    if (!existingContact?._id) {
+      return;
+    }
+
+    const escortChatId = typeof existingContact.escortId === 'object'
+      ? existingContact.escortId?._id
+      : existingContact.escortId;
+
+    if (!escortChatId) {
+      return;
+    }
+
+    if (onSuccess) {
+      onSuccess();
+    }
+
+    onClose();
+    navigate(`/agent/live-queue/${escortChatId}?chatId=${existingContact._id}&returningContact=true`);
   };
 
   const getSelectedCustomerData = () => {
@@ -442,6 +515,51 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
                 )}
               </div>
             </div>
+
+            {/* Existing Conversation Notice */}
+            {(selectedCustomer && selectedEscort) && (
+              <div className="bg-gray-700/40 border border-gray-600 rounded-lg p-4">
+                {checkingExistingContact ? (
+                  <div className="flex items-center gap-3 text-gray-300 text-sm">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                    Checking conversation history...
+                  </div>
+                ) : existingContact ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div>
+                        <p className="text-white font-medium flex items-center gap-2">
+                          <FaCheckCircle className="text-green-400" />
+                          Conversation already exists
+                        </p>
+                        <p className="text-sm text-gray-300 mt-1">
+                          Last activity {formatTimeAgo(existingContact.updatedAt || existingContact.lastMessageTime || existingContact.createdAt)} • {existingContact.messages?.length || 0} messages
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleOpenExistingChat}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200"
+                      >
+                        <FaEye className="hidden sm:block" />
+                        Open Chat
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      You can jump straight back into this conversation. Use "Create First Contact" only if you also want to send a scripted welcome message.
+                    </p>
+                  </div>
+                ) : existingContactError ? (
+                  <div className="flex items-center gap-2 text-sm text-red-300">
+                    <FaExclamationTriangle className="text-red-400" />
+                    {existingContactError}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-300">
+                    No previous conversation found between this customer and escort. Creating a first contact will start a brand new chat.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Initial Message */}
             <div>
