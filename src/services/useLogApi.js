@@ -70,6 +70,27 @@ export const useLogApi = () => {
     }
   }, [isApiAvailable]);
   
+  // Delete escort log
+  const deleteEscortLog = useCallback(async (logId) => {
+    if (!isApiAvailable) {
+      throw new Error('Logs API is not available');
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await logApiMethods.deleteEscortLog(logId);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      console.error('Error deleting escort log:', err);
+      setError(err.message || 'Failed to delete escort log');
+      setIsLoading(false);
+      throw err;
+    }
+  }, [isApiAvailable]);
+
   // Edit escort log
   const editEscortLog = useCallback(async (logId, logData) => {
     if (!isApiAvailable) {
@@ -160,6 +181,7 @@ export const useLogApi = () => {
     error,
     getEscortLogs,
     addEscortLog,
+    deleteEscortLog,
     editEscortLog,
     getUserLogs,
     addUserLog,

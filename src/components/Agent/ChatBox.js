@@ -537,6 +537,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
   const {
     addEscortLog,
+    deleteEscortLog,
     addUserLog,
     editEscortLog,
     editUserLog,
@@ -1795,20 +1796,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('agentToken');
-      const response = await fetch(`http://localhost:5000/api/logs/escort/${log._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-Debug-Info': 'Escort log deletion request'
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete log');
-      }
+      await deleteEscortLog(log._id);
 
       // Refresh escort logs
       if (selectedChat?.escortId?._id) {

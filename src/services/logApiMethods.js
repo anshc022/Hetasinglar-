@@ -168,6 +168,19 @@ export const logApiMethods = {
     }
   },
 
+  // Delete an escort log
+  async deleteEscortLog(logId) {
+    try {
+      console.log(`Deleting escort log: ${logId}`);
+      const response = await logApiInstance.delete(`/logs/escort/${logId}`);
+      console.log('Escort log deleted:', response.status);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting escort log:', error);
+      throw new Error(error.response?.data?.message || 'Failed to delete escort log');
+    }
+  },
+
   // Edit an existing user log
   async editUserLog(logId, logData) {
     try {
