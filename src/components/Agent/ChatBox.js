@@ -433,6 +433,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   // State for general notes
   const [generalNote, setGeneralNote] = useState('');
   const [showGeneralNotes, setShowGeneralNotes] = useState(true);
+  // State for log view mode
+  const [logViewMode, setLogViewMode] = useState('chat'); // 'chat' or 'all'
 
   // Helper: normalize legacy notes so they appear as General Notes if none explicitly tagged
   const normalizeGeneralNotes = (arr = []) => {
@@ -542,6 +544,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     editEscortLog,
     editUserLog,
     getEscortLogs,
+    getChatEscortLogs,
+    addChatEscortLog,
     getUserLogs,
     isLoading: logIsLoading,
     error: logError,
@@ -829,6 +833,17 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A'
     });
 
+    // Load chat-specific logs by default (NEW - recommended approach)
+    if (fullChat._id) {
+      setLogViewMode('chat'); // Set to chat-specific mode by default
+      fetchChatEscortLogs(fullChat._id);
+      
+      // Also load user logs if customer ID is available
+      if (customerInfo._id) {
+        fetchUserLogs(customerInfo._id);
+      }
+    }
+
   // Set notes from chat comments initially (normalize legacy notes so they show)
   setNotes(normalizeGeneralNotes(fullChat.comments || []));
     setShowNoteInput(false);
@@ -849,9 +864,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       // Don't set error state here as it's not critical
     }
     
-    // Fetch logs for escort and user if IDs are available
-    if (fullChat.escortId?._id) {
-      fetchEscortLogs(fullChat.escortId._id);
+    // Fetch chat-specific logs for escort and user if IDs are available
+    if (fullChat._id) {
+      fetchChatEscortLogs(fullChat._id); // Use chat-specific logs for better accuracy
     }
     if (fullChat.customerId?._id) {
       fetchUserLogs(fullChat.customerId._id);
@@ -1721,6 +1736,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
   // Add a new log for the escort
   const handleAddEscortLog = async (logData) => {
+    if (!selectedChat?._id) {
+      setError('Cannot add log: No chat selected');
+      return false;
+    }
+    
     if (!selectedChat?.escortId?._id) {
       setError('Cannot add log: No escort selected or escort ID is missing');
       return false;
@@ -1733,22 +1753,31 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         throw new Error('Log must have both category and content');
       }
       
-      console.log(`Sending escort log to: /api/logs/escort/${selectedChat.escortId._id}`);
+      console.log(`Sending chat-specific escort log to: /api/logs/chat/${selectedChat._id}/escort-logs`);
       console.log('Log data:', logData);
       
-      // Send log data to backend
-      const response = await addEscortLog(selectedChat.escortId._id, logData);
+      // Send log data to backend using chat-specific endpoint
+      const response = await addChatEscortLog(selectedChat._id, logData);
       
       // Clear any previous errors
       setError(null);
       
-      // Refetch the logs to show the newly added one
-      await fetchEscortLogs(selectedChat.escortId._id);
+      // Refetch the chat-specific logs to show the newly added one
+      const updatedLogs = await fetchChatEscortLogs(selectedChat._id);
       
       console.log('Log successfully added:', response);
+      console.log('Updated logs:', updatedLogs);
       
-      // Show success feedback
-      // You could add a toast notification here if you have a toast system
+      // Show success notification
+      setNotification({
+        message: 'Log added successfully!',
+        type: 'success'
+      });
+      
+      // Clear notification after 3 seconds
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
       
     } catch (error) {
       console.error('Error adding escort log:', error);
@@ -1800,7 +1829,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
       // Refresh escort logs
       if (selectedChat?.escortId?._id) {
-        fetchEscortLogs(selectedChat.escortId._id);
+        fetchChatEscortLogs(selectedChat._id);
       }
 
       showNotification('Log deleted successfully', 'success');
@@ -1837,7 +1866,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       
       // Refetch the logs to show the updated one
       if (selectedChat?.escortId?._id) {
-        await fetchEscortLogs(selectedChat.escortId._id);
+        await fetchChatEscortLogs(selectedChat._id);
       }
       
       console.log('Log successfully updated:', response);
@@ -2028,20 +2057,45 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     return true;
   };
 
-  // Fetch escort logs
+  // Fetch chat-specific escort logs (NEW - recommended)
+  const fetchChatEscortLogs = async (chatId) => {
+    if (!chatId) {
+      console.warn('Cannot fetch chat escort logs: No chat ID provided');
+      return [];
+    }
+
+    setLoadingLogs(true);
+    try {
+      const logs = await getChatEscortLogs(chatId);
+      setEscortLogs(logs);
+      console.log(`📝 Loaded ${logs.length} chat-specific escort logs for chat ${chatId}`);
+      return logs;
+    } catch (error) {
+      console.error('Error fetching chat-specific escort logs:', error);
+      setError('Failed to fetch chat-specific escort logs: ' + (error.message || 'Unknown error'));
+      return [];
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  // Fetch escort logs (backward compatibility - shows logs from all chats)
   const fetchEscortLogs = async (escortId) => {
     if (!escortId) {
       console.warn('Cannot fetch escort logs: No escort ID provided');
-      return;
+      return [];
     }
 
     setLoadingLogs(true);
     try {
       const logs = await getEscortLogs(escortId);
       setEscortLogs(logs);
+      console.log(`📝 Loaded ${logs.length} escort logs (all chats) for escort ${escortId}`);
+      return logs;
     } catch (error) {
       console.error('Error fetching escort logs:', error);
       setError('Failed to fetch escort logs: ' + (error.message || 'Unknown error'));
+      return [];
     } finally {
       setLoadingLogs(false);
     }
@@ -2051,16 +2105,19 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const fetchUserLogs = async (userId) => {
     if (!userId) {
       console.warn('Cannot fetch user logs: No user ID provided');
-      return;
+      return [];
     }
 
     setLoadingLogs(true);
     try {
       const logs = await getUserLogs(userId);
       setUserLogs(logs);
+      console.log(`📝 Loaded ${logs?.length || 0} user logs for user ${userId}`);
+      return logs || [];
     } catch (error) {
       console.error('Error fetching user logs:', error);
       setError('Failed to fetch user logs: ' + (error.message || 'Unknown error'));
+      return [];
     } finally {
       setLoadingLogs(false);
     }
@@ -3396,12 +3453,55 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   {/* Escort Logs Section */}
                   <div className="mt-6 bg-gray-800/50 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-white text-sm font-medium flex items-center gap-2">
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Escort Logs
-                      </h3>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-white text-sm font-medium flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Escort Logs
+                          </h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            logViewMode === 'chat' 
+                              ? 'bg-blue-600/30 text-blue-200 border border-blue-600/50' 
+                              : 'bg-gray-600/30 text-gray-200 border border-gray-600/50'
+                          }`}>
+                            {logViewMode === 'chat' ? 'Chat-specific' : 'All conversations'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (selectedChat?._id) {
+                                setLogViewMode('chat');
+                                fetchChatEscortLogs(selectedChat._id);
+                              }
+                            }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              logViewMode === 'chat' 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-blue-600/20 text-blue-300 hover:bg-blue-600/30'
+                            }`}
+                          >
+                            This Chat Only
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (selectedChat?.escortId?._id) {
+                                setLogViewMode('all');
+                                fetchEscortLogs(selectedChat.escortId._id);
+                              }
+                            }}
+                            className={`text-xs px-2 py-1 rounded transition-colors ${
+                              logViewMode === 'all' 
+                                ? 'bg-gray-600 text-white' 
+                                : 'bg-gray-600/20 text-gray-300 hover:bg-gray-600/30'
+                            }`}
+                          >
+                            All Chats
+                          </button>
+                        </div>
+                      </div>
                       {selectedChat?.escortId?._id && (
                         <button
                           onClick={() => {

@@ -66,7 +66,7 @@ const checkApiEndpoint = async () => {
 export const logApiMethods = {
   // Initial API check
   checkApiAvailability: checkApiEndpoint,
-  // Get logs for an escort
+  // Get logs for an escort (all chats - for backward compatibility)
   async getEscortLogs(escortId) {
     try {
       console.log(`Fetching logs for escort: ${escortId}`);
@@ -78,7 +78,65 @@ export const logApiMethods = {
     }
   },
 
-  // Add a new log for an escort
+  // Get chat-specific escort logs (NEW - recommended)
+  async getChatEscortLogs(chatId) {
+    try {
+      console.log(`Fetching chat-specific escort logs for chat: ${chatId}`);
+      const response = await logApiInstance.get(`/logs/chat/${chatId}/escort-logs`);
+      return response.data.logs;
+    } catch (error) {
+      console.error('Error fetching chat-specific escort logs:', error);
+      throw error.response?.data || { message: 'Failed to fetch chat-specific escort logs' };
+    }
+  },
+
+  // Add a new chat-specific escort log (NEW - recommended)
+  async addChatEscortLog(chatId, logData) {
+    try {
+      if (!chatId) {
+        throw new Error('Invalid chat ID: ID cannot be empty');
+      }
+      
+      if (!chatId.match(/^[0-9a-fA-F]{24}$/)) {
+        throw new Error(`Invalid chat ID format: ${chatId}`);
+      }
+      
+      console.log(`Making POST request to: ${API_URL}/logs/chat/${chatId}/escort-logs`);
+      console.log('With payload:', logData);
+      
+      const response = await logApiInstance.post(`/logs/chat/${chatId}/escort-logs`, logData, {
+        timeout: 10000,
+        headers: {
+          'X-Debug-Info': 'Chat-specific escort log creation request'
+        }
+      });
+      
+      console.log('Chat-specific log response received:', response.status, response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in addChatEscortLog:', error);
+      
+      if (error.response) {
+        console.error(`Status: ${error.response.status}, Data:`, error.response.data);
+        
+        if (error.response.status === 404) {
+          throw new Error('Chat not found or API endpoint not available.');
+        } else if (error.response.status === 401) {
+          throw new Error('Authentication failed. Please check your token or login again.');
+        }
+        
+        throw new Error(error.response.data?.message || `Server error (${error.response.status})`);
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        throw new Error('No response received from server. Please check if the server is running.');
+      } else {
+        console.error('Error setting up request:', error.message);
+        throw new Error(error.message || 'Failed to add chat-specific escort log due to a network issue');
+      }
+    }
+  },
+
+  // Add a new log for an escort (backward compatibility)
   async addEscortLog(escortId, logData) {
     try {
       if (!escortId) {

@@ -28,7 +28,7 @@ export const useLogApi = () => {
     checkApi();
   }, []);
   
-  // Fetch escort logs
+  // Fetch escort logs (all chats - backward compatibility)
   const getEscortLogs = useCallback(async (escortId) => {
     if (!isApiAvailable) {
       return [];
@@ -48,8 +48,50 @@ export const useLogApi = () => {
       return [];
     }
   }, [isApiAvailable]);
+
+  // Fetch chat-specific escort logs (NEW - recommended)
+  const getChatEscortLogs = useCallback(async (chatId) => {
+    if (!isApiAvailable) {
+      return [];
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const logs = await logApiMethods.getChatEscortLogs(chatId);
+      setIsLoading(false);
+      return logs || [];
+    } catch (err) {
+      console.error('Error fetching chat-specific escort logs:', err);
+      setError(err.message || 'Failed to fetch chat-specific escort logs');
+      setIsLoading(false);
+      return [];
+    }
+  }, [isApiAvailable]);
   
-  // Add escort log
+  // Add chat-specific escort log (NEW - recommended)
+  const addChatEscortLog = useCallback(async (chatId, logData) => {
+    if (!isApiAvailable) {
+      throw new Error('Logs API is not available');
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await logApiMethods.addChatEscortLog(chatId, logData);
+      setIsLoading(false);
+      return result;
+    } catch (err) {
+      console.error('Error adding chat-specific escort log:', err);
+      setError(err.message || 'Failed to add chat-specific escort log');
+      setIsLoading(false);
+      throw err;
+    }
+  }, [isApiAvailable]);
+
+  // Add escort log (backward compatibility)
   const addEscortLog = useCallback(async (escortId, logData) => {
     if (!isApiAvailable) {
       throw new Error('Logs API is not available');
@@ -180,7 +222,9 @@ export const useLogApi = () => {
     isLoading,
     error,
     getEscortLogs,
+    getChatEscortLogs,
     addEscortLog,
+    addChatEscortLog,
     deleteEscortLog,
     editEscortLog,
     getUserLogs,
