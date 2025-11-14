@@ -130,7 +130,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
     websocketService.setCurrentChatId(selectedChat.id);
     websocketService.connect();
 
-    // Mark messages as read when user opens a chat
+    // Mark messages as read after user has had time to see them
     const markAsRead = async () => {
       try {
         await chats.markMessagesAsRead(selectedChat.id);
@@ -171,7 +171,8 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       }
     };
 
-    markAsRead();
+    // Delay marking as read to allow customer to see the red dot and new messages
+    const readTimer = setTimeout(markAsRead, 2000); // 2 second delay
 
     const messageUnsub = websocketService.onMessage((data) => {
       if (data.type === 'chat_message' && selectedChat?.id === data.chatId) {
@@ -267,6 +268,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
     });
 
     return () => {
+      clearTimeout(readTimer);
       messageUnsub();
       deletionUnsub();
       websocketService.disconnect();
