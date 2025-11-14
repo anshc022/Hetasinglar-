@@ -97,7 +97,7 @@ class WebSocketService {
         }
 
         const wsUrl = config.getWebSocketUrl();
-        console.log('🔌 Connecting to WebSocket:', wsUrl);
+        // Connecting to WebSocket
         this.ws = new WebSocket(wsUrl);
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
@@ -105,7 +105,7 @@ class WebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message received:', data);
+            // WebSocket message received
             this.handleMessage(data);
           } catch (parseError) {
             console.error('Error parsing WebSocket message:', parseError.message);

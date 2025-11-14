@@ -1223,14 +1223,14 @@ const AgentDashboard = () => {
   // Fetch likes data for agent dashboard
   const fetchLikesData = useCallback(async () => {
     try {
-      console.log('🔄 Fetching likes data...');
+      // Fetching likes data
       setLikesLoading(true);
       const likesResponse = await likeService.getAgentLikes(
         localStorage.getItem('agentToken'),
         'active',
         50
       );
-      console.log('✅ Likes data fetched:', likesResponse);
+      // Likes data fetched
       setLikes(likesResponse.likes || []);
     } catch (error) {
       console.error('❌ Failed to fetch likes data:', error);
