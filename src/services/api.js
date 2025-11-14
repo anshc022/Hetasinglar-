@@ -292,12 +292,23 @@ export const chats = {
 
   async sendMessage(chatId, message, options = {}) {
     try {
-      console.log('Sending message to chat:', chatId, message);
-      
-      const response = await api.post(`/chats/${chatId}/message`, { 
-        message: message,
+      const payload = {
+        message,
+        ...(options.messageType ? { messageType: options.messageType } : {}),
+        ...(options.imageData ? { imageData: options.imageData } : {}),
+        ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+        ...(options.filename ? { filename: options.filename } : {}),
         ...(options.clientId ? { clientId: options.clientId } : {})
+      };
+
+      console.log('Sending message to chat:', chatId, {
+        messageType: options.messageType || 'text',
+        hasImageData: Boolean(options.imageData),
+        filename: options.filename,
+        hasClientId: Boolean(options.clientId)
       });
+
+      const response = await api.post(`/chats/${chatId}/message`, payload);
       
       console.log('Message sent response:', response.data);
       return response.data;

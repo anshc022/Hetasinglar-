@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, memo } from 'react';
+import React, { useState, useRef, useEffect, memo, useMemo } from 'react';
 import { FaPaperPlane, FaSmile, FaMicrophone, FaStop, FaImages } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { emojiGroups, emojiGroupLabels, filterEmojiGroups } from '../../utils/emojiCollections';
 
 const MessageComposer = memo(({ 
   onSendMessage, 
@@ -19,14 +20,18 @@ const MessageComposer = memo(({
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showEmojis, setShowEmojis] = useState(false);
+  const [emojiSearch, setEmojiSearch] = useState('');
   const [recordingTime, setRecordingTime] = useState(0);
   const textareaRef = useRef(null);
   // Removed direct device upload inputs (file/image)
   const recordingIntervalRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // Common emojis for quick access
-  const quickEmojis = ['😊', '😂', '❤️', '👍', '👎', '😢', '😮', '😡', '🔥', '💯', '🎉', '💋', '😘', '😍', '🥰', '😋'];
+  const filteredEmojiEntries = useMemo(
+    () => filterEmojiGroups(emojiGroups, emojiSearch),
+    [emojiSearch]
+  );
+  const hasEmojiResults = filteredEmojiEntries.length > 0;
 
   useEffect(() => {
     // Auto-resize textarea
@@ -36,6 +41,12 @@ const MessageComposer = memo(({
       textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     }
   }, [message]);
+
+  useEffect(() => {
+    if (!showEmojis) {
+      setEmojiSearch('');
+    }
+  }, [showEmojis]);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -174,18 +185,50 @@ const MessageComposer = memo(({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="mb-3 p-3 bg-gray-700 rounded-lg"
+            className="mb-3 rounded-lg bg-gray-700 p-3"
           >
-            <div className="grid grid-cols-8 gap-2">
-              {quickEmojis.map((emoji, index) => (
+            <div className="mb-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={emojiSearch}
+                onChange={(event) => setEmojiSearch(event.target.value)}
+                placeholder="Search emoji"
+                className="flex-1 rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {emojiSearch && (
                 <button
-                  key={index}
-                  onClick={() => handleEmojiClick(emoji)}
-                  className="p-2 text-lg hover:bg-gray-600 rounded transition-colors"
+                  type="button"
+                  onClick={() => setEmojiSearch('')}
+                  className="text-xs font-medium text-gray-300 hover:text-white"
                 >
-                  {emoji}
+                  Clear
                 </button>
-              ))}
+              )}
+            </div>
+            <div className="max-h-48 space-y-3 overflow-y-auto pr-1">
+              {hasEmojiResults ? (
+                filteredEmojiEntries.map(([groupKey, emojis]) => (
+                  <div key={groupKey}>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      {emojiGroupLabels[groupKey] || groupKey}
+                    </p>
+                    <div className="grid grid-cols-8 gap-2">
+                      {emojis.map((emoji) => (
+                        <button
+                          key={`${groupKey}-${emoji}`}
+                          type="button"
+                          onClick={() => handleEmojiClick(emoji)}
+                          className="rounded bg-gray-600/60 p-2 text-lg hover:bg-gray-500"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-300">No emoji found</p>
+              )}
             </div>
           </motion.div>
         )}
@@ -241,6 +284,7 @@ const MessageComposer = memo(({
           {/* Emoji button */}
           {showEmojiPicker && (
             <button
+              type="button"
               onClick={() => setShowEmojis(!showEmojis)}
               disabled={disabled || isLoading || isRecording}
               className="absolute bottom-3 right-3 p-1 text-gray-400 hover:text-white transition-colors disabled:opacity-50"

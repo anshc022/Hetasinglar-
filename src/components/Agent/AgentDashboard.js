@@ -805,7 +805,8 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               const unreadCount = chat.unreadCount || 0;
               
               const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
-              const userPresence = getUserPresence(chat.customerId?._id);
+              const presenceKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+              const userPresence = getUserPresence(presenceKey);
               const assignedAgent = chat.assignedAgent || ((chat.agentId && typeof chat.agentId === 'object' && (chat.agentId.name || chat.agentId.agentId)) ? {
                 _id: chat.agentId._id || chat.agentId.id || null,
                 name: chat.agentId.name,
@@ -1210,13 +1211,48 @@ const AgentDashboard = () => {
     const reminderActive = !!chat.reminderActive;
     const baseChatType = chat.chatType || (chat.isInPanicRoom ? 'panic' : (unreadCount > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle')));
 
+    const customerProfile = (chat.customerId && typeof chat.customerId === 'object' && chat.customerId._id)
+      ? chat.customerId
+      : (chat.customerProfile && chat.customerProfile._id ? chat.customerProfile : null);
+
+    let customerObjectId = customerProfile?._id || chat.customerObjectId || null;
+    if (!customerObjectId && typeof chat.customerId === 'string') {
+      customerObjectId = chat.customerId;
+    }
+
+    const escortProfile = (chat.escortId && typeof chat.escortId === 'object' && chat.escortId._id)
+      ? chat.escortId
+      : (chat.escortProfile && chat.escortProfile._id ? chat.escortProfile : null);
+
+    let escortObjectId = escortProfile?._id || chat.escortObjectId || null;
+    if (!escortObjectId && typeof chat.escortId === 'string') {
+      escortObjectId = chat.escortId;
+    }
+
+    const presence = chat.presence || {
+      isOnline: !!chat.isUserActive,
+      status: chat.isUserActive ? 'online' : 'offline',
+      lastSeen: chat.lastActive || null
+    };
+
+    const lastActive = presence.lastSeen || chat.lastActive || null;
+
     return {
       ...chat,
       unreadCount,
       reminderActive,
       reminderCount: chat.reminderCount || 0,
       chatType: baseChatType,
-      moderators: Array.isArray(chat.moderators) ? chat.moderators : []
+      moderators: Array.isArray(chat.moderators) ? chat.moderators : [],
+      customerId: customerProfile || (customerObjectId ? { _id: customerObjectId } : chat.customerId),
+      customerProfile: customerProfile || chat.customerProfile || null,
+      customerObjectId: customerObjectId ? customerObjectId.toString() : null,
+      escortId: escortProfile || (escortObjectId ? { _id: escortObjectId } : chat.escortId),
+      escortProfile: escortProfile || chat.escortProfile || null,
+      escortObjectId: escortObjectId ? escortObjectId.toString() : null,
+      presence,
+      isUserActive: presence.isOnline,
+      lastActive
     };
   }, []);
   
@@ -1517,10 +1553,20 @@ const AgentDashboard = () => {
         // Update chat list to reflect user online status
         setChats(prevChats => {
           return prevChats.map(chat => {
-            if (chat.customerId?._id.toString() === data.userId) {
+            const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+            if (customerKey && customerKey.toString() === data.userId) {
+              const isOnline = data.status === 'online';
+              const updatedPresence = {
+                ...(chat.presence || {}),
+                isOnline,
+                status: data.status,
+                lastSeen: data.timestamp
+              };
               return {
                 ...chat,
-                isUserActive: data.status === 'online'
+                isUserActive: isOnline,
+                presence: updatedPresence,
+                lastActive: data.timestamp || chat.lastActive
               };
             }
             return chat;
@@ -1538,6 +1584,27 @@ const AgentDashboard = () => {
             lastSeen: data.timestamp
           });
           return newPresence;
+        });
+
+        setChats(prevChats => {
+          return prevChats.map(chat => {
+            const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+            if (customerKey && customerKey.toString() === data.userId) {
+              const updatedPresence = {
+                ...(chat.presence || {}),
+                isOnline: true,
+                status: 'online',
+                lastSeen: data.timestamp
+              };
+              return {
+                ...chat,
+                isUserActive: true,
+                presence: updatedPresence,
+                lastActive: data.timestamp || chat.lastActive
+              };
+            }
+            return chat;
+          });
         });
       }
     };
@@ -1593,8 +1660,26 @@ const AgentDashboard = () => {
             sentMessages: cachedDashboard.agentStats.totalMessagesSent || 0,
             onlineMembers: cachedDashboard.onlineCustomers || 0
           });
-          setChats(Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : []);
+          const normalizedCachedQueue = Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : [];
+          setChats(normalizedCachedQueue);
           setMyEscorts(cachedEscorts);
+
+          const cachedPresence = new Map();
+          normalizedCachedQueue.forEach(chat => {
+            const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+            if (customerKey) {
+              const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+              const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
+              cachedPresence.set(customerKey.toString(), {
+                isOnline,
+                lastSeen: lastSeenSource,
+                status: chat.presence?.status || (isOnline ? 'online' : 'offline')
+              });
+            }
+          });
+          if (cachedPresence.size) {
+            setUserPresence(cachedPresence);
+          }
           
           setLoading(false); // Show UI immediately with cached data
         }
@@ -1628,12 +1713,14 @@ const AgentDashboard = () => {
         // Initialize user presence from initial data
         const presenceMap = new Map();
         normalizedLiveQueue.forEach(chat => {
-          if (chat.customerId?._id) {
-            const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-            presenceMap.set(chat.customerId._id.toString(), {
-              isOnline: chat.isUserActive || false,
+          const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+          if (customerKey) {
+            const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
+            const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+            presenceMap.set(customerKey.toString(), {
+              isOnline,
               lastSeen: lastSeenSource,
-              status: chat.isUserActive ? 'online' : 'offline'
+              status: chat.presence?.status || (isOnline ? 'online' : 'offline')
             });
           }
         });
@@ -1659,12 +1746,14 @@ const AgentDashboard = () => {
         // Presence map
         const presenceMap = new Map();
         normalized.forEach(chat => {
-          if (chat.customerId?._id) {
-            const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-            presenceMap.set(chat.customerId._id.toString(), {
-              isOnline: chat.isUserActive || false,
+          const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+          if (customerKey) {
+            const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
+            const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+            presenceMap.set(customerKey.toString(), {
+              isOnline,
               lastSeen: lastSeenSource,
-              status: chat.isUserActive ? 'online' : 'offline'
+              status: chat.presence?.status || (isOnline ? 'online' : 'offline')
             });
           }
         });
@@ -1827,6 +1916,7 @@ const AgentDashboard = () => {
         agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
       ]);
       const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+      const normalizedQueue = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
 
       // Update stats
       setStats({
@@ -1836,7 +1926,7 @@ const AgentDashboard = () => {
       });
 
       // Update chats
-      setChats(liveQueue);
+      setChats(normalizedQueue);
       setMyEscorts(escortData);
 
       // Update panic room count
@@ -1844,13 +1934,15 @@ const AgentDashboard = () => {
 
       // Update user presence from fresh data
       const presenceMap = new Map();
-      liveQueue.forEach(chat => {
-        if (chat.customerId?._id) {
-          const lastSeenSource = chat.lastActive || chat.customerId?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-          presenceMap.set(chat.customerId._id.toString(), {
-            isOnline: chat.isUserActive || false,
+      normalizedQueue.forEach(chat => {
+        const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+        if (customerKey) {
+          const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
+          const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+          presenceMap.set(customerKey.toString(), {
+            isOnline,
             lastSeen: lastSeenSource,
-            status: chat.isUserActive ? 'online' : 'offline'
+            status: chat.presence?.status || (isOnline ? 'online' : 'offline')
           });
         }
       });

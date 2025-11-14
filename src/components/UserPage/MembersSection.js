@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FiMessageSquare } from 'react-icons/fi';
+import { FiMessageSquare, FiArrowLeft } from 'react-icons/fi';
 import { escorts } from '../../services/api';
 import { likeService } from '../../services/likeService';
 import { useAuth } from '../context/AuthContext';
@@ -21,23 +21,50 @@ const safeParseInt = (value) => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-// Profile Detail Modal Component extracted for clarity
-const ProfileModal = ({ member, isOpen, onClose }) => {
+// Full-page member detail view
+export const MemberDetailsView = ({ member, onBack, onStartChat }) => {
   const { t } = useSwedishTranslation();
 
-  if (!isOpen || !member) {
-    return null;
+  if (!member) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-sm font-medium text-rose-500 hover:text-rose-600"
+        >
+          <FiArrowLeft className="w-4 h-4" />
+          {t('backToMembers') || 'Back to members'}
+        </button>
+        <div className="mt-6 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow">
+          <p className="text-gray-700 dark:text-gray-300">{t('noMemberSelected') || 'No member selected.'}</p>
+        </div>
+      </div>
+    );
   }
 
   const age = member.dateOfBirth
     ? new Date().getFullYear() - new Date(member.dateOfBirth).getFullYear()
     : null;
 
+  const handleStartChat = () => {
+    if (typeof onStartChat === 'function') {
+      onStartChat(member);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="relative">
-          <div className="aspect-[4/3] bg-gradient-to-br from-pink-100 to-rose-100 dark:from-gray-700 dark:to-gray-800 overflow-hidden rounded-t-2xl">
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-2 text-sm font-medium text-rose-500 hover:text-rose-600 mb-6"
+      >
+        <FiArrowLeft className="w-4 h-4" />
+        {t('backToMembers') || 'Back to members'}
+      </button>
+
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl overflow-hidden border border-rose-100/60 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          <div className="relative aspect-[4/3] md:aspect-auto md:h-full bg-gradient-to-br from-pink-100 to-rose-100 dark:from-gray-700 dark:to-gray-800">
             {member.profileImage ? (
               <img
                 src={member.profileImage}
@@ -45,16 +72,14 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100/70 via-rose-50/60 to-purple-100/70 dark:from-gray-700 dark:to-gray-600 text-pink-400 dark:text-pink-300 text-6xl font-bold">
+              <div className="w-full h-full flex items-center justify-center text-6xl font-bold text-pink-400 dark:text-pink-300">
                 {(member.firstName || member.username)?.charAt(0).toUpperCase()}
               </div>
             )}
-          </div>
 
-          {member.status && (
-            <div className="absolute top-4 left-4">
+            {member.status && (
               <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                className={`absolute top-4 left-4 px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${
                   member.status === 'active'
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                     : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
@@ -62,146 +87,136 @@ const ProfileModal = ({ member, isOpen, onClose }) => {
               >
                 {member.status.charAt(0).toUpperCase() + member.status.slice(1)}
               </span>
-            </div>
-          )}
-
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div className="text-center border-b border-gray-200 dark:border-gray-600 pb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              {member.firstName || member.username}
-            </h2>
-            {age && (
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">
-                {age} {t('yearsOld')}
-              </p>
-            )}
-            {(member.country || member.region) && (
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>
-                  {member.country && member.region
-                    ? `${member.region}, ${member.country}`
-                    : member.country || member.region}
-                </span>
-              </div>
             )}
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-              {t('personalInformation')}
-            </h3>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {member.relationshipStatus && (
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">{t('relationship')}</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        member.relationshipStatus === 'Single'
-                          ? 'bg-green-400'
-                          : member.relationshipStatus === 'In Relationship'
-                          ? 'bg-yellow-400'
-                          : member.relationshipStatus === 'Married'
-                          ? 'bg-red-400'
-                          : 'bg-gray-400'
-                      }`}
-                    ></div>
-                    <span className="text-gray-900 dark:text-gray-100">
-                      {member.relationshipStatus}
-                    </span>
-                  </div>
-                </div>
+          <div className="p-6 sm:p-8 lg:p-10 space-y-8">
+            <header className="border-b border-gray-200 dark:border-gray-700 pb-6">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {member.firstName || member.username}
+              </h1>
+              {age && (
+                <p className="text-lg text-gray-600 dark:text-gray-400 mt-2">
+                  {age} {t('yearsOld')}
+                </p>
               )}
-
-              {member.gender && (
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">{t('gender')}</span>
-                  <span className="text-gray-900 dark:text-gray-100 capitalize">{member.gender}</span>
-                </div>
-              )}
-
-              {member.profession && (
-                <div className="col-span-2">
-                  <span className="text-gray-500 dark:text-gray-400 block">{t('profession')}</span>
-                  <span className="text-gray-900 dark:text-gray-100">{member.profession}</span>
-                </div>
-              )}
-
-              {member.height && (
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">{t('height')}</span>
-                  <span className="text-gray-900 dark:text-gray-100">{member.height} cm</span>
-                </div>
-              )}
-
-              {member.serialNumber && (
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400 block">{t('id')}</span>
-                  <span className="text-gray-900 dark:text-gray-100 font-mono text-xs">#{member.serialNumber}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {member.interests && member.interests.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-                {t('interests')}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {member.interests.map((interest, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full text-sm font-medium"
-                  >
-                    {interest}
+              {(member.country || member.region) && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-3">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>
+                    {member.country && member.region
+                      ? `${member.region}, ${member.country}`
+                      : member.country || member.region}
                   </span>
-                ))}
+                </div>
+              )}
+            </header>
+
+            <section className="space-y-5">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {t('personalInformation')}
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                {member.relationshipStatus && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block mb-1">{t('relationship')}</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          member.relationshipStatus === 'Single'
+                            ? 'bg-green-400'
+                            : member.relationshipStatus === 'In Relationship'
+                            ? 'bg-yellow-400'
+                            : member.relationshipStatus === 'Married'
+                            ? 'bg-red-400'
+                            : 'bg-gray-400'
+                        }`}
+                      ></span>
+                      <span className="text-gray-900 dark:text-gray-100">
+                        {member.relationshipStatus}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {member.gender && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block mb-1">{t('gender')}</span>
+                    <span className="text-gray-900 dark:text-gray-100 capitalize">{member.gender}</span>
+                  </div>
+                )}
+
+                {member.profession && (
+                  <div className="sm:col-span-2">
+                    <span className="text-gray-500 dark:text-gray-400 block mb-1">{t('profession')}</span>
+                    <span className="text-gray-900 dark:text-gray-100">{member.profession}</span>
+                  </div>
+                )}
+
+                {member.height && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block mb-1">{t('height')}</span>
+                    <span className="text-gray-900 dark:text-gray-100">{member.height} cm</span>
+                  </div>
+                )}
+
+                {member.serialNumber && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block mb-1">{t('id')}</span>
+                    <span className="text-gray-900 dark:text-gray-100 font-mono text-xs">#{member.serialNumber}</span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            </section>
 
-          {member.description && (
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 pb-2">
-                {t('aboutMe')}
-              </h3>
-              <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line">
-                {member.description}
-              </p>
-            </div>
-          )}
+            {member.interests && member.interests.length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('interests')}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {member.interests.map((interest, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full text-sm font-medium"
+                    >
+                      {interest}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
 
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-600">
-            <button
-              onClick={() => {
-                onClose();
-              }}
-              className="flex-1 px-4 py-2 bg-rose-500 hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700 text-white rounded-lg font-medium transition-colors"
-            >
-              {t('startChat')}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-            >
-              {t('close')}
-            </button>
+            {member.description && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('aboutMe')}
+                </h2>
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                  {member.description}
+                </p>
+              </section>
+            )}
+
+            <div className="pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleStartChat}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-semibold transition-colors"
+              >
+                <FiMessageSquare className="w-4 h-4" />
+                {t('startChat')}
+              </button>
+              <button
+                onClick={onBack}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                {t('close')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -218,7 +233,6 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
   const [likedProfiles, setLikedProfiles] = useState(new Set());
   const [likeLoading, setLikeLoading] = useState(new Set());
   const [selectedProfile, setSelectedProfile] = useState(null);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [filters, setFilters] = useState({
     lookingFor: '',
     relationStatus: '',
@@ -387,14 +401,46 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
     }
   };
 
+  const startChatWithMember = useCallback((member) => {
+    if (!member) {
+      return;
+    }
+
+    const escortId = member._id || member.id;
+    if (!escortId) {
+      console.warn('Missing escort id for chat start');
+      return;
+    }
+
+    const prefillData = {
+      escortName: member.firstName || member.username || 'Member',
+      profileImage: member.profileImage
+    };
+
+    setSelectedProfile(null);
+    setActiveSection('messages');
+    setSelectedChat({
+      escortId,
+      escortName: prefillData.escortName,
+      profileImage: prefillData.profileImage,
+      messages: [],
+      isOnline: true,
+      time: new Date().toLocaleString()
+    });
+    if (typeof handleStartChat === 'function') {
+      handleStartChat(escortId, prefillData);
+    }
+  }, [handleStartChat, setActiveSection, setSelectedChat, setSelectedProfile]);
+
   const handleProfileClick = (member) => {
     setSelectedProfile(member);
-    setShowProfileModal(true);
   };
 
-  const handleCloseProfileModal = () => {
-    setShowProfileModal(false);
+  const handleBackToMembers = () => {
     setSelectedProfile(null);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const filteredMembers = useMemo(() => {
@@ -585,6 +631,16 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
           Retry
         </button>
       </div>
+    );
+  }
+
+  if (selectedProfile) {
+    return (
+      <MemberDetailsView
+        member={selectedProfile}
+        onBack={handleBackToMembers}
+        onStartChat={startChatWithMember}
+      />
     );
   }
 
@@ -908,19 +964,7 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveSection('messages');
-                            setSelectedChat({
-                              escortId: member._id,
-                              escortName: member.firstName || member.username || 'Member',
-                              profileImage: member.profileImage,
-                              messages: [],
-                              isOnline: true,
-                              time: new Date().toLocaleString()
-                            });
-                            handleStartChat(member._id, {
-                              escortName: member.firstName || member.username || 'Member',
-                              profileImage: member.profileImage
-                            });
+                            startChatWithMember(member);
                           }}
                           className="w-11 h-11 rounded-full flex items-center justify-center bg-white/85 text-rose-500 border border-rose-200 shadow-sm hover:bg-rose-50 transition-colors duration-200"
                           title="Message"
@@ -1091,7 +1135,6 @@ const MembersSection = ({ setActiveSection, setSelectedChat, handleStartChat }) 
         </div>
       )}
 
-      <ProfileModal member={selectedProfile} isOpen={showProfileModal} onClose={handleCloseProfileModal} />
     </div>
   );
 };

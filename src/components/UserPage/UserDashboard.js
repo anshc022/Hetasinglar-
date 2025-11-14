@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { FiMessageSquare } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { FiMessageSquare, FiSmile, FiImage } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { escorts, chats, users as userApi } from '../../services/api';
@@ -13,6 +13,8 @@ import { IconWarning, IconUsers, IconHeartSpark, IconGlobe } from './UserIcons';
 import config from '../../config/environment';
 import ThemeToggle from '../ui/ThemeToggle';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
+import { emojiGroups, emojiGroupLabels, filterEmojiGroups } from '../../utils/emojiCollections';
+import { compressImage, shouldCompressImage } from '../../utils/imageCompression';
 
 const sectionTransition = { duration: 0.32, ease: [0.4, 0, 0.2, 1] };
 
@@ -93,36 +95,64 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState(null);
   const [userCoins, setUserCoins] = useState(0);
-  const messagesEndRef = React.useRef(null);
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const { token } = useAuth();
+  const [isSendingImage, setIsSendingImage] = useState(false);
+  const [imageError, setImageError] = useState(null);
+  const [showEmojis, setShowEmojis] = useState(false);
+  const [emojiSearch, setEmojiSearch] = useState('');
+  const filteredEmojiEntries = useMemo(
+    () => filterEmojiGroups(emojiGroups, emojiSearch),
+    [emojiSearch]
+  );
+  const hasEmojiResults = filteredEmojiEntries.length > 0;
   
   // State for message editing
   const [editingMessage, setEditingMessage] = useState(null);
   const [editMessageText, setEditMessageText] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
 
-  useEffect(() => {
-    // Fetch user's coin balance when component mounts
-    const fetchCoins = async () => {
-      try {
-        const response = await axios.get(`${config.API_URL}/subscription/coins/balance`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserCoins(response.data.balance);
-      } catch (err) {
-        console.error('Error fetching coins:', err);
-      }
-    };
-    fetchCoins();
+  const refreshCoinBalance = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${config.API_URL}/subscription/coins/balance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserCoins(response.data.balance);
+    } catch (err) {
+      console.error('Error fetching coins:', err);
+    }
   }, [token]);
 
-  const scrollToBottom = React.useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    // Fetch user's coin balance when component mounts
+    refreshCoinBalance();
+  }, [refreshCoinBalance]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [selectedChat, scrollToBottom]);
+
+  useEffect(() => {
+    if (!showEmojis) {
+      setEmojiSearch('');
+    }
+  }, [showEmojis]);
+
+  useEffect(() => {
+    if (userCoins <= 0) {
+      setShowEmojis(false);
+    }
+  }, [userCoins]);
 
   useEffect(() => {
     if (!selectedChat?.id) return;
@@ -448,8 +478,32 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
     }
   };
 
+  const handleEmojiClick = useCallback((emoji) => {
+    setNewMessage((prev) => {
+      const textarea = textareaRef.current;
+      const cursor = textarea?.selectionStart ?? prev.length;
+      const updated = prev.slice(0, cursor) + emoji + prev.slice(cursor);
+
+      setTimeout(() => {
+        if (textarea) {
+          const nextCursor = cursor + emoji.length;
+          textarea.focus();
+          textarea.setSelectionRange(nextCursor, nextCursor);
+        }
+      }, 0);
+
+      return updated;
+    });
+    setShowEmojis(false);
+  }, [setShowEmojis, textareaRef]);
+
   const handleSend = async () => {
     if (!newMessage.trim()) return;
+
+    if (!selectedChat?.id) {
+      setError('Please select a chat before sending a message.');
+      return;
+    }
 
     try {
       if (userCoins <= 0) {
@@ -457,15 +511,20 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
         return;
       }
 
-      const messageText = newMessage.trim();
-      setNewMessage('');
-      setError(null);
+        const messageText = newMessage.trim();
+      const now = new Date();
+      const timestampLabel = now.toLocaleString();
+      const chatId = selectedChat.id;
+        setNewMessage('');
+        setShowEmojis(false);
+        setError(null);
+        setImageError(null);
 
       // ⚡ OPTIMISTIC UPDATE: Add message immediately for instant feel
       const clientId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const optimisticMessage = {
         text: messageText,
-        time: new Date().toLocaleString(),
+        time: timestampLabel,
         isSent: true,
         status: 'sending', // Show as sending until confirmed
         sender: 'customer',
@@ -477,46 +536,104 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       };
 
       // Add optimistic message to UI immediately
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: [...(prev?.messages || []), optimisticMessage],
-        lastMessage: messageText,
-        time: new Date().toLocaleString()
-      }));
+      setSelectedChat(prev => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), optimisticMessage],
+          lastMessage: messageText,
+          time: timestampLabel
+        };
+      });
+
+      if (onChatsUpdate) {
+        const optimisticMessageForList = { ...optimisticMessage };
+        onChatsUpdate(prevChats => prevChats.map(chat => {
+          if (chat.id !== chatId) {
+            return chat;
+          }
+          return {
+            ...chat,
+            messages: [...(chat.messages || []), optimisticMessageForList],
+            lastMessage: messageText,
+            time: timestampLabel
+          };
+        }));
+      }
 
       scrollToBottom();
 
       // Send the message via REST API (now in background)
       try {
-        await chats.sendMessage(selectedChat.id, messageText, { clientId });
+        await chats.sendMessage(chatId, messageText, { clientId, messageType: 'text' });
         
         // ✅ Message sent successfully - update status
         // Keep isOptimistic=true until WebSocket echo arrives, so we can replace it instead of duplicating
-        setSelectedChat(prev => ({
-          ...prev,
-          messages: prev.messages.map(msg => 
-            msg.isOptimistic && msg.text === messageText 
-              ? { ...msg, status: 'sent' }
-              : msg
-          )
-        }));
-        
-        // Update coin balance after sending
-        const coinResponse = await axios.get(`${config.API_URL}/subscription/coins/balance`, { 
-          headers: { Authorization: `Bearer ${token}` } 
+        setSelectedChat(prev => {
+          if (!prev) {
+            return prev;
+          }
+          return {
+            ...prev,
+            messages: (prev.messages || []).map(msg => 
+              msg.isOptimistic && msg.clientId === clientId 
+                ? { ...msg, status: 'sent' }
+                : msg
+            )
+          };
         });
-        setUserCoins(coinResponse.data.balance);
+
+        if (onChatsUpdate) {
+          onChatsUpdate(prevChats => prevChats.map(chat => {
+            if (chat.id !== chatId) {
+              return chat;
+            }
+            return {
+              ...chat,
+              messages: (chat.messages || []).map(msg =>
+                msg.isOptimistic && msg.clientId === clientId
+                  ? { ...msg, status: 'sent' }
+                  : msg
+              )
+            };
+          }));
+        }
+
+        await refreshCoinBalance();
         
       } catch (sendError) {
         // ❌ Message failed - mark as failed and show retry option
-        setSelectedChat(prev => ({
-          ...prev,
-          messages: prev.messages.map(msg => 
-            msg.isOptimistic && msg.text === messageText 
-              ? { ...msg, status: 'failed', isOptimistic: false }
-              : msg
-          )
-        }));
+        setSelectedChat(prev => {
+          if (!prev) {
+            return prev;
+          }
+          return {
+            ...prev,
+            messages: (prev.messages || []).map(msg => 
+              msg.isOptimistic && msg.clientId === clientId 
+                ? { ...msg, status: 'failed', isOptimistic: false }
+                : msg
+            )
+          };
+        });
+
+        if (onChatsUpdate) {
+          onChatsUpdate(prevChats => prevChats.map(chat => {
+            if (chat.id !== chatId) {
+              return chat;
+            }
+            return {
+              ...chat,
+              messages: (chat.messages || []).map(msg =>
+                msg.isOptimistic && msg.clientId === clientId
+                  ? { ...msg, status: 'failed', isOptimistic: false }
+                  : msg
+              )
+            };
+          }));
+        }
         
         throw sendError; // Re-throw to be caught by outer catch
       }
@@ -531,6 +648,225 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       }
     }
   };
+
+    const handleImageButtonClick = () => {
+      if (userCoins <= 0) {
+        const message = 'You have no coins remaining. Please purchase coins to continue chatting.';
+        setError(message);
+        setImageError(message);
+        return;
+      }
+
+      setImageError(null);
+      fileInputRef.current?.click();
+    };
+
+    const readFileAsDataUrl = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+      });
+    };
+
+    const extractMimeType = (dataUrl, fallback = 'image/jpeg') => {
+      if (typeof dataUrl !== 'string') {
+        return fallback;
+      }
+      const match = dataUrl.match(/^data:(.*?);/);
+      return match ? match[1] : fallback;
+    };
+
+    const handleImageChange = async (event) => {
+      const file = event.target.files?.[0];
+      if (event.target) {
+        event.target.value = '';
+      }
+
+      if (!file) {
+        return;
+      }
+
+      if (!selectedChat?.id) {
+        setImageError('Please select a chat before sending an image.');
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        setImageError('Only image files are supported.');
+        return;
+      }
+
+      const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setImageError('Image is too large (max 5MB).');
+        return;
+      }
+
+      if (userCoins <= 0) {
+        const message = 'You have no coins remaining. Please purchase coins to continue chatting.';
+        setError(message);
+        setImageError(message);
+        return;
+      }
+
+      setIsSendingImage(true);
+      setImageError(null);
+      setError(null);
+
+      try {
+        let dataUrl;
+        let finalMimeType = file.type || 'image/jpeg';
+        let filename = file.name || `image-${Date.now()}.jpg`;
+        const chatId = selectedChat.id;
+        const now = new Date();
+        const timestampLabel = now.toLocaleString();
+
+        if (shouldCompressImage(file)) {
+          const compressionResult = await compressImage(file);
+          dataUrl = compressionResult.dataUrl;
+          finalMimeType = extractMimeType(dataUrl, finalMimeType);
+          if (finalMimeType === 'image/jpeg' && !/\.jpe?g$/i.test(filename)) {
+            const baseName = filename.replace(/\.[^/.]+$/, '') || 'image';
+            filename = `${baseName}-compressed.jpg`;
+          }
+        } else {
+          dataUrl = await readFileAsDataUrl(file);
+          finalMimeType = extractMimeType(dataUrl, finalMimeType);
+        }
+
+        const clientId = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+
+        const optimisticImageMessage = {
+          text: '',
+          time: timestampLabel,
+          isSent: true,
+          status: 'sending',
+          sender: 'customer',
+          messageType: 'image',
+          imageData: dataUrl,
+          mimeType: finalMimeType,
+          filename,
+          readByAgent: false,
+          readByCustomer: true,
+          isOptimistic: true,
+          clientId
+        };
+
+        setSelectedChat(prev => {
+          if (!prev) {
+            return prev;
+          }
+          return {
+            ...prev,
+            messages: [...(prev.messages || []), optimisticImageMessage],
+            lastMessage: '📷 Image',
+            time: timestampLabel
+          };
+        });
+
+        if (onChatsUpdate) {
+          const optimisticMessageForList = { ...optimisticImageMessage };
+          onChatsUpdate(prevChats => prevChats.map(chat => {
+            if (chat.id !== chatId) {
+              return chat;
+            }
+            return {
+              ...chat,
+              messages: [...(chat.messages || []), optimisticMessageForList],
+              lastMessage: '📷 Image',
+              time: timestampLabel
+            };
+          }));
+        }
+
+        scrollToBottom();
+
+        try {
+          await chats.sendMessage(chatId, '', {
+            clientId,
+            messageType: 'image',
+            imageData: dataUrl,
+            mimeType: finalMimeType,
+            filename
+          });
+
+          setSelectedChat(prev => {
+            if (!prev) {
+              return prev;
+            }
+            return {
+              ...prev,
+              messages: prev.messages.map(msg =>
+                msg.isOptimistic && msg.clientId === clientId
+                  ? { ...msg, status: 'sent' }
+                  : msg
+              )
+            };
+          });
+
+          if (onChatsUpdate) {
+            onChatsUpdate(prevChats => prevChats.map(chat => {
+              if (chat.id !== chatId) {
+                return chat;
+              }
+              return {
+                ...chat,
+                messages: (chat.messages || []).map(msg =>
+                  msg.isOptimistic && msg.clientId === clientId
+                    ? { ...msg, status: 'sent' }
+                    : msg
+                )
+              };
+            }));
+          }
+
+          await refreshCoinBalance();
+        } catch (sendError) {
+          setSelectedChat(prev => {
+            if (!prev) {
+              return prev;
+            }
+            return {
+              ...prev,
+              messages: prev.messages.map(msg =>
+                msg.isOptimistic && msg.clientId === clientId
+                  ? { ...msg, status: 'failed', isOptimistic: false }
+                  : msg
+              )
+            };
+          });
+        
+          if (onChatsUpdate) {
+            onChatsUpdate(prevChats => prevChats.map(chat => {
+              if (chat.id !== chatId) {
+                return chat;
+              }
+              return {
+                ...chat,
+                messages: (chat.messages || []).map(msg =>
+                  msg.isOptimistic && msg.clientId === clientId
+                    ? { ...msg, status: 'failed', isOptimistic: false }
+                    : msg
+                )
+              };
+            }));
+          }
+          throw sendError;
+        }
+
+      } catch (uploadError) {
+        console.error('Failed to send image:', uploadError);
+        const message = uploadError.response?.data?.message || uploadError.message || 'Failed to send image';
+        setImageError(message);
+      } finally {
+        setIsSendingImage(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -755,36 +1091,151 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       {/* Chat Input */}
   <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
         {userCoins <= 5 && userCoins > 0 && (
-          <div className="mb-2 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 p-2 rounded flex items-center gap-1">
+          <div className="mb-2 flex items-center gap-1 rounded bg-yellow-50 p-2 text-sm text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400">
             <IconWarning className="w-4 h-4" /> Warning: You have only {userCoins} coins remaining
           </div>
         )}
+
+        <AnimatePresence>
+          {showEmojis && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mb-3 rounded-2xl border border-rose-100/70 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-gray-700 dark:bg-gray-900/95"
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={emojiSearch}
+                  onChange={(event) => setEmojiSearch(event.target.value)}
+                  placeholder="Search emoji"
+                  className="flex-1 rounded-md border border-rose-200/70 bg-white px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-500 dark:focus:border-rose-500 dark:focus:ring-rose-500/40"
+                />
+                {emojiSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setEmojiSearch('')}
+                    className="text-xs font-medium text-rose-500 hover:text-rose-600 dark:text-rose-300 dark:hover:text-rose-200"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                {hasEmojiResults ? (
+                  filteredEmojiEntries.map(([groupKey, emojis]) => (
+                    <div key={groupKey}>
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-400 dark:text-rose-300/80">
+                        {emojiGroupLabels[groupKey] || groupKey}
+                      </p>
+                      <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10">
+                        {emojis.map((emoji) => (
+                          <button
+                            key={`${groupKey}-${emoji}`}
+                            type="button"
+                            onClick={() => handleEmojiClick(emoji)}
+                            className="rounded-xl bg-white/80 p-2 text-lg shadow-sm transition-colors hover:bg-rose-50 dark:bg-gray-800/70 dark:hover:bg-gray-700"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No emoji found</p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleImageChange}
+          className="hidden"
+        />
+
         <div className="flex items-end gap-2">
-          <textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              userCoins > 0 ? "Type a message..." : "You have no coins remaining. Please purchase coins to continue chatting."
-            }
-            disabled={userCoins <= 0}
-            className="w-full px-4 py-3 resize-none bg-transparent focus:outline-none max-h-32 min-h-[2.5rem] disabled:bg-gray-100 disabled:cursor-not-allowed"
-            rows={1}
-          />
+          <button
+            type="button"
+            onClick={handleImageButtonClick}
+            disabled={userCoins <= 0 || isSendingImage}
+            className={`p-3 rounded-full transition-colors ${
+              userCoins > 0 && !isSendingImage
+                ? 'bg-white/80 text-rose-500 hover:bg-rose-50 shadow-sm dark:bg-gray-900/70 dark:text-rose-300 dark:hover:bg-gray-800'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+            }`}
+            aria-label={isSendingImage ? 'Uploading image' : 'Send image'}
+          >
+            <FiImage className={`h-5 w-5 ${isSendingImage ? 'animate-pulse' : ''}`} />
+          </button>
+          <div className="relative flex-1">
+            <textarea
+              ref={textareaRef}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                userCoins > 0 ? "Type a message..." : "You have no coins remaining. Please purchase coins to continue chatting."
+              }
+              disabled={userCoins <= 0}
+              className="w-full max-h-32 min-h-[2.5rem] resize-none rounded-xl border border-transparent bg-white/80 px-4 py-3 pr-12 text-gray-800 shadow-sm transition focus:border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed dark:bg-gray-900/70 dark:text-gray-100 dark:focus:border-rose-500 dark:focus:ring-rose-500/40"
+              rows={1}
+            />
+            <button
+              type="button"
+              onClick={() => setShowEmojis((prev) => !prev)}
+              disabled={userCoins <= 0}
+              className={`absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full text-rose-500 transition-colors ${
+                userCoins > 0
+                  ? 'hover:bg-rose-50 dark:hover:bg-gray-800'
+                  : 'cursor-not-allowed text-gray-400 dark:text-gray-600'
+              }`}
+              aria-label="Add emoji"
+            >
+              <FiSmile className="h-5 w-5" />
+            </button>
+          </div>
           <button
             onClick={handleSend}
             disabled={!newMessage.trim() || userCoins <= 0}
             className={`p-3 rounded-full ${
               newMessage.trim() && userCoins > 0
-                ? 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700' 
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                ? 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-600 dark:hover:bg-rose-700'
+                : 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
             }`}
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
         </div>
+
+        {(isSendingImage || imageError) && (
+          <div className="mt-2 space-y-1 text-sm">
+            {isSendingImage && (
+              <div className="flex items-center gap-2 text-rose-500 dark:text-rose-300">
+                <span className="h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
+                Uploading image...
+              </div>
+            )}
+            {imageError && (
+              <div className="flex items-center gap-2 text-red-500 dark:text-red-400">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 9v4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 17h.01" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.42 3.86a2 2 0 00-3.46 0z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {imageError}
+              </div>
+            )}
+          </div>
+        )}
+
         {userCoins <= 0 && (
           <div className="mt-2 text-center">
             <button 
@@ -1061,6 +1512,28 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
 
 const UserDashboard = () => {
   const { user, token, logout, setAuthData } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id && !user?._id) {
+      return;
+    }
+
+    const resolvedId = (user._id || user.id || '').toString();
+    if (!resolvedId) {
+      return;
+    }
+
+    websocketService.setUserId(resolvedId);
+    websocketService.connect();
+
+    return () => {
+      try {
+        websocketService.setCurrentChatId(null);
+      } catch (err) {
+        console.error('Failed to reset chat context on cleanup:', err);
+      }
+    };
+  }, [user?._id, user?.id]);
   const setAuthDataRef = useRef(setAuthData);
 
   useEffect(() => {
