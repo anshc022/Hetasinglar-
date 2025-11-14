@@ -14,6 +14,25 @@ import Notification from '../common/Notification';
 import ImageSelector from './ImageSelector';
 import config from '../../config/environment';
 
+// Utility function to calculate age from date of birth
+const calculateAge = (dateOfBirth) => {
+  if (!dateOfBirth) return 'N/A';
+  
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  
+  if (isNaN(birthDate.getTime())) return 'N/A';
+  
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+};
+
 // Add custom animations for sidebar sliding
 const styles = `
   @keyframes slideInLeft {
@@ -828,7 +847,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       username: customerInfo.username || fullChat.customerName || 'N/A',
       email: customerInfo.email || 'N/A',
       gender: customerInfo.gender || 'N/A',
-      age: customerInfo.age || 'N/A',
+      age: calculateAge(customerInfo.dateOfBirth) + ' years' || 'N/A',
       createdAt: customerInfo.createdAt || fullChat.createdAt || 'N/A',
       coins: customerInfo.coins?.balance || 0,
       memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A'
@@ -1164,7 +1183,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         username: selectedChat.customerId.username || 'N/A',
         email: selectedChat.customerId.email || 'N/A',
         gender: selectedChat.customerId.gender || 'N/A',
-        age: selectedChat.customerId.age || 'N/A',
+        age: calculateAge(selectedChat.customerId.dateOfBirth) + ' years' || 'N/A',
         memberSince: selectedChat.customerId.createdAt 
           ? new Date(selectedChat.customerId.createdAt).toLocaleDateString()
           : 'N/A',
@@ -2294,6 +2313,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
                     <span className="text-xs text-gray-400">Gender</span>
                     <span className="text-white text-xs">{selectedChat?.escortId?.gender || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                    <span className="text-xs text-gray-400">Age</span>
+                    <span className="text-white text-xs">{calculateAge(selectedChat?.escortId?.dateOfBirth)} years</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
                     <span className="text-xs text-gray-400">Location</span>
