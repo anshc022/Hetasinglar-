@@ -1963,7 +1963,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('agentToken');
-      const response = await fetch(`http://localhost:5000/api/logs/user/${log._id}`, {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/logs/user/${log._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
