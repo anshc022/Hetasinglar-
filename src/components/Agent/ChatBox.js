@@ -12,6 +12,7 @@ import LogsList from '../shared/LogsList';
 import { useLogApi } from '../../services/useLogApi';
 import Notification from '../common/Notification';
 import ImageSelector from './ImageSelector';
+import config from '../../config/environment';
 
 // Add custom animations for sidebar sliding
 const styles = `
@@ -1963,8 +1964,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('agentToken');
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${API_BASE_URL}/logs/user/${log._id}`, {
+      console.log('🔍 Delete log API URL:', `${config.API_URL}/logs/user/${log._id}`);
+      const response = await fetch(`${config.API_URL}/logs/user/${log._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
