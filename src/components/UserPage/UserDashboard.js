@@ -130,7 +130,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
     websocketService.setCurrentChatId(selectedChat.id);
     websocketService.connect();
 
-    // Mark messages as read after user has had time to see them
+    // Mark messages as read when user opens a chat
     const markAsRead = async () => {
       try {
         await chats.markMessagesAsRead(selectedChat.id);
@@ -171,8 +171,7 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
       }
     };
 
-    // Delay marking as read to allow customer to see the red dot and new messages
-    const readTimer = setTimeout(markAsRead, 2000); // 2 second delay
+    markAsRead();
 
     const messageUnsub = websocketService.onMessage((data) => {
       if (data.type === 'chat_message' && selectedChat?.id === data.chatId) {
@@ -268,7 +267,6 @@ const ChatBox = ({ selectedChat, setSelectedChat, setActiveSection, onBack, onCh
     });
 
     return () => {
-      clearTimeout(readTimer);
       messageUnsub();
       deletionUnsub();
       websocketService.disconnect();
@@ -1056,40 +1054,7 @@ const ChatSection = ({ selectedChat, setSelectedChat, setActiveSection, onChatsU
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <motion.div
-        className="fixed bottom-6 right-6 z-50"
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ delay: 1, type: "spring", stiffness: 200 }}
-      >
-        <motion.button
-          className="w-14 h-14 rounded-full shadow-2xl border border-pink-300/40 backdrop-blur-md flex items-center justify-center group"
-          style={{
-            background: 'linear-gradient(145deg, rgba(244,114,182,0.9) 0%, rgba(236,72,153,0.95) 100%)',
-            boxShadow: '0 8px 32px rgba(244, 114, 182, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-          }}
-          whileHover={{ 
-            scale: 1.1,
-            boxShadow: '0 12px 40px rgba(244, 114, 182, 0.6)',
-            rotate: 5
-          }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        >
-          <motion.svg 
-            className="w-6 h-6 text-white drop-shadow-sm" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-            whileHover={{ y: -2 }}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-          </motion.svg>
-        </motion.button>
-      </motion.div>
+
     </>
   );
 };
