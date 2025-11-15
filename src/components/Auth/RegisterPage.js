@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../../services/api';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
+import { SWEDISH_REGION_OPTIONS } from '../../constants/swedishRegions';
 import AuthLayout from './AuthLayout';
 import RecaptchaComponent from '../common/RecaptchaComponent';
 import './AuthStyles.css';
@@ -33,7 +34,13 @@ const RegisterPage = () => {
     confirmPassword: '',
     dateOfBirth: '',
     sex: '',
-    referral_code: ''
+    referral_code: '',
+    firstName: '',
+    lastName: '',
+    region: '',
+    description: '',
+    profilePhoto: '',
+    acceptPolicy: false
   });
 
   const [error, setError] = useState('');
@@ -43,6 +50,12 @@ const RegisterPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [recaptchaError, setRecaptchaError] = useState('');
+  const [photoPreview, setPhotoPreview] = useState('');
+
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+  };
 
 
   // Check for referral code in URL parameters
@@ -98,6 +111,42 @@ const RegisterPage = () => {
         return;
       }
 
+      if (!formData.firstName.trim()) {
+        setFieldErrors(prev => ({ ...prev, firstName: 'First name is required' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.lastName.trim()) {
+        setFieldErrors(prev => ({ ...prev, lastName: 'Last name is required' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.region) {
+        setFieldErrors(prev => ({ ...prev, region: 'Please select your region' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.description || formData.description.trim().length < 10) {
+        setFieldErrors(prev => ({ ...prev, description: 'Add a short description (min 10 characters)' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.profilePhoto) {
+        setFieldErrors(prev => ({ ...prev, profilePhoto: 'Please upload a profile photo' }));
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.acceptPolicy) {
+        setFieldErrors(prev => ({ ...prev, acceptPolicy: 'Please confirm you have read the policy' }));
+        setLoading(false);
+        return;
+      }
+
       // Validate referral code if provided
       if (formData.referral_code && formData.referral_code.trim()) {
         const code = formData.referral_code.trim();
@@ -125,7 +174,13 @@ const RegisterPage = () => {
         password: formData.password,
         dateOfBirth: formData.dateOfBirth,
         sex: formData.sex,
-        referral_code: formData.referral_code
+        referral_code: formData.referral_code,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        region: formData.region,
+        description: formData.description.trim(),
+        profilePhoto: formData.profilePhoto,
+        acceptPolicy: formData.acceptPolicy
       };
 
       const response = await auth.register(registerData);
@@ -167,7 +222,7 @@ const RegisterPage = () => {
   };
 
   const handleSexSelection = (sex) => {
-    setFormData({ ...formData, sex });
+    updateField('sex', sex);
   };
 
   const handleRecaptchaVerify = (token) => {
@@ -208,6 +263,43 @@ const RegisterPage = () => {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">First name</label>
+                <motion.input
+                  type="text"
+                  placeholder="Enter your first name"
+                  className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
+                    fieldErrors.firstName ? 'border-red-400' : 'border-white/30'
+                  } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
+                  value={formData.firstName}
+                  onChange={(e) => updateField('firstName', e.target.value)}
+                  whileFocus={{ scale: 1.02 }}
+                  required
+                />
+                {fieldErrors.firstName && (
+                  <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Last name</label>
+                <motion.input
+                  type="text"
+                  placeholder="Enter your last name"
+                  className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
+                    fieldErrors.lastName ? 'border-red-400' : 'border-white/30'
+                  } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
+                  value={formData.lastName}
+                  onChange={(e) => updateField('lastName', e.target.value)}
+                  whileFocus={{ scale: 1.02 }}
+                  required
+                />
+                {fieldErrors.lastName && (
+                  <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{t('username')}</label>
                 <motion.input
                   type="text"
@@ -216,7 +308,7 @@ const RegisterPage = () => {
                     fieldErrors.username ? 'border-red-400' : 'border-white/30'
                   } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
                   value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  onChange={(e) => updateField('username', e.target.value)}
                   whileFocus={{ scale: 1.02 }}
                   required
                 />
@@ -234,7 +326,7 @@ const RegisterPage = () => {
                     fieldErrors.email ? 'border-red-400' : 'border-white/30'
                   } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => updateField('email', e.target.value)}
                   whileFocus={{ scale: 1.02 }}
                   required
                 />
@@ -252,12 +344,33 @@ const RegisterPage = () => {
                   fieldErrors.dateOfBirth ? 'border-red-400' : 'border-white/30'
                 } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 text-gray-600 transition-all hover-lift`}
                 value={formData.dateOfBirth}
-                onChange={(e) => setFormData({...formData, dateOfBirth: e.target.value})}
+                onChange={(e) => updateField('dateOfBirth', e.target.value)}
                 whileFocus={{ scale: 1.02 }}
                 required
               />
               {fieldErrors.dateOfBirth && (
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.dateOfBirth}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+              <motion.select
+                className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
+                  fieldErrors.region ? 'border-red-400' : 'border-white/30'
+                } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 text-gray-800 transition-all hover-lift bg-white/70`}
+                value={formData.region}
+                onChange={(e) => updateField('region', e.target.value)}
+                whileFocus={{ scale: 1.02 }}
+                required
+              >
+                <option value="">Select your region</option>
+                {SWEDISH_REGION_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </motion.select>
+              {fieldErrors.region && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.region}</p>
               )}
             </div>
           </motion.div>
@@ -332,7 +445,7 @@ const RegisterPage = () => {
                   fieldErrors.password ? 'border-red-400' : 'border-white/30'
                 } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => updateField('password', e.target.value)}
                 whileFocus={{ scale: 1.02 }}
                 required
               />
@@ -350,7 +463,7 @@ const RegisterPage = () => {
                   fieldErrors.confirmPassword ? 'border-red-400' : 'border-white/30'
                 } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all hover-lift`}
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                onChange={(e) => updateField('confirmPassword', e.target.value)}
                 whileFocus={{ scale: 1.02 }}
                 required
               />
@@ -358,6 +471,87 @@ const RegisterPage = () => {
                 <p className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</p>
               )}
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Describe yourself</label>
+              <motion.textarea
+                placeholder="Share a short description"
+                className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
+                  fieldErrors.description ? 'border-red-400' : 'border-white/30'
+                } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800 transition-all min-h-[120px] hover-lift`}
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
+                whileFocus={{ scale: 1.02 }}
+                required
+              />
+              {fieldErrors.description && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.description}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+              <motion.input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className={`w-full px-4 py-3 rounded-xl glass-effect border-2 ${
+                  fieldErrors.profilePhoto ? 'border-red-400' : 'border-white/30'
+                } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 text-gray-800 transition-all hover-lift bg-white/80`}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    updateField('profilePhoto', '');
+                    setPhotoPreview('');
+                    return;
+                  }
+                  if (file.size > 2 * 1024 * 1024) {
+                    updateField('profilePhoto', '');
+                    setFieldErrors(prev => ({ ...prev, profilePhoto: 'Please upload an image smaller than 2MB' }));
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const result = typeof reader.result === 'string' ? reader.result : '';
+                    updateField('profilePhoto', result);
+                    setPhotoPreview(result);
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Profile preview"
+                  className="w-20 h-20 rounded-full object-cover mt-3 border border-rose-200"
+                />
+              )}
+              {fieldErrors.profilePhoto && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.profilePhoto}</p>
+              )}
+            </div>
+
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5 rounded border border-rose-200"
+                checked={formData.acceptPolicy}
+                onChange={(e) => updateField('acceptPolicy', e.target.checked)}
+              />
+              <p className="text-sm text-gray-600">
+                I have read and accept the{' '}
+                <button
+                  type="button"
+                  className="text-rose-600 hover:underline"
+                  onClick={() => window.open('/privacy', '_blank', 'noopener')}
+                >
+                  user policy
+                </button>
+                .
+              </p>
+            </div>
+            {fieldErrors.acceptPolicy && (
+              <p className="text-red-500 text-xs mt-1">{fieldErrors.acceptPolicy}</p>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Referral Code (Optional)</label>
@@ -371,7 +565,7 @@ const RegisterPage = () => {
                   } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 placeholder-gray-500 text-gray-800`}
                   value={formData.referral_code}
                   onChange={(e) => {
-                    setFormData({...formData, referral_code: e.target.value.trim()});
+                    updateField('referral_code', e.target.value.trim());
                     setIsReferralFromUrl(false);
                   }}
                   whileFocus={{ scale: 1.02 }}
@@ -500,7 +694,7 @@ const RegisterPage = () => {
                 type="button"
                 onClick={nextStep}
                 disabled={
-                  (currentStep === 1 && (!formData.username || !formData.email || !formData.dateOfBirth)) ||
+                  (currentStep === 1 && (!formData.username || !formData.email || !formData.dateOfBirth || !formData.firstName || !formData.lastName || !formData.region)) ||
                   (currentStep === 2 && !formData.sex)
                 }
                 className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"

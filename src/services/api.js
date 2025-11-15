@@ -113,9 +113,35 @@ export const auth = {
       const registrationData = {
         username: userData.username.toLowerCase(),
         email: userData.email.toLowerCase(),
-        password: userData.password,
-        full_name: userData.full_name
+        password: userData.password
       };
+
+      if (userData.firstName) {
+        registrationData.firstName = userData.firstName.trim();
+      }
+      if (userData.lastName) {
+        registrationData.lastName = userData.lastName.trim();
+      }
+      if (userData.profilePhoto) {
+        registrationData.profilePhoto = userData.profilePhoto;
+      }
+      if (userData.region) {
+        registrationData.region = userData.region;
+      }
+      if (userData.description) {
+        registrationData.description = userData.description.trim();
+      }
+      if (userData.policyVersion) {
+        registrationData.policyVersion = userData.policyVersion;
+      }
+
+      registrationData.acceptPolicy = !!userData.acceptPolicy;
+
+      if (userData.firstName && userData.lastName) {
+        registrationData.full_name = `${userData.firstName.trim()} ${userData.lastName.trim()}`.trim();
+      } else if (userData.full_name) {
+        registrationData.full_name = userData.full_name;
+      }
 
       // Add referral code if provided
       if (userData.referral_code && userData.referral_code.trim()) {

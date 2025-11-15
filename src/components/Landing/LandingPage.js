@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import Footer from '../Layout/Footer';
 import { auth } from '../../services/api';
+import { SWEDISH_REGION_OPTIONS } from '../../constants/swedishRegions';
 import './LandingPage.css';
 
 const HeartIcon = ({ className = "w-8 h-8" }) => (
@@ -15,12 +16,6 @@ const HeartIcon = ({ className = "w-8 h-8" }) => (
 const StarIcon = () => (
   <svg className="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
 );
 
@@ -150,8 +145,15 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
     email: '',
     password: '',
     dateOfBirth: '',
-    sex: ''
+    sex: '',
+    firstName: '',
+    lastName: '',
+    region: '',
+    description: '',
+    profilePhoto: '',
+    acceptPolicy: false
   });
+  const [photoPreview, setPhotoPreview] = useState('');
   // OTP flow removed
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -178,7 +180,7 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
     }
     try {
       setLoading(true);
-      const res = await login(form.username, form.password);
+      await login(form.username, form.password);
       navigate('/dashboard');
       onClose && onClose();
     } catch (err) {
@@ -191,8 +193,23 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
   const handleRegister = async (e) => {
     e.preventDefault();
     resetMessages();
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError('Please add your first and last name'); return;
+    }
     if (!form.username || !form.email || !form.password) {
       setError('Username, email & password required'); return;
+    }
+    if (!form.region) {
+      setError('Select your region'); return;
+    }
+    if (!form.description || form.description.trim().length < 10) {
+      setError('Tell us a little about yourself (min 10 characters)'); return;
+    }
+    if (!form.profilePhoto) {
+      setError('Please upload a profile photo'); return;
+    }
+    if (!form.acceptPolicy) {
+      setError('You must accept the user policy'); return;
     }
     try {
       setLoading(true);
@@ -201,7 +218,13 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
         email: form.email,
         password: form.password,
         dateOfBirth: form.dateOfBirth || undefined,
-        sex: form.sex || undefined
+        sex: form.sex || undefined,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        region: form.region,
+        description: form.description.trim(),
+        profilePhoto: form.profilePhoto,
+        acceptPolicy: form.acceptPolicy
       };
       const trimmedReferral = referralCode ? referralCode.trim() : '';
       if (trimmedReferral) {
@@ -238,12 +261,12 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
           <button
             className={`flex-1 py-3 font-semibold rounded-xl mr-2 transition ${mode==='login' ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             onClick={() => { setMode('login'); resetMessages(); }}
-            aria-selected={mode==='login'}
+            aria-pressed={mode==='login'}
           >{t('login')}</button>
           <button
             className={`flex-1 py-3 font-semibold rounded-xl ml-2 transition ${mode==='register' ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             onClick={() => { setMode('register'); resetMessages(); }}
-            aria-selected={mode==='register'}
+            aria-pressed={mode==='register'}
           >{t('joinNow')}</button>
         </div>
 
@@ -283,6 +306,22 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
 
         {mode === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4" aria-label="Registration form">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                name="firstName"
+                placeholder="First name"
+                className={commonInputClasses}
+                value={form.firstName}
+                onChange={handleChange}
+              />
+              <input
+                name="lastName"
+                placeholder="Last name"
+                className={commonInputClasses}
+                value={form.lastName}
+                onChange={handleChange}
+              />
+            </div>
             <input
               name="username"
               placeholder={t('chooseUsername')}
@@ -306,6 +345,24 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
               value={form.password}
               onChange={handleChange}
             />
+            <select
+              name="region"
+              className={`${commonInputClasses} bg-white`}
+              value={form.region}
+              onChange={handleChange}
+            >
+              <option value="">Select region</option>
+              {SWEDISH_REGION_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <textarea
+              name="description"
+              placeholder="Describe yourself"
+              className={`${commonInputClasses} min-h-[120px]`}
+              value={form.description}
+              onChange={handleChange}
+            />
             <div className="flex gap-4">
               <input
                 name="dateOfBirth"
@@ -325,8 +382,61 @@ const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isRefer
                 <option value="female">{t('female')}</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile photo</label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className={`${commonInputClasses} bg-white`}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    setForm(prev => ({ ...prev, profilePhoto: '' }));
+                    setPhotoPreview('');
+                    return;
+                  }
+                  if (file.size > 2 * 1024 * 1024) {
+                    setError('Please choose an image smaller than 2MB');
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const result = typeof reader.result === 'string' ? reader.result : '';
+                    setForm(prev => ({ ...prev, profilePhoto: result }));
+                    setPhotoPreview(result);
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+              {photoPreview && (
+                <img
+                  src={photoPreview}
+                  alt="Profile preview"
+                  className="w-20 h-20 rounded-full object-cover mt-3 border border-rose-200"
+                />
+              )}
+            </div>
             {error && <div className="text-rose-600 text-sm font-medium" role="alert">{error}</div>}
             {info && <div className="text-green-600 text-sm font-medium" role="status">{info}</div>}
+            <div className="flex items-start gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={form.acceptPolicy}
+                onChange={(event) => setForm(prev => ({ ...prev, acceptPolicy: event.target.checked }))}
+              />
+              <span>
+                I have read and accept the{' '}
+                <button
+                  type="button"
+                  className="text-rose-600 hover:underline"
+                  onClick={() => window.open('/privacy', '_blank', 'noopener')}
+                >
+                  user policy
+                </button>
+                .
+              </span>
+            </div>
             <div>
               <div className="relative">
                 <input
@@ -545,29 +655,6 @@ const LandingPage = () => {
       }
     };
   }, [testimonials.length]);
-
-  const features = [
-    {
-      icon: "💕",
-      title: "Smart Matching",
-      description: "Find your perfect match by browsing profiles and connecting with people who share your interests."
-    },
-    {
-      icon: "🔒",
-      title: "Safe & Secure",
-      description: "Your privacy and safety are our top priority with end-to-end encryption and verified profiles."
-    },
-    {
-      icon: "💬",
-      title: "Instant Chat",
-      description: "Connect instantly with real-time messaging, voice calls, and video chats with your matches."
-    },
-    {
-      icon: "🌟",
-      title: "Premium Experience",
-      description: "Enjoy ad-free browsing, unlimited likes, and exclusive features for premium members."
-    }
-  ];
 
   // Auto-scrolling testimonials ref
   const testimonialsRef = useRef(null);

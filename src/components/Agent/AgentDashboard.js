@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { likeService } from '../../services/likeService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { agentAuth, agentApi } from '../../services/agentApi';
+import { agentAuth } from '../../services/agentApi';
 import AgentEarnings from './AgentEarnings';
 import AffiliateView from './AffiliateView';
 import AffiliateManager from './AffiliateManager';
@@ -12,28 +12,24 @@ import NotificationPanel from './NotificationPanel';
 import PanicRoomTab from './PanicRoomTab';
 import EscortImageManager from './EscortImageManager';
 import EscortProfilesTab from './EscortProfilesTab';
-import ChatQueueTab from './ChatQueueTab';
 import AssignedCustomersTab from './AssignedCustomersTab';
 import { 
   FaEye, 
   FaBell, 
-  FaEnvelope, 
   FaUsers, 
   FaPlus, 
-  FaComments, 
   FaDollarSign, 
   FaUserTie, 
   FaChartBar,
   FaExclamationTriangle,
   FaUserFriends,
-  FaSearch,
   FaLink,
   FaTrash,
   FaClock
 } from 'react-icons/fa';
 import websocketService from '../../services/websocket';
 import notificationService from '../../services/notificationService';
-import { format, differenceInHours, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 const SUPPRESSION_STORAGE_PREFIX = 'agentDashboard:suppressed:';
 
@@ -239,69 +235,10 @@ const NotificationBell = ({ notifications, onNotificationClick }) => {
   );
 };
 
-const StatCard = ({ title, value, icon, color }) => (
-  <motion.div
-    whileHover={{ scale: 1.02 }}
-    className="bg-gray-800 p-6 rounded-lg shadow-lg"
-  >
-    <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${color}`}>
-        {icon}
-      </div>
-      <div>
-        <h3 className="text-gray-400 text-sm">{title}</h3>
-        <p className="text-2xl font-bold text-white">{value}</p>
-      </div>
-    </div>
-  </motion.div>
-);
-
 const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading, currentAgent = null }) => {
-  // Store the current chat index for sequential viewing
-  const [currentChatIndex, setCurrentChatIndex] = useState(0);
   const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders', 'likes'
   const currentAgentId = currentAgent?._id || currentAgent?.id || null;
   const currentAgentCode = currentAgent?.agentId || currentAgent?.agentCode || null;
-  
-  // Delete last agent message in this chat (soft delete)
-  const handleDeleteLastAgentMessage = async (chat) => {
-    try {
-      if (!chat?._id) return;
-      const confirmDelete = window.confirm('Delete your last sent message for this chat?');
-      if (!confirmDelete) return;
-
-      // Fetch full chat to get message IDs and authorship
-      const fullChat = await agentAuth.getChat(chat._id);
-      const messages = Array.isArray(fullChat?.messages) ? fullChat.messages : [];
-      // Find the last agent-authored, non-deleted message
-      let lastIdx = -1;
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i];
-        if (m?.sender === 'agent' && !m?.isDeleted) {
-          lastIdx = i;
-          break;
-        }
-      }
-      if (lastIdx === -1) {
-        alert('No deletable agent message found.');
-        return;
-      }
-
-  const messageIdOrIndex = messages[lastIdx]?._id || String(lastIdx);
-  await agentAuth.deleteMessage(chat._id, messageIdOrIndex);
-
-      // Optimistically update UI if we have messages in state
-      // Otherwise, refresh live queue data
-      if (window.fetchLiveQueueData) {
-        setTimeout(() => window.fetchLiveQueueData(), 150);
-      }
-    } catch (error) {
-      console.error('Delete last message failed:', error);
-      const msg = error?.message || error?.response?.data?.message || 'Failed to delete message';
-      alert(msg);
-    }
-  };
-
   // Move chat to Panic Room or remove from it
   const handleTogglePanicRoom = async (chat) => {
     try {
@@ -494,7 +431,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         
         // Refresh the live queue data to show the updated assignment
         if (window.fetchLiveQueueData) {
@@ -1486,11 +1423,6 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
 const AgentDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    liveMessages: 0,
-    sentMessages: 0,
-    onlineMembers: 0
-  });
   const [chats, setChats] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [agent, setAgent] = useState(null);
@@ -1614,6 +1546,142 @@ const AgentDashboard = () => {
       setLikesLoading(false);
     }
   }, []);
+
+  // Update sidebar panic badge totals based on current chat list
+  const updatePanicRoomCount = useCallback((chatList) => {
+    if (!Array.isArray(chatList)) {
+      setPanicRoomCount(0);
+      return;
+    }
+
+    const panicChats = chatList.filter(
+      chat => chat && (chat.chatType === 'panic' || chat.isInPanicRoom)
+    );
+    setPanicRoomCount(panicChats.length);
+  }, []);
+
+  const fetchLiveQueueData = useCallback(async () => {
+    try {
+      const liveQueue = await agentAuth.getLiveQueue();
+      const normalized = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
+      setChats(normalized);
+      updatePanicRoomCount(normalized);
+
+      const presenceMap = new Map();
+      normalized.forEach(chat => {
+        const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+        if (customerKey) {
+          const lastSeenSource = chat.presence?.lastSeen ||
+            chat.lastActive ||
+            chat.customerId?.lastActiveDate ||
+            chat.customerProfile?.lastActiveDate ||
+            chat.lastMessage?.timestamp ||
+            chat.updatedAt;
+          const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+          presenceMap.set(customerKey.toString(), {
+            isOnline,
+            lastSeen: lastSeenSource,
+            status: chat.presence?.status || (isOnline ? 'online' : 'offline')
+          });
+        }
+      });
+      setUserPresence(presenceMap);
+    } catch (error) {
+      console.error('Failed to fetch live queue (corrected endpoint):', error);
+    }
+  }, [normalizeChat, updatePanicRoomCount]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const cacheService = window.agentCacheService || { get: () => null, set: () => {} };
+
+      const cachedDashboard = cacheService.get('dashboard_stats');
+      const cachedQueue = cacheService.get('live_queue');
+      const cachedEscorts = cacheService.get('all_escorts');
+
+      if (cachedDashboard && cachedQueue && cachedEscorts) {
+        const normalizedCachedQueue = Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : [];
+        setChats(normalizedCachedQueue);
+        setMyEscorts(cachedEscorts);
+        updatePanicRoomCount(normalizedCachedQueue);
+
+        const cachedPresence = new Map();
+        normalizedCachedQueue.forEach(chat => {
+          const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+          if (customerKey) {
+            const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+            const lastSeenSource = chat.presence?.lastSeen ||
+              chat.lastActive ||
+              chat.customerId?.lastActiveDate ||
+              chat.customerProfile?.lastActiveDate ||
+              chat.lastMessage?.timestamp ||
+              chat.updatedAt;
+            cachedPresence.set(customerKey.toString(), {
+              isOnline,
+              lastSeen: lastSeenSource,
+              status: chat.presence?.status || (isOnline ? 'online' : 'offline')
+            });
+          }
+        });
+
+        if (cachedPresence.size) {
+          setUserPresence(cachedPresence);
+        }
+
+        setLoading(false);
+      }
+
+      const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
+        agentAuth.getDashboardStats(),
+        agentAuth.getLiveQueue(),
+        agentAuth.getAllEscorts()
+      ]);
+      const liveQueueBase = Array.isArray(liveQueueRaw)
+        ? liveQueueRaw
+        : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
+      const normalizedLiveQueue = Array.isArray(liveQueueBase) ? liveQueueBase.map(normalizeChat) : [];
+
+      cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000);
+      cacheService.set('live_queue', normalizedLiveQueue, 1 * 60 * 1000);
+      cacheService.set('all_escorts', escortData, 5 * 60 * 1000);
+
+      setChats(normalizedLiveQueue);
+      setMyEscorts(escortData);
+      updatePanicRoomCount(normalizedLiveQueue);
+
+      const presenceMap = new Map();
+      normalizedLiveQueue.forEach(chat => {
+        const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+        if (customerKey) {
+          const lastSeenSource = chat.presence?.lastSeen ||
+            chat.lastActive ||
+            chat.customerId?.lastActiveDate ||
+            chat.customerProfile?.lastActiveDate ||
+            chat.lastMessage?.timestamp ||
+            chat.updatedAt;
+          const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
+          presenceMap.set(customerKey.toString(), {
+            isOnline,
+            lastSeen: lastSeenSource,
+            status: chat.presence?.status || (isOnline ? 'online' : 'offline')
+          });
+        }
+      });
+      setUserPresence(presenceMap);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      if (error.response && error.response.status === 401) {
+        navigate('/agent/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, normalizeChat, updatePanicRoomCount]);
+
+  const refreshDashboard = useCallback(() => {
+    fetchDashboardData();
+    fetchLikesData();
+  }, [fetchDashboardData, fetchLikesData]);
   
   const socketRef = useRef(null);
   // Initialize websocket connection
@@ -1642,7 +1710,7 @@ const AgentDashboard = () => {
 
     // Create websocket connection for real-time updates
     websocketService.connect();
-  websocketService.identifyAgent({});
+    websocketService.identifyAgent({});
     socketRef.current = websocketService;
     
     // Set up message handlers
@@ -1966,13 +2034,13 @@ const AgentDashboard = () => {
     
     // Clean up on unmount
     return () => {
-  unsubscribeMessage();
-  unsubscribePresence();
-  unsubscribeOutgoing && unsubscribeOutgoing();
+      unsubscribeMessage();
+      unsubscribePresence();
+      unsubscribeOutgoing && unsubscribeOutgoing();
       websocketService.disconnect();
       notificationService.stopMonitoring();
     };
-  }, []);
+  }, [fetchLikesData, loadSuppressedChatIdsFromStorage, refreshDashboard]);
 
   useEffect(() => {
     const agentKey = agentIdRef.current;
@@ -1984,137 +2052,15 @@ const AgentDashboard = () => {
 
   // Fetch initial dashboard data - OPTIMIZED with caching
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        // Check cache first for faster loading
-        const cacheService = window.agentCacheService || { get: () => null, set: () => {} };
-        
-        const cachedDashboard = cacheService.get('dashboard_stats');
-        const cachedQueue = cacheService.get('live_queue');
-        const cachedEscorts = cacheService.get('all_escorts'); // Changed from 'my_escorts' to 'all_escorts'
-
-        // If we have cached data, use it immediately for fast UI
-        if (cachedDashboard && cachedQueue && cachedEscorts) {
-          setStats({
-            liveMessages: cachedDashboard.totalLiveMessages || 0,
-            sentMessages: cachedDashboard.agentStats.totalMessagesSent || 0,
-            onlineMembers: cachedDashboard.onlineCustomers || 0
-          });
-          const normalizedCachedQueue = Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : [];
-          setChats(normalizedCachedQueue);
-          setMyEscorts(cachedEscorts);
-
-          const cachedPresence = new Map();
-          normalizedCachedQueue.forEach(chat => {
-            const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
-            if (customerKey) {
-              const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
-              const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-              cachedPresence.set(customerKey.toString(), {
-                isOnline,
-                lastSeen: lastSeenSource,
-                status: chat.presence?.status || (isOnline ? 'online' : 'offline')
-              });
-            }
-          });
-          if (cachedPresence.size) {
-            setUserPresence(cachedPresence);
-          }
-          
-          setLoading(false); // Show UI immediately with cached data
-        }
-
-        // Fetch fresh data (this will update the UI if data has changed)
-        const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
-          agentAuth.getDashboardStats(),
-          agentAuth.getLiveQueue(),
-          agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
-        ]);
-        const liveQueueBase = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
-        const normalizedLiveQueue = Array.isArray(liveQueueBase) ? liveQueueBase.map(normalizeChat) : [];
-
-        // Cache the fresh data
-        cacheService.set('dashboard_stats', dashboardStats, 2 * 60 * 1000); // 2 min cache
-        cacheService.set('live_queue', normalizedLiveQueue, 1 * 60 * 1000); // 1 min cache
-        cacheService.set('all_escorts', escortData, 5 * 60 * 1000); // 5 min cache - changed from 'my_escorts' to 'all_escorts'
-
-        setStats({
-          liveMessages: dashboardStats.totalLiveMessages || 0,
-          sentMessages: dashboardStats.agentStats.totalMessagesSent || 0,
-          onlineMembers: dashboardStats.onlineCustomers || 0
-        });
-
-        setChats(normalizedLiveQueue);
-        setMyEscorts(escortData);
-        
-        // Fetch initial likes data
-        fetchLikesData();
-
-        // Initialize user presence from initial data
-        const presenceMap = new Map();
-        normalizedLiveQueue.forEach(chat => {
-          const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
-          if (customerKey) {
-            const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-            const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
-            presenceMap.set(customerKey.toString(), {
-              isOnline,
-              lastSeen: lastSeenSource,
-              status: chat.presence?.status || (isOnline ? 'online' : 'offline')
-            });
-          }
-        });
-        setUserPresence(presenceMap);
-
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        if (error.response && error.response.status === 401) {
-          navigate('/agent/login');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchLiveQueueData = async () => {
-      try {
-        // Use existing agentAuth helper so we get chatType, reminderActive, etc.
-        const liveQueue = await agentAuth.getLiveQueue();
-        
-        const normalized = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
-        setChats(normalized);
-        // Presence map
-        const presenceMap = new Map();
-        normalized.forEach(chat => {
-          const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
-          if (customerKey) {
-            const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-            const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
-            presenceMap.set(customerKey.toString(), {
-              isOnline,
-              lastSeen: lastSeenSource,
-              status: chat.presence?.status || (isOnline ? 'online' : 'offline')
-            });
-          }
-        });
-        setUserPresence(presenceMap);
-      } catch (e) {
-        console.error('Failed to fetch live queue (corrected endpoint):', e);
-      }
-    };
-
-    // Store fetchLiveQueueData in a ref so it can be called from WebSocket handlers
     window.fetchLiveQueueData = fetchLiveQueueData;
 
-    // Store auto-advance function for use by live queue pages
     window.autoAdvanceToNextChat = () => {
-      // Get current chats from sessionStorage to avoid closure issues
       const currentChats = JSON.parse(sessionStorage.getItem('agentChats') || '[]');
-      const remainingChats = Array.isArray(currentChats) ? currentChats.filter(chat => 
-        (chat.unreadCount > 0 || chat.hasUnreadAgentMessages === false || chat.chatType === 'queue') && 
+      const remainingChats = Array.isArray(currentChats) ? currentChats.filter(chat =>
+        (chat.unreadCount > 0 || chat.hasUnreadAgentMessages === false || chat.chatType === 'queue') &&
         !chat.isInPanicRoom
       ) : [];
-      
+
       if (remainingChats.length > 0) {
         const nextChat = remainingChats[0];
         if (nextChat?.escortId?._id) {
@@ -2122,21 +2068,20 @@ const AgentDashboard = () => {
           return true;
         }
       }
-      return false; // No more chats available
+      return false;
     };
 
-    fetchDashboardData();
-    
-    // Fetch likes data
-    fetchLikesData();
-    
-    // Remove auto-polling - use manual refresh button instead
-    // const interval = setInterval(() => {
-    //   fetchLiveQueueData();
-    // }, 15000); // Poll every 15 seconds
-    
-    // return () => clearInterval(interval);
-  }, [navigate, activeTab, fetchLikesData, normalizeChat]);
+    refreshDashboard();
+
+    return () => {
+      if (window.fetchLiveQueueData === fetchLiveQueueData) {
+        delete window.fetchLiveQueueData;
+      }
+      if (window.autoAdvanceToNextChat) {
+        delete window.autoAdvanceToNextChat;
+      }
+    };
+  }, [activeTab, fetchLiveQueueData, refreshDashboard]);
 
   // Sync chats to sessionStorage for auto-advance functionality
   useEffect(() => {
@@ -2145,22 +2090,10 @@ const AgentDashboard = () => {
     }
   }, [chats]);
 
-  // Add this to fetch panic room count
-  const updatePanicRoomCount = async () => {
-    try {
-      const response = await agentAuth.getPanicRoomChats();
-      setPanicRoomCount(response.chats.length);
-    } catch (error) {
-      console.error('Error fetching panic room count:', error);
-    }
-  };
-
+  // Keep panic room badge state in sync with live chat updates
   useEffect(() => {
-    updatePanicRoomCount();
-    // Remove auto-update - use manual refresh button instead
-    // const interval = setInterval(updatePanicRoomCount, 60000); // Update every minute
-    // return () => clearInterval(interval);
-  }, [normalizeChat]);
+    updatePanicRoomCount(chats);
+  }, [chats, updatePanicRoomCount]);
 
   const handleLogout = () => {
     agentAuth.logout();
@@ -2237,68 +2170,6 @@ const AgentDashboard = () => {
   const handleCreateFirstContact = () => {
     setShowCreateFirstContact(true);
   };
-
-  const refreshDashboard = async () => {
-    try {
-      // Clear any potential caches
-      const cacheService = window.agentCacheService || { clear: () => {} };
-      if (typeof cacheService.clear === 'function') {
-        cacheService.clear();
-      }
-      
-      // Add a small delay to ensure database operations are completed
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Fetch all dashboard data
-      const [dashboardStats, liveQueueRaw, escortData] = await Promise.all([
-        agentAuth.getDashboardStats(),
-        agentAuth.getLiveQueue(),
-        agentAuth.getAllEscorts() // Changed from getMyEscorts to getAllEscorts
-      ]);
-      const liveQueue = Array.isArray(liveQueueRaw) ? liveQueueRaw : (Array.isArray(liveQueueRaw?.data) ? liveQueueRaw.data : []);
-      const normalizedQueue = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
-
-      // Update stats
-      setStats({
-        liveMessages: dashboardStats.totalLiveMessages || 0,
-        sentMessages: dashboardStats.agentStats.totalMessagesSent || 0,
-        onlineMembers: dashboardStats.onlineCustomers || 0
-      });
-
-      // Update chats
-      setChats(normalizedQueue);
-      setMyEscorts(escortData);
-
-      // Update panic room count
-      await updatePanicRoomCount();
-
-      // Update user presence from fresh data
-      const presenceMap = new Map();
-      normalizedQueue.forEach(chat => {
-        const customerKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
-        if (customerKey) {
-          const lastSeenSource = chat.presence?.lastSeen || chat.lastActive || chat.customerId?.lastActiveDate || chat.customerProfile?.lastActiveDate || chat.lastMessage?.timestamp || chat.updatedAt;
-          const isOnline = chat.presence?.isOnline ?? chat.isUserActive ?? false;
-          presenceMap.set(customerKey.toString(), {
-            isOnline,
-            lastSeen: lastSeenSource,
-            status: chat.presence?.status || (isOnline ? 'online' : 'offline')
-          });
-        }
-      });
-      setUserPresence(presenceMap);
-      
-    } catch (error) {
-      console.error('Error refreshing dashboard:', error);
-    }
-  };
-
-  const handlePanicRoomChatSelect = (chat) => {
-    if (chat?.escortId?._id && chat?._id) {
-      navigate(`/agent/live-queue/${chat.escortId._id}?chatId=${chat._id}`);
-    }
-  };
-
   // Watch live queue effect
   useEffect(() => {
     const watchLiveQueue = async () => {
@@ -2316,7 +2187,7 @@ const AgentDashboard = () => {
     // const interval = setInterval(watchLiveQueue, 30000); // Refresh every 30 seconds
 
     // return () => clearInterval(interval);
-  }, []);
+  }, [normalizeChat]);
 
   // Only show non-suppressed chats in the table
   const visibleChats = useMemo(() => {

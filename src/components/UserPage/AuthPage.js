@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { auth, profile } from '../../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SWEDISH_REGION_OPTIONS } from '../../constants/swedishRegions';
 
 const AuthPage = () => {
   const location = useLocation();
@@ -249,14 +250,19 @@ const LoginSection = ({ onSignupClick, onForgotClick }) => {
 const SignupSection = ({ onLoginClick }) => {
   const location = useLocation();
   const [formData, setFormData] = useState({
-    full_name: '',
-    username: '', // Added username field
+    firstName: '',
+    lastName: '',
+    username: '',
     email: '',
     password: '',
-    referral_code: '', // Added referral code field
+    region: '',
+    description: '',
+    profilePhoto: '',
+    referral_code: '',
     accept_terms: false
   });
   const [errors, setErrors] = useState({});
+  const [photoPreview, setPhotoPreview] = useState('');
 
   // Check for referral code in URL parameters when component loads
   useEffect(() => {
@@ -277,8 +283,11 @@ const SignupSection = ({ onLoginClick }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.full_name.trim()) {
-      newErrors.full_name = 'Full name is required';
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
     }
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
@@ -293,8 +302,17 @@ const SignupSection = ({ onLoginClick }) => {
     if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
+    if (!formData.region) {
+      newErrors.region = 'Please select your region';
+    }
+    if (!formData.description || formData.description.trim().length < 10) {
+      newErrors.description = 'Please add a short description (at least 10 characters)';
+    }
+    if (!formData.profilePhoto) {
+      newErrors.profilePhoto = 'Profile photo is required';
+    }
     if (!formData.accept_terms) {
-      newErrors.accept_terms = 'You must accept the terms and conditions';
+      newErrors.accept_terms = 'Please confirm you have read and accept the policy';
     }
     // Referral code is optional, but if provided, validate format
     if (formData.referral_code && formData.referral_code.trim()) {
@@ -317,7 +335,12 @@ const SignupSection = ({ onLoginClick }) => {
     
     if (Object.keys(newErrors).length === 0) {
       try {
-        const response = await auth.register(formData);
+        const response = await auth.register({
+          ...formData,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          acceptPolicy: formData.accept_terms
+        });
         localStorage.setItem('token', response.access_token);
         window.location.href = '/dashboard';
       } catch (error) {
@@ -333,18 +356,33 @@ const SignupSection = ({ onLoginClick }) => {
       <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center">Create Account</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Full Name Input */}
-        <div>
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={formData.full_name}
-            onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-            className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
-            required
-          />
-          {errors.full_name && (
-            <p className="text-red-500 text-sm mt-1">{errors.full_name}</p>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <input
+              type="text"
+              placeholder="First Name"
+              value={formData.firstName}
+              onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+              className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
+              required
+            />
+            {errors.firstName && (
+              <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
+            )}
+          </div>
+          <div>
+            <input
+              type="text"
+              placeholder="Last Name"
+              value={formData.lastName}
+              onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+              className="w-full px-4 py-3 rounded-lg border border-rose-200 focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition"
+              required
+            />
+            {errors.lastName && (
+              <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+            )}
+          </div>
         </div>
 
         {/* Username Input - New */}
@@ -393,6 +431,86 @@ const SignupSection = ({ onLoginClick }) => {
           )}
         </div>
 
+        {/* Region Select */}
+        <div>
+          <select
+            value={formData.region}
+            onChange={(e) => setFormData({...formData, region: e.target.value})}
+            className={`w-full px-4 py-3 rounded-lg border ${
+              errors.region ? 'border-red-300' : 'border-rose-200'
+            } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition bg-white`}
+            required
+          >
+            <option value="">Select your region</option>
+            {SWEDISH_REGION_OPTIONS.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          {errors.region && (
+            <p className="text-red-500 text-sm mt-1">{errors.region}</p>
+          )}
+        </div>
+
+        {/* Description */}
+        <div>
+          <textarea
+            placeholder="Describe yourself"
+            value={formData.description}
+            onChange={(e) => setFormData({...formData, description: e.target.value})}
+            className={`w-full px-4 py-3 rounded-lg border ${
+              errors.description ? 'border-red-300' : 'border-rose-200'
+            } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition min-h-[120px]`}
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">Share a short introduction that helps matches know you better.</p>
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+          )}
+        </div>
+
+        {/* Profile Photo */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Profile Photo</label>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) {
+                setFormData({...formData, profilePhoto: ''});
+                setPhotoPreview('');
+                return;
+              }
+              if (file.size > 2 * 1024 * 1024) {
+                setErrors(prev => ({ ...prev, profilePhoto: 'Please upload an image under 2MB' }));
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = typeof reader.result === 'string' ? reader.result : '';
+                setFormData({...formData, profilePhoto: result});
+                setPhotoPreview(result);
+                setErrors(prev => ({ ...prev, profilePhoto: undefined }));
+              };
+              reader.readAsDataURL(file);
+            }}
+            className={`w-full px-4 py-3 rounded-lg border ${
+              errors.profilePhoto ? 'border-red-300' : 'border-rose-200'
+            } focus:border-rose-400 focus:ring-2 focus:ring-rose-200 outline-none transition bg-white`}
+            required
+          />
+          {photoPreview && (
+            <img
+              src={photoPreview}
+              alt="Profile preview"
+              className="w-24 h-24 rounded-full object-cover mt-3 border border-rose-200"
+            />
+          )}
+          {errors.profilePhoto && (
+            <p className="text-red-500 text-sm mt-1">{errors.profilePhoto}</p>
+          )}
+        </div>
+
         {/* Referral Code Input */}
         <div>
           <div className="relative">
@@ -426,20 +544,21 @@ const SignupSection = ({ onLoginClick }) => {
         <div className="flex items-start gap-2">
           <input
             type="checkbox"
-            id="terms"
+            id="policy"
             checked={formData.accept_terms}
             onChange={(e) => setFormData({...formData, accept_terms: e.target.checked})}
             className="mt-1.5"
           />
-          <label htmlFor="terms" className="text-sm text-gray-600">
-            I accept the{' '}
-            <a href="/terms" className="text-rose-600 hover:text-rose-700 underline" target="_blank">
-              Terms & Conditions
-            </a>
-            {' '}and{' '}
-            <a href="/privacy" className="text-rose-600 hover:text-rose-700 underline" target="_blank">
-              Privacy Policy
-            </a>
+          <label htmlFor="policy" className="text-sm text-gray-600">
+            I have read and accept the{' '}
+            <button
+              type="button"
+              className="text-rose-600 hover:text-rose-700 underline"
+              onClick={() => window.open('/privacy', '_blank', 'noopener')}
+            >
+              user policy
+            </button>
+            .
           </label>
         </div>
         {errors.accept_terms && (
