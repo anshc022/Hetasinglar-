@@ -558,10 +558,315 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
            chat.reminderHandled !== true;
   }).sort((a,b) => (b.hoursSinceLastCustomer || 0) - (a.hoursSinceLastCustomer || 0)) : [];
 
+  const formatRelativeTime = (value) => {
+    if (!value) {
+      return null;
+    }
+    const date = new Date(value);
+    if (isNaN(date)) {
+      return null;
+    }
+    return formatDistanceToNow(date, { addSuffix: true });
+  };
+
+  const getAssignedAgentMeta = (chat) => {
+    const rawAgent = chat?.assignedAgent || chat?.agentId;
+    if (!rawAgent) {
+      return null;
+    }
+    if (typeof rawAgent === 'object') {
+      return {
+        id: rawAgent._id || rawAgent.id || null,
+        name: rawAgent.name || null,
+        agentId: rawAgent.agentId || rawAgent.agentCode || null,
+        isFromMessage: rawAgent.isFromMessage || false
+      };
+    }
+    return {
+      id: null,
+      name: String(rawAgent),
+      agentId: null,
+      isFromMessage: false
+    };
+  };
+
+  const renderModeratorTags = (moderators = []) => {
+    if (!Array.isArray(moderators) || moderators.length === 0) {
+      return (
+        <span className="text-xs text-red-400 font-semibold">No Moderator</span>
+      );
+    }
+
+    const maxVisible = 3;
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {moderators.slice(0, maxVisible).map((mod, index) => {
+          const moderatorId = mod?.agentId || mod?._id || null;
+          const moderatorCode = mod?.agentCode || mod?.agentId || null;
+          const isCurrentModerator = (
+            (currentAgentId && moderatorId && String(moderatorId) === String(currentAgentId)) ||
+            (currentAgentCode && moderatorCode && moderatorCode === currentAgentCode)
+          );
+          const label = isCurrentModerator
+            ? 'You'
+            : (mod?.name || mod?.agentName || moderatorCode || 'Moderator');
+          return (
+            <span
+              key={`${moderatorId || moderatorCode || index}`}
+              className={`px-2 py-1 rounded-full text-[11px] font-medium ${isCurrentModerator ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-200'}`}
+            >
+              {label}
+            </span>
+          );
+        })}
+        {moderators.length > maxVisible && (
+          <span className="px-2 py-1 rounded-full text-[11px] bg-gray-700 text-gray-200">
+            +{moderators.length - maxVisible}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const renderChatCard = (chat) => {
+    if (!chat) {
+      return null;
+    }
+
+    const unreadCount = chat.unreadCount || 0;
+    const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
+    const presenceKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
+    const presenceInfo = getUserPresence(presenceKey);
+    const assignedAgent = getAssignedAgentMeta(chat);
+    const moderators = Array.isArray(chat.moderators) ? chat.moderators : [];
+    const lastActiveRaw = chat.lastActive || chat.updatedAt || chat.createdAt;
+    const lastActiveLabel = formatRelativeTime(lastActiveRaw) || 'Recently';
+    const isPanic = chat.chatType === 'panic' || chat.isInPanicRoom;
+    const isReminder = (chat.chatType === 'reminder' || chat.reminderActive) && unreadCount === 0 && !isPanic && chat.reminderHandled !== true;
+    const reminderHours = typeof chat.hoursSinceLastCustomer === 'number' ? Math.floor(chat.hoursSinceLastCustomer) : null;
+
+    return (
+      <div
+        key={chat._id}
+        className="rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-sm space-y-3"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${presenceInfo.isOnline ? 'bg-green-400' : 'bg-gray-500'}`} />
+          <span className="text-sm font-semibold text-white truncate max-w-[200px]">
+            {chat.customerId?.username || chat.customerName || 'Customer'}
+          </span>
+          {isPanic && (
+            <span className="bg-red-600 text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
+              Panic
+            </span>
+          )}
+          {isReminder && (
+            <span className="flex items-center gap-1 bg-rose-600 text-white text-[10px] px-2 py-1 rounded-full uppercase tracking-wide">
+              <FaClock className="w-3 h-3" />
+              {reminderHours ? `${reminderHours}h` : 'Reminder'}
+            </span>
+          )}
+          {unreadCount > 0 && (
+            <span className="bg-blue-600/80 text-white text-[10px] px-2 py-1 rounded-full">
+              {unreadCount} unread
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-2 text-xs text-gray-300">
+          <div>
+            <span className="font-semibold text-gray-200">Escort:</span>{' '}
+            {chat.escortId?.firstName || chat.escortId?.name || chat.escortName || 'N/A'}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-gray-200">Agent:</span>
+            {assignedAgent ? (
+              <span className={assignedAgent.isFromMessage ? 'text-amber-300' : 'text-cyan-200'}>
+                {assignedAgent.name || assignedAgent.agentId || 'Assigned'}
+              </span>
+            ) : (
+              <button
+                onClick={() => handleAssignAgent(chat._id)}
+                className="px-2 py-1 rounded bg-blue-600 text-white text-[11px]"
+              >
+                Assign to me
+              </button>
+            )}
+            {assignedAgent?.agentId && (
+              <span className="text-gray-500">
+                ID: {assignedAgent.agentId}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold text-gray-200">Moderators:</span>
+            {renderModeratorTags(moderators)}
+          </div>
+          {lastMessage && (
+            <div>
+              <span className="font-semibold text-gray-200">Last message:</span>{' '}
+              <span className="text-gray-400 break-words">
+                {lastMessage.messageType === 'image' ? '📷 Image' : lastMessage.message}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-gray-400">
+            <span className="font-semibold text-gray-200">Last active:</span>
+            <span>{lastActiveLabel}</span>
+            {!presenceInfo.isOnline && presenceInfo.lastSeen && (
+              <span className="text-gray-500">
+                (Seen {formatRelativeTime(presenceInfo.lastSeen) || 'recently'})
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-[11px] font-medium">
+          <button
+            onClick={() => openChat(chat)}
+            className="col-span-2 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            <FaEye className="w-4 h-4" />
+            {unreadCount > 0 ? 'View Messages' : 'Open Chat'}
+          </button>
+          <button
+            onClick={() => handleTogglePanicRoom(chat)}
+            className={`${isPanic ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white py-2 rounded-lg flex items-center justify-center gap-2`}
+          >
+            <FaExclamationTriangle className="w-4 h-4" />
+            {isPanic ? 'Remove Panic' : 'Panic Room'}
+          </button>
+          <button
+            onClick={() => onPushBack(chat._id)}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Push Back
+          </button>
+          <button
+            onClick={() => onRemoveFromTable(chat)}
+            className="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            <FaTrash className="w-4 h-4" />
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLikeCard = (like) => {
+    if (!like) {
+      return null;
+    }
+
+    const likeDate = like.likedAt || like.createdAt;
+    const resolvedDate = likeDate && !isNaN(new Date(likeDate)) ? format(new Date(likeDate), 'PP p') : 'Date unavailable';
+
+    return (
+      <div
+        key={`like-mobile-${like._id}`}
+        className="rounded-lg border border-pink-700 bg-gradient-to-r from-pink-900/40 to-rose-900/20 p-3 space-y-2"
+      >
+        <div className="flex justify-between items-start gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-pink-100">
+              {like.userFullName || like.userName}
+            </h3>
+            <p className="text-xs text-pink-200">
+              Liked: {like.escortName}
+            </p>
+          </div>
+          <span className={`text-[10px] px-2 py-1 rounded-full uppercase tracking-wide ${
+            like.status === 'active' ? 'bg-green-500/30 text-green-200' : 'bg-gray-600/40 text-gray-200'
+          }`}>
+            {like.status}
+          </span>
+        </div>
+        <p className="text-xs text-pink-200">
+          {resolvedDate}
+        </p>
+        <div className="grid grid-cols-2 gap-2 text-[11px] font-medium">
+          <button
+            onClick={() => onStartChatFromLike && onStartChatFromLike(like._id)}
+            className="bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            💬 Chat
+          </button>
+          <button
+            onClick={() => onMarkLikeAsRead && onMarkLikeAsRead(like._id)}
+            className="bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            ✓ Read
+          </button>
+          <button
+            onClick={() => onDeleteLike && onDeleteLike(like._id)}
+            className="col-span-2 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+          >
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderReminderCard = (chat) => {
+    if (!chat) {
+      return null;
+    }
+
+    const inactiveHours = Math.floor(chat.hoursSinceLastCustomer || 0);
+    const lastAgent = (() => {
+      if (!chat.lastAgentResponse) {
+        return 'N/A';
+      }
+      const parsed = new Date(chat.lastAgentResponse);
+      if (isNaN(parsed)) {
+        return 'N/A';
+      }
+      return format(parsed, 'PP p');
+    })();
+
+    return (
+      <div
+        key={`reminder-mobile-${chat._id}`}
+        className="rounded-lg border border-red-700 bg-gradient-to-r from-red-900/40 to-rose-900/20 p-3 space-y-3"
+      >
+        <div className="flex justify-between items-start gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-red-100">
+              {chat.customerId?.username || chat.customerName || 'Customer'}
+            </h3>
+            <p className="text-xs text-red-200">
+              Escort: {chat.escortId?.firstName || chat.escortName || 'N/A'}
+            </p>
+          </div>
+          <span className="text-[10px] px-2 py-1 rounded-full bg-red-600 text-white uppercase tracking-wide">
+            Reminder
+          </span>
+        </div>
+        <div className="text-xs text-red-200 space-y-1">
+          <p><span className="font-semibold text-red-100">Inactive:</span> {inactiveHours} hours</p>
+          <p><span className="font-semibold text-red-100">Reminders:</span> {chat.reminderCount || 1}</p>
+          <p><span className="font-semibold text-red-100">Last agent msg:</span> {lastAgent}</p>
+        </div>
+        <button
+          onClick={() => openChat(chat)}
+          className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-[11px] font-semibold"
+        >
+          Open Chat
+        </button>
+      </div>
+    );
+  };
+
   const hasWatchableChats = watchableChats.length > 0;
 
   return (
-    <div className="bg-gray-800 rounded-lg p-2 md:p-4 shadow-lg overflow-x-auto">
+    <div className="bg-gray-800 rounded-lg p-2 md:p-4 shadow-lg">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-2">
         <div className="flex flex-col gap-2">
           <h2 className="text-lg md:text-xl font-semibold text-white">Live Dashboard</h2>
@@ -678,7 +983,42 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="md:hidden space-y-3 mt-3">
+        {filterType === 'reminders' ? (
+          reminderChats.length > 0 ? (
+            reminderChats.map(renderReminderCard)
+          ) : (
+            <div className="py-6 text-center text-sm text-gray-400 bg-gray-900 rounded-lg border border-gray-700">
+              No reminder chats
+            </div>
+          )
+        ) : filterType === 'likes' ? (
+          likes.length > 0 ? (
+            likes.map(renderLikeCard)
+          ) : (
+            <div className="py-6 text-center text-sm text-gray-400 bg-gray-900 rounded-lg border border-gray-700">
+              No likes yet
+            </div>
+          )
+        ) : (
+          <>
+            {Array.isArray(sortedChats) && sortedChats.length > 0 ? (
+              sortedChats.map(renderChatCard)
+            ) : (
+              <div className="py-6 text-center text-sm text-gray-400 bg-gray-900 rounded-lg border border-gray-700">
+                No chats to display
+              </div>
+            )}
+            {filterType !== 'likes' && Array.isArray(likes) && likes.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-[11px] uppercase tracking-wide text-pink-300 font-semibold">Likes</p>
+                {likes.map(renderLikeCard)}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div className="hidden md:block overflow-x-auto">
         {/* Unified table: show reminder-specific columns when in reminders tab */}
         {filterType === 'reminders' ? (
           <table className="min-w-full divide-y divide-red-800 text-[11px] md:text-xs">
