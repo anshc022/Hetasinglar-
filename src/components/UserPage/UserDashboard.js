@@ -1922,7 +1922,7 @@ const UserDashboard = () => {
       </motion.header>
 
       {/* Main Navigation Tabs */}
-      <nav className="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm border-b border-rose-200/50 dark:border-gray-600/50 overflow-x-auto transition-colors duration-300">
+      <nav className="relative z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm border-b border-rose-200/50 dark:border-gray-600/50 overflow-x-auto overflow-y-visible transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center">
             {/* Navigation Tabs */}
@@ -1935,7 +1935,7 @@ const UserDashboard = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveSection(tab.key)}
-                  className={`relative overflow-hidden rounded-full flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
+                  className={`relative rounded-full flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-all duration-200 ${
                     activeSection === tab.key
                       ? 'border-rose-500 text-rose-600 dark:text-rose-400'
                       : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
@@ -1952,7 +1952,7 @@ const UserDashboard = () => {
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span className="sm:hidden text-xs">{tab.label.substring(0, 4)}</span>
                   {tab.badge && (
-                    <span className="absolute -top-1 -right-1 sm:-top-1 sm:-right-2 bg-rose-500 text-white text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center">
+                    <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 bg-rose-500 text-white text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center shadow-md">
                       {tab.badge}
                     </span>
                   )}

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSwedishTranslation } from '../../utils/swedishTranslations';
 import Footer from '../Layout/Footer';
+import { auth } from '../../services/api';
 import './LandingPage.css';
 
 const HeartIcon = ({ className = "w-8 h-8" }) => (
@@ -34,6 +35,8 @@ const CloseIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
+
+const sanitizeReferralCode = (value = '') => value.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 50);
 
 const FloatingShape = ({ className, delay = 0 }) => (
   <motion.div
@@ -77,7 +80,7 @@ const TestimonialCard = ({ name, image, rating, text, delay }) => (
   </motion.div>
 );
 
-const ProfileCard = ({ name, delay, navigate, image }) => {
+const ProfileCard = ({ name, delay, onRegister, image }) => {
   const { t } = useSwedishTranslation();
   
   return (
@@ -126,7 +129,7 @@ const ProfileCard = ({ name, delay, navigate, image }) => {
           shadow-lg hover:shadow-xl transition-all duration-300"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        onClick={() => navigate('/register')}
+        onClick={() => onRegister && onRegister()}
       >
         {t('sayHi')} 👋
       </motion.button>
@@ -136,10 +139,9 @@ const ProfileCard = ({ name, delay, navigate, image }) => {
 };
 
 // Inline authentication panel (Login + Register + OTP verify) embedded into landing hero
-const InlineAuthPanel = ({ onClose }) => {
+const InlineAuthPanel = ({ onClose, referralCode = '', onReferralChange, isReferralPrefilled }) => {
   const { t } = useSwedishTranslation();
   const { login, setAuthData } = require('../context/AuthContext').useAuth();
-  const { auth } = require('../../services/api');
   const navigate = useNavigate();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register' | 'verify'
@@ -156,6 +158,12 @@ const InlineAuthPanel = ({ onClose }) => {
   const [info, setInfo] = useState(null);
 
   const resetMessages = () => { setError(null); setInfo(null); };
+
+  const handleReferralInput = (value) => {
+    if (typeof onReferralChange === 'function') {
+      onReferralChange(value);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -188,13 +196,18 @@ const InlineAuthPanel = ({ onClose }) => {
     }
     try {
       setLoading(true);
-      const res = await auth.register({
+      const payload = {
         username: form.username,
         email: form.email,
         password: form.password,
         dateOfBirth: form.dateOfBirth || undefined,
         sex: form.sex || undefined
-      });
+      };
+      const trimmedReferral = referralCode ? referralCode.trim() : '';
+      if (trimmedReferral) {
+        payload.referral_code = trimmedReferral;
+      }
+      const res = await auth.register(payload);
       // Direct registration: if token returned, log in immediately
       if (res?.access_token && res?.user) {
         setAuthData(res.user, res.access_token);
@@ -314,6 +327,28 @@ const InlineAuthPanel = ({ onClose }) => {
             </div>
             {error && <div className="text-rose-600 text-sm font-medium" role="alert">{error}</div>}
             {info && <div className="text-green-600 text-sm font-medium" role="status">{info}</div>}
+            <div>
+              <div className="relative">
+                <input
+                  name="referral_code"
+                  placeholder="Referral code (optional)"
+                  className={commonInputClasses}
+                  value={referralCode}
+                  onChange={(e) => handleReferralInput(e.target.value)}
+                />
+                {referralCode && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-lg">✓</span>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Have a referral code? Enter it now and we will apply it automatically.
+              </p>
+              {isReferralPrefilled && referralCode && (
+                <p className="text-green-600 text-xs font-semibold mt-1">
+                  Referral code {referralCode} applied automatically! 🎉
+                </p>
+              )}
+            </div>
             <button
               type="submit"
               disabled={loading}
@@ -336,9 +371,38 @@ const InlineAuthPanel = ({ onClose }) => {
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useSwedishTranslation();
   const scrollRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
+  const [isReferralPrefilled, setIsReferralPrefilled] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const refParam = params.get('ref');
+    if (!refParam) {
+      return;
+    }
+    const sanitized = sanitizeReferralCode(refParam);
+    if (!sanitized) {
+      return;
+    }
+    setReferralCode(prev => (prev === sanitized ? prev : sanitized));
+    setIsReferralPrefilled(true);
+    auth.trackAffiliateClick(sanitized).catch(() => {});
+  }, [location.search]);
+
+  const handleReferralChange = (value) => {
+    setReferralCode(sanitizeReferralCode(value));
+    setIsReferralPrefilled(false);
+  };
+
+  const handleRegisterNavigation = () => {
+    const trimmed = referralCode.trim();
+    const query = trimmed ? `?ref=${encodeURIComponent(trimmed)}` : '';
+    navigate(`/register${query}`);
+  };
 
   const profiles = [
     { name: 'Astrid', image: '/landing-img/5ac8806f-e80e-4af9-92cc-e37b9fbf0fed.jpg' },
@@ -607,7 +671,7 @@ const LandingPage = () => {
                   {t('login')}
                 </motion.button>
                 <motion.button
-                  onClick={() => navigate('/register')}
+                  onClick={handleRegisterNavigation}
                   className="px-3 md:px-6 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-full font-semibold 
                     shadow-lg hover:shadow-xl transition-shadow text-sm md:text-base"
                   whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}
@@ -682,7 +746,7 @@ const LandingPage = () => {
                     </motion.button>
                     <motion.button
                       onClick={() => {
-                        navigate('/register');
+                        handleRegisterNavigation();
                         setIsMobileMenuOpen(false);
                       }}
                       className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl font-semibold 
@@ -772,7 +836,11 @@ const LandingPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.8 }}
             >
-              <InlineAuthPanel />
+              <InlineAuthPanel
+                referralCode={referralCode}
+                onReferralChange={handleReferralChange}
+                isReferralPrefilled={isReferralPrefilled}
+              />
             </motion.div>
           </motion.div>
         </div>
@@ -811,7 +879,7 @@ const LandingPage = () => {
                     name={profile.name}
                     image={profile.image}
                     delay={0} // Remove staggered animation for auto-scroll
-                    navigate={navigate}
+                    onRegister={handleRegisterNavigation}
                   />
                 </div>
               ))}
@@ -832,7 +900,7 @@ const LandingPage = () => {
             className="text-center mt-16"
           >
             <motion.button
-              onClick={() => navigate('/register')}
+                onClick={handleRegisterNavigation}
               className="px-12 py-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
                 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 btn-glow"
               whileHover={{ scale: 1.05, y: -3 }}
@@ -944,7 +1012,7 @@ const LandingPage = () => {
             className="text-center mt-16"
           >
             <motion.button
-              onClick={() => navigate('/register')}
+              onClick={handleRegisterNavigation}
               className="px-12 py-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xl font-bold 
                 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300"
               whileHover={{ scale: 1.05, y: -3 }}

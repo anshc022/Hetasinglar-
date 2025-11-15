@@ -262,7 +262,7 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                 Escort
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">
                 Assigned Agent
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -291,6 +291,12 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
               const userPresence = getUserPresence(chat.customerId?._id);
               const assignedAgent = getAssignedAgent(chat);
               const isAssignedToCurrentAgent = matchesCurrentAgent(assignedAgent);
+              const assignedAgentDisplayName = assignedAgent
+                ? (isAssignedToCurrentAgent ? 'You' : (assignedAgent.name || assignedAgent.agentId || 'Assigned'))
+                : null;
+              const assignedAgentId = assignedAgent && assignedAgent.agentId && assignedAgent.agentId !== 'Unknown'
+                ? assignedAgent.agentId
+                : null;
               const moderators = Array.isArray(chat.moderators) ? chat.moderators : [];
               
               return (
@@ -330,6 +336,18 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                             PANIC ROOM
                           </span>
                         )}
+                        {assignedAgent ? (
+                          <div className="mt-2 text-xs md:hidden">
+                            <span className={`font-medium ${isAssignedToCurrentAgent ? 'text-green-300' : 'text-cyan-200'}`}>
+                              Assigned: {assignedAgentDisplayName}
+                            </span>
+                            {assignedAgentId && (
+                              <div className="text-gray-400">ID: {assignedAgentId}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-xs text-red-400 md:hidden">Assigned: Unassigned</div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -338,15 +356,15 @@ const ChatQueueTab = ({ chats, onOpenChat, navigate, userPresence = new Map() })
                       {chat.escortId?.firstName || chat.escortId?.name || chat.escortName || 'N/A'}
                     </div>
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 whitespace-nowrap hidden md:table-cell">
                     {assignedAgent ? (
                       <div className="flex flex-col">
                         <span className={`text-sm font-medium ${isAssignedToCurrentAgent ? 'text-green-300' : 'text-cyan-200'}`}>
-                          {isAssignedToCurrentAgent ? 'You' : (assignedAgent.name || assignedAgent.agentId || 'Assigned')}
+                          {assignedAgentDisplayName}
                         </span>
-                        {assignedAgent.agentId && assignedAgent.agentId !== 'Unknown' && (
+                        {assignedAgentId && (
                           <span className="text-xs text-gray-400">
-                            ID: {assignedAgent.agentId}
+                            ID: {assignedAgentId}
                           </span>
                         )}
                       </div>

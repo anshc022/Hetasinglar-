@@ -438,7 +438,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     gender: 'N/A',
     age: 'N/A',
     memberSince: 'N/A',
-    coins: 'N/A'
+    coins: 'N/A',
+    avatar: null,
+    avatarUrl: null,
+    profileImage: null
   });
   const messagesEndRef = useRef(null);
   const [pushBackOptions] = useState([
@@ -553,9 +556,159 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   
   // Notification state
   const [notification, setNotification] = useState(null);
+
+  const sanitizeChatData = React.useCallback((chat) => {
+    if (!chat) return chat;
+
+    const cleanedMessages = Array.isArray(chat.messages)
+      ? chat.messages.filter(msg => {
+          if (!msg) return false;
+          if (msg?.isDeleted) return false;
+          if (typeof msg?.message === 'string' && msg.message.includes('[This message has been deleted]')) {
+            return false;
+          }
+          return true;
+        })
+      : [];
+
+    const lastMessageEntry = cleanedMessages.length
+      ? cleanedMessages[cleanedMessages.length - 1]
+      : null;
+
+    const deriveLastMessage = (msg) => {
+      if (!msg) return '';
+      const messageType = msg.messageType || (typeof msg === 'object' ? msg.type : null);
+
+      if (msg.isDeleted) return '';
+
+      if (typeof msg === 'string') {
+        return msg.includes('[This message has been deleted]') ? '' : msg;
+      }
+
+      if (messageType === 'image') return '📷 Image';
+
+      const content = msg.message || '';
+      if (content.includes('[This message has been deleted]')) {
+        return '';
+      }
+      return content;
+    };
+
+    const normalizedLastMessage = lastMessageEntry
+      ? deriveLastMessage(lastMessageEntry)
+      : deriveLastMessage(chat.lastMessage);
+
+    return {
+      ...chat,
+      messages: cleanedMessages,
+      lastMessage: normalizedLastMessage,
+    };
+  }, []);
   
   // Image selector state
   const [showImageSelector, setShowImageSelector] = useState(false);
+
+  const assetBaseUrl = React.useMemo(() => {
+    if (!config.API_URL) {
+      return '';
+    }
+    return config.API_URL.replace(/\/api\/?$/, '');
+  }, []);
+
+  const resolveAssetUrl = React.useCallback((value) => {
+    const extractString = (input) => {
+      if (!input) {
+        return null;
+      }
+      if (typeof input === 'string') {
+        return input;
+      }
+      if (Array.isArray(input)) {
+        for (const item of input) {
+          const nested = extractString(item);
+          if (nested) {
+            return nested;
+          }
+        }
+        return null;
+      }
+      if (typeof input === 'object') {
+        const preferredKeys = [
+          'url',
+          'secure_url',
+          'Location',
+          'location',
+          'path',
+          'href',
+          'src',
+          'image',
+          'imageUrl',
+          'profileImage',
+          'avatar',
+          'file',
+          'signedUrl'
+        ];
+        for (const key of preferredKeys) {
+          if (key in input) {
+            const nested = extractString(input[key]);
+            if (nested) {
+              return nested;
+            }
+          }
+        }
+      }
+      return null;
+    };
+
+    const raw = extractString(value);
+    if (!raw || typeof raw !== 'string') {
+      return null;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+    if (raw.startsWith('data:') || raw.startsWith('blob:')) {
+      return raw;
+    }
+    const normalized = raw.startsWith('/') ? raw : `/${raw}`;
+    if (!assetBaseUrl) {
+      return normalized;
+    }
+    return `${assetBaseUrl}${normalized}`;
+  }, [assetBaseUrl]);
+
+  const customerAvatarUrl = React.useMemo(() => {
+    if (!selectedChat) {
+      return null;
+    }
+
+    const customer = selectedChat.customerId || {};
+    const candidates = [
+      selectedChat.customerProfileImage,
+      customer.profileImage,
+      customer.avatarUrl,
+      customer.avatar,
+      customer.profile?.avatarUrl,
+      customer.profile?.avatar,
+      userDetails.profileImage,
+      userDetails.avatarUrl,
+      userDetails.avatar
+    ];
+
+    for (const candidate of candidates) {
+      const resolved = resolveAssetUrl(candidate);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
+    return null;
+  }, [selectedChat, userDetails, resolveAssetUrl]);
+
+  const customerInitial = React.useMemo(() => {
+    const source = selectedChat?.customerId?.username || selectedChat?.customerName || '';
+    return source ? source.charAt(0).toUpperCase() : 'U';
+  }, [selectedChat]);
 
   const {
     addEscortLog,
@@ -840,23 +993,27 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       }
     }
 
-    setSelectedChat(fullChat);
+    const sanitizedChat = sanitizeChatData(fullChat);
+    setSelectedChat(sanitizedChat);
     setShowMobileSidebar(false); // Close mobile sidebar when chat is selected
-    const customerInfo = fullChat.customerId || {};
+    const customerInfo = sanitizedChat.customerId || {};
     setUserDetails({
-      username: customerInfo.username || fullChat.customerName || 'N/A',
+      username: customerInfo.username || sanitizedChat.customerName || 'N/A',
       email: customerInfo.email || 'N/A',
       gender: customerInfo.gender || 'N/A',
       age: calculateAge(customerInfo.dateOfBirth) + ' years' || 'N/A',
-      createdAt: customerInfo.createdAt || fullChat.createdAt || 'N/A',
+      createdAt: customerInfo.createdAt || sanitizedChat.createdAt || 'N/A',
       coins: customerInfo.coins?.balance || 0,
-      memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A'
+      memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A',
+      avatar: customerInfo.profile?.avatar || customerInfo.avatar || sanitizedChat.customerProfileImage || null,
+      avatarUrl: customerInfo.profile?.avatarUrl || customerInfo.avatarUrl || null,
+      profileImage: customerInfo.profileImage || customerInfo.profile?.profileImage || sanitizedChat.customerProfileImage || null
     });
 
     // Load chat-specific logs by default (NEW - recommended approach)
-    if (fullChat._id) {
+    if (sanitizedChat._id) {
       setLogViewMode('chat'); // Set to chat-specific mode by default
-      fetchChatEscortLogs(fullChat._id);
+      fetchChatEscortLogs(sanitizedChat._id);
       
       // Also load user logs if customer ID is available
       if (customerInfo._id) {
@@ -865,7 +1022,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
 
   // Set notes from chat comments initially (normalize legacy notes so they show)
-  setNotes(normalizeGeneralNotes(fullChat.comments || []));
+  setNotes(normalizeGeneralNotes(sanitizedChat.comments || []));
     setShowNoteInput(false);
     setGeneralNote(''); // Reset general note when changing chats
     
@@ -875,7 +1032,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     // Load the latest notes from the backend
     try {
-      const notesData = await agentAuth.getChatNotes(fullChat._id);
+      const notesData = await agentAuth.getChatNotes(sanitizedChat._id);
       if (notesData && notesData.comments) {
         console.log('Loading chat notes:', notesData.comments);
         setNotes(normalizeGeneralNotes(notesData.comments));
@@ -885,11 +1042,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
     
     // Fetch chat-specific logs for escort and user if IDs are available
-    if (fullChat._id) {
-      fetchChatEscortLogs(fullChat._id); // Use chat-specific logs for better accuracy
+    if (sanitizedChat._id) {
+      fetchChatEscortLogs(sanitizedChat._id); // Use chat-specific logs for better accuracy
     }
-    if (fullChat.customerId?._id) {
-      fetchUserLogs(fullChat.customerId._id);
+    if (sanitizedChat.customerId?._id) {
+      fetchUserLogs(sanitizedChat.customerId._id);
     }
   };
 
@@ -902,7 +1059,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           setError(null);
           
           try {
-            const chat = await agentAuth.getChat(chatId);
+            const chat = sanitizeChatData(await agentAuth.getChat(chatId));
             if (chat) {
               setChats([chat]);
               await handleChatSelection(chat);
@@ -930,7 +1087,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         const normalized = Array.isArray(escortResponse)
           ? escortResponse
           : (Array.isArray(escortResponse?.data) ? escortResponse.data : []);
-        setChats(normalized);
+        const sanitizedChats = normalized.map(sanitizeChatData);
+        setChats(sanitizedChats);
         setError(null);
         
         // Fetch escort profile information
@@ -943,18 +1101,18 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         
         // If a specific chat ID was provided in the URL, select it even if it has no unread messages
         if (chatId) {
-          const chatToSelect = normalized.find(c => c._id === chatId);
+          const chatToSelect = sanitizedChats.find(c => c._id === chatId);
           if (chatToSelect) {
             await handleChatSelection(chatToSelect);
             // Removed auto-scroll to bottom since messages are now newest-first
           } else {
             // Try to fetch the specific chat directly
             try {
-              const specificChat = await agentAuth.getChat(chatId);
+              const specificChat = sanitizeChatData(await agentAuth.getChat(chatId));
               
               if (specificChat) {
                 // Add the specific chat to the chats list if it's not already there
-                const updatedChats = [...normalized];
+                const updatedChats = [...sanitizedChats];
                 if (!updatedChats.find(c => c._id === chatId)) {
                   updatedChats.unshift(specificChat); // Add to beginning
                 }
@@ -971,10 +1129,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 const normalizedRefetch = Array.isArray(refreshedData)
                   ? refreshedData
                   : (Array.isArray(refreshedData?.data) ? refreshedData.data : []);
-                const refreshedChat = normalizedRefetch.find(c => c._id === chatId);
-                
+                const sanitizedRefetch = normalizedRefetch.map(sanitizeChatData);
+                const refreshedChat = sanitizedRefetch.find(c => c._id === chatId);
+
                 if (refreshedChat) {
-                  setChats(normalizedRefetch);
+                  setChats(sanitizedRefetch);
                   await handleChatSelection(refreshedChat);
                   // Removed auto-scroll to bottom since messages are now newest-first
                 } else {
@@ -996,12 +1155,13 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             const normalizedGlobal = Array.isArray(globalResponse)
               ? globalResponse
               : (Array.isArray(globalResponse?.data) ? globalResponse.data : []);
-            setChats(normalizedGlobal);
+            const sanitizedGlobal = normalizedGlobal.map(sanitizeChatData);
+            setChats(sanitizedGlobal);
 
             // Try to select the requested chat if a chatId param exists
             const chatIdParam = searchParams.get('chatId');
             if (chatIdParam) {
-              const found = normalizedGlobal.find(c => c._id === chatIdParam);
+              const found = sanitizedGlobal.find(c => c._id === chatIdParam);
               if (found) {
                 await handleChatSelection(found);
                 // Removed auto-scroll to bottom since messages are now newest-first
@@ -1009,9 +1169,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               } else {
                 // Try direct fetch of the chat and add/select it
                 try {
-                  const specificChat = await agentAuth.getChat(chatIdParam);
+                  const specificChat = sanitizeChatData(await agentAuth.getChat(chatIdParam));
                   if (specificChat) {
-                    const updated = [specificChat, ...normalizedGlobal.filter(c => c._id !== chatIdParam)];
+                    const updated = [specificChat, ...sanitizedGlobal.filter(c => c._id !== chatIdParam)];
                     setChats(updated);
                     await handleChatSelection(specificChat);
                     // Removed auto-scroll to bottom since messages are now newest-first
@@ -1043,6 +1203,40 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   websocketService.identifyAgent({});
     
     const messageHandler = (data) => {
+      if (data.type === 'message_deleted') {
+        setChats(prevChats => prevChats.map(chat => {
+          if (chat._id !== data.chatId) {
+            return chat;
+          }
+
+          const filtered = (chat.messages || []).filter((msg, idx) => {
+            if (data.messageId) {
+              return msg._id !== data.messageId;
+            }
+            return idx !== data.messageIndex;
+          });
+
+          return sanitizeChatData({ ...chat, messages: filtered });
+        }));
+
+        setSelectedChat(prev => {
+          if (!prev || prev._id !== data.chatId) {
+            return prev;
+          }
+
+          const filtered = (prev.messages || []).filter((msg, idx) => {
+            if (data.messageId) {
+              return msg._id !== data.messageId;
+            }
+            return idx !== data.messageIndex;
+          });
+
+          return sanitizeChatData({ ...prev, messages: filtered });
+        });
+
+        return;
+      }
+
       if (data.type === 'chat_message') {
         const newMessage = {
           message: data.message,
@@ -1062,26 +1256,22 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         setChats(prevChats => {
           return prevChats.map(chat => {
             if (chat._id === data.chatId) {
-              // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
               const updatedMessages = [...(chat.messages || [])];
-              
-              // Find matching optimistic message (same content and sender)
-              const optimisticIndex = updatedMessages.findIndex(msg => 
+
+              const optimisticIndex = updatedMessages.findIndex(msg =>
                 msg.isOptimistic && (
                   (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
                   (
-                    msg.sender === data.sender && 
+                    msg.sender === data.sender &&
                     ((data.messageType === 'image' && msg.filename === data.filename) ||
                      (data.messageType !== 'image' && msg.message === data.message))
                   )
                 )
               );
-              
+
               if (optimisticIndex !== -1) {
-                // Replace optimistic message with real one
                 updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
               } else {
-                // Prevent duplicates: skip if an identical non-optimistic message already exists
                 const existingIndex = updatedMessages.findIndex(msg =>
                   !msg.isOptimistic &&
                   msg.sender === data.sender &&
@@ -1095,16 +1285,15 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   updatedMessages.push(newMessage);
                 }
               }
-              
-              // Show appropriate last message for image messages (no filename)
-              const lastMessage = data.messageType === 'image' 
+
+              const lastMessage = data.messageType === 'image'
                 ? `📷 Image`
                 : data.message;
-              
+
               return {
                 ...chat,
                 messages: updatedMessages,
-                lastMessage: lastMessage,
+                lastMessage,
                 updatedAt: new Date(data.timestamp)
               };
             }
@@ -1112,56 +1301,57 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           });
         });
 
-        // Update selected chat if this is the active chat
-        if (selectedChat?._id === data.chatId) {
-          const lastMessage = data.messageType === 'image' 
-            ? `📷 Image`
-            : data.message;
-            
-          setSelectedChat(prev => {
-            if (!prev) return prev;
-            
-            // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
-            const updatedMessages = [...(prev.messages || [])];
-            
-            // Find matching optimistic message (same content and sender)
-            const optimisticIndex = updatedMessages.findIndex(msg => 
-              msg.isOptimistic && (
-                (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
-                (
-                  msg.sender === data.sender && 
-                  ((data.messageType === 'image' && msg.filename === data.filename) ||
-                   (data.messageType !== 'image' && msg.message === data.message))
-                )
+        let shouldScroll = false;
+        setSelectedChat(prev => {
+          if (!prev || prev._id !== data.chatId) {
+            return prev;
+          }
+
+          const updatedMessages = [...(prev.messages || [])];
+
+          const optimisticIndex = updatedMessages.findIndex(msg =>
+            msg.isOptimistic && (
+              (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+              (
+                msg.sender === data.sender &&
+                ((data.messageType === 'image' && msg.filename === data.filename) ||
+                 (data.messageType !== 'image' && msg.message === data.message))
+              )
+            )
+          );
+
+          if (optimisticIndex !== -1) {
+            updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+          } else {
+            const existingIndex = updatedMessages.findIndex(msg =>
+              !msg.isOptimistic &&
+              msg.sender === data.sender &&
+              (msg.messageType || 'text') === (data.messageType || 'text') &&
+              (
+                (data.messageType === 'image' && msg.filename === data.filename) ||
+                (data.messageType !== 'image' && msg.message === data.message)
               )
             );
-            
-            if (optimisticIndex !== -1) {
-              // Replace optimistic message with real one
-              updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
-            } else {
-              // Prevent duplicates: skip if an identical non-optimistic message already exists
-              const existingIndex = updatedMessages.findIndex(msg =>
-                !msg.isOptimistic &&
-                msg.sender === data.sender &&
-                (msg.messageType || 'text') === (data.messageType || 'text') &&
-                (
-                  (data.messageType === 'image' && msg.filename === data.filename) ||
-                  (data.messageType !== 'image' && msg.message === data.message)
-                )
-              );
-              if (existingIndex === -1) {
-                updatedMessages.push(newMessage);
-              }
+            if (existingIndex === -1) {
+              updatedMessages.push(newMessage);
             }
-            
-            return {
-              ...prev,
-              messages: updatedMessages,
-              lastMessage: lastMessage,
-              updatedAt: new Date(data.timestamp)
-            };
-          });
+          }
+
+          shouldScroll = true;
+
+          const lastMessage = data.messageType === 'image'
+            ? `📷 Image`
+            : data.message;
+
+          return {
+            ...prev,
+            messages: updatedMessages,
+            lastMessage,
+            updatedAt: new Date(data.timestamp)
+          };
+        });
+
+        if (shouldScroll) {
           scrollToBottom();
         }
       }
@@ -1175,7 +1365,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       unsubscribe();
       clearInterval(refreshInterval);
     };
-  }, [params.escortId, searchParams, scrollToBottom]);
+  }, [params.escortId, searchParams, scrollToBottom, sanitizeChatData]);
 
   useEffect(() => {
     if (selectedChat?.customerId) {
@@ -1184,10 +1374,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         email: selectedChat.customerId.email || 'N/A',
         gender: selectedChat.customerId.gender || 'N/A',
         age: calculateAge(selectedChat.customerId.dateOfBirth) + ' years' || 'N/A',
+        createdAt: selectedChat.customerId.createdAt || selectedChat.createdAt || 'N/A',
         memberSince: selectedChat.customerId.createdAt 
           ? new Date(selectedChat.customerId.createdAt).toLocaleDateString()
           : 'N/A',
-        coins: selectedChat.customerId.coins?.balance || 0
+        coins: selectedChat.customerId.coins?.balance || 0,
+        avatar: selectedChat.customerId.profile?.avatar || selectedChat.customerId.avatar || selectedChat.customerProfileImage || null,
+        avatarUrl: selectedChat.customerId.profile?.avatarUrl || selectedChat.customerId.avatarUrl || null,
+        profileImage: selectedChat.customerId.profileImage || selectedChat.customerId.profile?.profileImage || selectedChat.customerProfileImage || null
       });
 
       console.log('User coins data:', selectedChat.customerId.coins); // Debug log to verify coins data
@@ -1476,11 +1670,15 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
 
     const inCount = selectedChat.messages.filter(msg => 
-      msg.sender === 'customer' && !msg.isDeleted
+      msg.sender === 'customer' &&
+      !msg.isDeleted &&
+      !(typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]'))
     ).length;
     
     const outCount = selectedChat.messages.filter(msg => 
-      msg.sender === 'agent' && !msg.isDeleted
+      msg.sender === 'agent' &&
+      !msg.isDeleted &&
+      !(typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]'))
     ).length;
 
     return { inCount, outCount };
@@ -1743,9 +1941,20 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       await agentAuth.deleteMessage(selectedChat._id, message._id);
 
       // Update local state - completely remove deleted messages from view
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: (prev.messages || []).filter((msg, idx) => idx !== messageIndex)
+      setSelectedChat(prev => {
+        if (!prev) return prev;
+        const filtered = (prev.messages || []).filter((_, idx) => idx !== messageIndex);
+        return sanitizeChatData({ ...prev, messages: filtered });
+      });
+
+      // Keep main chat list in sync so reopening the chat reflects removal
+      setChats(prevChats => prevChats.map(chat => {
+        if (chat._id !== selectedChat._id) {
+          return chat;
+        }
+
+        const updatedMessages = (chat.messages || []).filter((_, idx) => idx !== messageIndex);
+        return sanitizeChatData({ ...chat, messages: updatedMessages });
       }));
       
     } catch (error) {
@@ -2395,9 +2604,17 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               <div className="hidden lg:block p-2 bg-gray-800/50">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
-                      {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
-                    </div>
+                    {customerAvatarUrl ? (
+                      <img
+                        src={customerAvatarUrl}
+                        alt="User avatar"
+                        className="h-8 w-8 rounded-full object-cover border border-gray-700"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                        {customerInitial}
+                      </div>
+                    )}
                     <div>
                       <h2 className="text-sm font-medium text-white flex items-center gap-2">
                         {selectedChat.customerId?.username || selectedChat.customerName}
@@ -2509,9 +2726,17 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   <div className="w-10"></div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
-                    {(selectedChat.customerId?.username?.[0] || selectedChat.customerName?.[0] || 'U').toUpperCase()}
-                  </div>
+                  {customerAvatarUrl ? (
+                    <img
+                      src={customerAvatarUrl}
+                      alt="User avatar"
+                      className="h-7 w-7 rounded-full object-cover border border-gray-700"
+                    />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                      {customerInitial}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="text-white font-medium truncate text-sm">
@@ -2666,7 +2891,13 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               )}
 
-              {([...(selectedChat?.messages || [])].reverse()).filter(msg => !msg.isDeleted).map((msg, idx) => {
+              {([...(selectedChat?.messages || [])].reverse()).filter(msg => {
+                if (!msg || msg.isDeleted) return false;
+                if (typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]')) {
+                  return false;
+                }
+                return true;
+              }).map((msg, idx) => {
                 const origIndex = (selectedChat?.messages?.length || 0) - 1 - idx;
                 return (
                   <div key={msg._id || origIndex} className="mb-3">
@@ -2826,15 +3057,15 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           <div className="p-3">
             {/* User Profile Image - Compact */}
             <div className="flex justify-center mb-3">
-              {selectedChat?.customerId?.profileImage ? (
+              {customerAvatarUrl ? (
                 <img 
-                  src={selectedChat.customerId.profileImage} 
-                  alt="User Profile" 
+                  src={customerAvatarUrl} 
+                  alt="User avatar"
                   className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-blue-500">
-                  {selectedChat?.customerId?.username?.[0]?.toUpperCase() || userDetails.username?.[0]?.toUpperCase() || '?'}
+                  {customerInitial}
                 </div>
               )}
             </div>
@@ -3197,15 +3428,15 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 <div>
                   {/* User Profile Image - Compact */}
                   <div className="flex justify-center mb-3">
-                    {selectedChat?.customerId?.profileImage ? (
+                    {customerAvatarUrl ? (
                       <img 
-                        src={selectedChat.customerId.profileImage} 
-                        alt="User Profile" 
+                        src={customerAvatarUrl} 
+                        alt="User avatar" 
                         className="w-16 h-16 rounded-full object-cover border-2 border-blue-500"
                       />
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-lg font-medium border-2 border-blue-500">
-                        {selectedChat?.customerId?.username?.[0]?.toUpperCase() || userDetails.username?.[0]?.toUpperCase() || '?'}
+                        {customerInitial}
                       </div>
                     )}
                   </div>
