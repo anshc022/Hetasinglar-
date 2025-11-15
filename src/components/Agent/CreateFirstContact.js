@@ -225,7 +225,7 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
       if (response.chat?._id) {
         setTimeout(() => {
           onClose(); // Close modal first
-          navigate(`/agent/live-queue/${response.chat.escortId._id}?chatId=${response.chat._id}&newContact=true`);
+          navigate(`/agent/chat/${response.chat._id}`);
           // Call success callback to refresh dashboard immediately
           if (onSuccess) {
             onSuccess();
@@ -269,7 +269,7 @@ const CreateFirstContact = ({ onClose, onSuccess }) => {
     }
 
     onClose();
-    navigate(`/agent/live-queue/${escortChatId}?chatId=${existingContact._id}&returningContact=true`);
+    navigate(`/agent/chat/${existingContact._id}`);
   };
 
   const getSelectedCustomerData = () => {

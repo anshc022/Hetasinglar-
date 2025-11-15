@@ -420,6 +420,8 @@ const MessageReminderBadge = ({ message, onAddQuickNote }) => {
   );
 };
 
+const DELETED_PLACEHOLDER = '[This message has been deleted]';
+
 const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const navigate = useNavigate();
   const params = useParams();
@@ -556,54 +558,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   
   // Notification state
   const [notification, setNotification] = useState(null);
-
-  const sanitizeChatData = React.useCallback((chat) => {
-    if (!chat) return chat;
-
-    const cleanedMessages = Array.isArray(chat.messages)
-      ? chat.messages.filter(msg => {
-          if (!msg) return false;
-          if (msg?.isDeleted) return false;
-          if (typeof msg?.message === 'string' && msg.message.includes('[This message has been deleted]')) {
-            return false;
-          }
-          return true;
-        })
-      : [];
-
-    const lastMessageEntry = cleanedMessages.length
-      ? cleanedMessages[cleanedMessages.length - 1]
-      : null;
-
-    const deriveLastMessage = (msg) => {
-      if (!msg) return '';
-      const messageType = msg.messageType || (typeof msg === 'object' ? msg.type : null);
-
-      if (msg.isDeleted) return '';
-
-      if (typeof msg === 'string') {
-        return msg.includes('[This message has been deleted]') ? '' : msg;
-      }
-
-      if (messageType === 'image') return '📷 Image';
-
-      const content = msg.message || '';
-      if (content.includes('[This message has been deleted]')) {
-        return '';
-      }
-      return content;
-    };
-
-    const normalizedLastMessage = lastMessageEntry
-      ? deriveLastMessage(lastMessageEntry)
-      : deriveLastMessage(chat.lastMessage);
-
-    return {
-      ...chat,
-      messages: cleanedMessages,
-      lastMessage: normalizedLastMessage,
-    };
-  }, []);
   
   // Image selector state
   const [showImageSelector, setShowImageSelector] = useState(false);
@@ -993,27 +947,26 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       }
     }
 
-    const sanitizedChat = sanitizeChatData(fullChat);
-    setSelectedChat(sanitizedChat);
+    setSelectedChat(fullChat);
     setShowMobileSidebar(false); // Close mobile sidebar when chat is selected
-    const customerInfo = sanitizedChat.customerId || {};
+    const customerInfo = fullChat.customerId || {};
     setUserDetails({
-      username: customerInfo.username || sanitizedChat.customerName || 'N/A',
+      username: customerInfo.username || fullChat.customerName || 'N/A',
       email: customerInfo.email || 'N/A',
       gender: customerInfo.gender || 'N/A',
       age: calculateAge(customerInfo.dateOfBirth) + ' years' || 'N/A',
-      createdAt: customerInfo.createdAt || sanitizedChat.createdAt || 'N/A',
+      createdAt: customerInfo.createdAt || fullChat.createdAt || 'N/A',
       coins: customerInfo.coins?.balance || 0,
       memberSince: customerInfo.createdAt ? new Date(customerInfo.createdAt).toLocaleDateString() : 'N/A',
-      avatar: customerInfo.profile?.avatar || customerInfo.avatar || sanitizedChat.customerProfileImage || null,
+      avatar: customerInfo.profile?.avatar || customerInfo.avatar || fullChat.customerProfileImage || null,
       avatarUrl: customerInfo.profile?.avatarUrl || customerInfo.avatarUrl || null,
-      profileImage: customerInfo.profileImage || customerInfo.profile?.profileImage || sanitizedChat.customerProfileImage || null
+      profileImage: customerInfo.profileImage || customerInfo.profile?.profileImage || fullChat.customerProfileImage || null
     });
 
     // Load chat-specific logs by default (NEW - recommended approach)
-    if (sanitizedChat._id) {
+    if (fullChat._id) {
       setLogViewMode('chat'); // Set to chat-specific mode by default
-      fetchChatEscortLogs(sanitizedChat._id);
+      fetchChatEscortLogs(fullChat._id);
       
       // Also load user logs if customer ID is available
       if (customerInfo._id) {
@@ -1022,7 +975,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
 
   // Set notes from chat comments initially (normalize legacy notes so they show)
-  setNotes(normalizeGeneralNotes(sanitizedChat.comments || []));
+  setNotes(normalizeGeneralNotes(fullChat.comments || []));
     setShowNoteInput(false);
     setGeneralNote(''); // Reset general note when changing chats
     
@@ -1032,7 +985,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     // Load the latest notes from the backend
     try {
-      const notesData = await agentAuth.getChatNotes(sanitizedChat._id);
+      const notesData = await agentAuth.getChatNotes(fullChat._id);
       if (notesData && notesData.comments) {
         console.log('Loading chat notes:', notesData.comments);
         setNotes(normalizeGeneralNotes(notesData.comments));
@@ -1042,11 +995,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
     
     // Fetch chat-specific logs for escort and user if IDs are available
-    if (sanitizedChat._id) {
-      fetchChatEscortLogs(sanitizedChat._id); // Use chat-specific logs for better accuracy
+    if (fullChat._id) {
+      fetchChatEscortLogs(fullChat._id); // Use chat-specific logs for better accuracy
     }
-    if (sanitizedChat.customerId?._id) {
-      fetchUserLogs(sanitizedChat.customerId._id);
+    if (fullChat.customerId?._id) {
+      fetchUserLogs(fullChat.customerId._id);
     }
   };
 
@@ -1059,7 +1012,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           setError(null);
           
           try {
-            const chat = sanitizeChatData(await agentAuth.getChat(chatId));
+            const chat = await agentAuth.getChat(chatId);
             if (chat) {
               setChats([chat]);
               await handleChatSelection(chat);
@@ -1087,8 +1040,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         const normalized = Array.isArray(escortResponse)
           ? escortResponse
           : (Array.isArray(escortResponse?.data) ? escortResponse.data : []);
-        const sanitizedChats = normalized.map(sanitizeChatData);
-        setChats(sanitizedChats);
+        setChats(normalized);
         setError(null);
         
         // Fetch escort profile information
@@ -1101,18 +1053,18 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         
         // If a specific chat ID was provided in the URL, select it even if it has no unread messages
         if (chatId) {
-          const chatToSelect = sanitizedChats.find(c => c._id === chatId);
+          const chatToSelect = normalized.find(c => c._id === chatId);
           if (chatToSelect) {
             await handleChatSelection(chatToSelect);
             // Removed auto-scroll to bottom since messages are now newest-first
           } else {
             // Try to fetch the specific chat directly
             try {
-              const specificChat = sanitizeChatData(await agentAuth.getChat(chatId));
+              const specificChat = await agentAuth.getChat(chatId);
               
               if (specificChat) {
                 // Add the specific chat to the chats list if it's not already there
-                const updatedChats = [...sanitizedChats];
+                const updatedChats = [...normalized];
                 if (!updatedChats.find(c => c._id === chatId)) {
                   updatedChats.unshift(specificChat); // Add to beginning
                 }
@@ -1129,11 +1081,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 const normalizedRefetch = Array.isArray(refreshedData)
                   ? refreshedData
                   : (Array.isArray(refreshedData?.data) ? refreshedData.data : []);
-                const sanitizedRefetch = normalizedRefetch.map(sanitizeChatData);
-                const refreshedChat = sanitizedRefetch.find(c => c._id === chatId);
-
+                const refreshedChat = normalizedRefetch.find(c => c._id === chatId);
+                
                 if (refreshedChat) {
-                  setChats(sanitizedRefetch);
+                  setChats(normalizedRefetch);
                   await handleChatSelection(refreshedChat);
                   // Removed auto-scroll to bottom since messages are now newest-first
                 } else {
@@ -1155,13 +1106,12 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
             const normalizedGlobal = Array.isArray(globalResponse)
               ? globalResponse
               : (Array.isArray(globalResponse?.data) ? globalResponse.data : []);
-            const sanitizedGlobal = normalizedGlobal.map(sanitizeChatData);
-            setChats(sanitizedGlobal);
+            setChats(normalizedGlobal);
 
             // Try to select the requested chat if a chatId param exists
             const chatIdParam = searchParams.get('chatId');
             if (chatIdParam) {
-              const found = sanitizedGlobal.find(c => c._id === chatIdParam);
+              const found = normalizedGlobal.find(c => c._id === chatIdParam);
               if (found) {
                 await handleChatSelection(found);
                 // Removed auto-scroll to bottom since messages are now newest-first
@@ -1169,9 +1119,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
               } else {
                 // Try direct fetch of the chat and add/select it
                 try {
-                  const specificChat = sanitizeChatData(await agentAuth.getChat(chatIdParam));
+                  const specificChat = await agentAuth.getChat(chatIdParam);
                   if (specificChat) {
-                    const updated = [specificChat, ...sanitizedGlobal.filter(c => c._id !== chatIdParam)];
+                    const updated = [specificChat, ...normalizedGlobal.filter(c => c._id !== chatIdParam)];
                     setChats(updated);
                     await handleChatSelection(specificChat);
                     // Removed auto-scroll to bottom since messages are now newest-first
@@ -1203,40 +1153,6 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   websocketService.identifyAgent({});
     
     const messageHandler = (data) => {
-      if (data.type === 'message_deleted') {
-        setChats(prevChats => prevChats.map(chat => {
-          if (chat._id !== data.chatId) {
-            return chat;
-          }
-
-          const filtered = (chat.messages || []).filter((msg, idx) => {
-            if (data.messageId) {
-              return msg._id !== data.messageId;
-            }
-            return idx !== data.messageIndex;
-          });
-
-          return sanitizeChatData({ ...chat, messages: filtered });
-        }));
-
-        setSelectedChat(prev => {
-          if (!prev || prev._id !== data.chatId) {
-            return prev;
-          }
-
-          const filtered = (prev.messages || []).filter((msg, idx) => {
-            if (data.messageId) {
-              return msg._id !== data.messageId;
-            }
-            return idx !== data.messageIndex;
-          });
-
-          return sanitizeChatData({ ...prev, messages: filtered });
-        });
-
-        return;
-      }
-
       if (data.type === 'chat_message') {
         const newMessage = {
           message: data.message,
@@ -1256,22 +1172,26 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
         setChats(prevChats => {
           return prevChats.map(chat => {
             if (chat._id === data.chatId) {
+              // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
               const updatedMessages = [...(chat.messages || [])];
-
-              const optimisticIndex = updatedMessages.findIndex(msg =>
+              
+              // Find matching optimistic message (same content and sender)
+              const optimisticIndex = updatedMessages.findIndex(msg => 
                 msg.isOptimistic && (
                   (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
                   (
-                    msg.sender === data.sender &&
+                    msg.sender === data.sender && 
                     ((data.messageType === 'image' && msg.filename === data.filename) ||
                      (data.messageType !== 'image' && msg.message === data.message))
                   )
                 )
               );
-
+              
               if (optimisticIndex !== -1) {
+                // Replace optimistic message with real one
                 updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
               } else {
+                // Prevent duplicates: skip if an identical non-optimistic message already exists
                 const existingIndex = updatedMessages.findIndex(msg =>
                   !msg.isOptimistic &&
                   msg.sender === data.sender &&
@@ -1285,15 +1205,16 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                   updatedMessages.push(newMessage);
                 }
               }
-
-              const lastMessage = data.messageType === 'image'
+              
+              // Show appropriate last message for image messages (no filename)
+              const lastMessage = data.messageType === 'image' 
                 ? `📷 Image`
                 : data.message;
-
+              
               return {
                 ...chat,
                 messages: updatedMessages,
-                lastMessage,
+                lastMessage: lastMessage,
                 updatedAt: new Date(data.timestamp)
               };
             }
@@ -1301,58 +1222,148 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           });
         });
 
-        let shouldScroll = false;
-        setSelectedChat(prev => {
-          if (!prev || prev._id !== data.chatId) {
-            return prev;
-          }
-
-          const updatedMessages = [...(prev.messages || [])];
-
-          const optimisticIndex = updatedMessages.findIndex(msg =>
-            msg.isOptimistic && (
-              (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
-              (
-                msg.sender === data.sender &&
-                ((data.messageType === 'image' && msg.filename === data.filename) ||
-                 (data.messageType !== 'image' && msg.message === data.message))
-              )
-            )
-          );
-
-          if (optimisticIndex !== -1) {
-            updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
-          } else {
-            const existingIndex = updatedMessages.findIndex(msg =>
-              !msg.isOptimistic &&
-              msg.sender === data.sender &&
-              (msg.messageType || 'text') === (data.messageType || 'text') &&
-              (
-                (data.messageType === 'image' && msg.filename === data.filename) ||
-                (data.messageType !== 'image' && msg.message === data.message)
+        // Update selected chat if this is the active chat
+        if (selectedChat?._id === data.chatId) {
+          const lastMessage = data.messageType === 'image' 
+            ? `📷 Image`
+            : data.message;
+            
+          setSelectedChat(prev => {
+            if (!prev) return prev;
+            
+            // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
+            const updatedMessages = [...(prev.messages || [])];
+            
+            // Find matching optimistic message (same content and sender)
+            const optimisticIndex = updatedMessages.findIndex(msg => 
+              msg.isOptimistic && (
+                (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+                (
+                  msg.sender === data.sender && 
+                  ((data.messageType === 'image' && msg.filename === data.filename) ||
+                   (data.messageType !== 'image' && msg.message === data.message))
+                )
               )
             );
-            if (existingIndex === -1) {
-              updatedMessages.push(newMessage);
+            
+            if (optimisticIndex !== -1) {
+              // Replace optimistic message with real one
+              updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+            } else {
+              // Prevent duplicates: skip if an identical non-optimistic message already exists
+              const existingIndex = updatedMessages.findIndex(msg =>
+                !msg.isOptimistic &&
+                msg.sender === data.sender &&
+                (msg.messageType || 'text') === (data.messageType || 'text') &&
+                (
+                  (data.messageType === 'image' && msg.filename === data.filename) ||
+                  (data.messageType !== 'image' && msg.message === data.message)
+                )
+              );
+              if (existingIndex === -1) {
+                updatedMessages.push(newMessage);
+              }
+            }
+            
+            return {
+              ...prev,
+              messages: updatedMessages,
+              lastMessage: lastMessage,
+              updatedAt: new Date(data.timestamp)
+            };
+          });
+          scrollToBottom();
+        }
+      } else if (data.type === 'message_deleted') {
+        const deletionPlaceholder = DELETED_PLACEHOLDER;
+        const deletionTimestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+        const computeLastMessagePreview = (messages = []) => {
+          if (!Array.isArray(messages) || messages.length === 0) {
+            return deletionPlaceholder;
+          }
+          const latestVisible = [...messages].reverse().find(entry => entry && !entry.isDeleted);
+          if (!latestVisible) {
+            return deletionPlaceholder;
+          }
+          if (latestVisible.messageType === 'image') {
+            return '📷 Image';
+          }
+          return latestVisible.message;
+        };
+
+        const updateMessagesWithDeletion = (messages = []) => {
+          if (!Array.isArray(messages)) {
+            return messages;
+          }
+          const updated = [...messages];
+          let indexToUpdate = -1;
+
+          if (typeof data.messageIndex === 'number' && data.messageIndex >= 0 && data.messageIndex < updated.length) {
+            indexToUpdate = data.messageIndex;
+            if (data.messageId && updated[indexToUpdate]?._id && updated[indexToUpdate]._id !== data.messageId) {
+              indexToUpdate = -1;
             }
           }
 
-          shouldScroll = true;
+          if (indexToUpdate === -1 && data.messageId) {
+            indexToUpdate = updated.findIndex(entry => entry && entry._id === data.messageId);
+          }
 
-          const lastMessage = data.messageType === 'image'
-            ? `📷 Image`
-            : data.message;
+          if (indexToUpdate === -1) {
+            return messages;
+          }
+
+          const targetMessage = updated[indexToUpdate] || {};
+
+          if (targetMessage.isDeleted) {
+            return messages;
+          }
+
+          updated[indexToUpdate] = {
+            ...targetMessage,
+            isDeleted: true,
+            deletedAt: deletionTimestamp,
+            message: deletionPlaceholder
+          };
+
+          return updated;
+        };
+
+        setChats(prevChats => prevChats.map(chat => {
+          if (chat._id !== data.chatId) {
+            return chat;
+          }
+
+          const updatedMessages = updateMessagesWithDeletion(chat.messages || []);
+          if (updatedMessages === chat.messages) {
+            return chat;
+          }
 
           return {
-            ...prev,
+            ...chat,
             messages: updatedMessages,
-            lastMessage,
-            updatedAt: new Date(data.timestamp)
+            lastMessage: computeLastMessagePreview(updatedMessages),
+            updatedAt: deletionTimestamp
           };
-        });
+        }));
 
-        if (shouldScroll) {
-          scrollToBottom();
+        if (selectedChat?._id === data.chatId) {
+          setSelectedChat(prev => {
+            if (!prev) {
+              return prev;
+            }
+
+            const updatedMessages = updateMessagesWithDeletion(prev.messages || []);
+            if (updatedMessages === prev.messages) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              messages: updatedMessages,
+              lastMessage: computeLastMessagePreview(updatedMessages)
+            };
+          });
         }
       }
     };
@@ -1365,7 +1376,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       unsubscribe();
       clearInterval(refreshInterval);
     };
-  }, [params.escortId, searchParams, scrollToBottom, sanitizeChatData]);
+  }, [params.escortId, searchParams, scrollToBottom]);
 
   useEffect(() => {
     if (selectedChat?.customerId) {
@@ -1670,15 +1681,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
 
     const inCount = selectedChat.messages.filter(msg => 
-      msg.sender === 'customer' &&
-      !msg.isDeleted &&
-      !(typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]'))
+      msg.sender === 'customer' && !msg.isDeleted
     ).length;
     
     const outCount = selectedChat.messages.filter(msg => 
-      msg.sender === 'agent' &&
-      !msg.isDeleted &&
-      !(typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]'))
+      msg.sender === 'agent' && !msg.isDeleted
     ).length;
 
     return { inCount, outCount };
@@ -1874,6 +1881,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       setError('You can only edit your own messages');
       return;
     }
+
+    if (message.isDeleted) {
+      setError('Deleted messages cannot be edited');
+      return;
+    }
     
     setEditingMessageId(message._id);
     setEditMessageText(currentMessage);
@@ -1932,6 +1944,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
       setError('You can only delete your own messages');
       return;
     }
+
+    if (editingMessage === messageIndex) {
+      handleCancelEditMessage();
+    }
     
     if (!window.confirm('Are you sure you want to delete this message?')) {
       return;
@@ -1940,21 +1956,70 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       await agentAuth.deleteMessage(selectedChat._id, message._id);
 
-      // Update local state - completely remove deleted messages from view
+      const deletionTimestamp = new Date();
+      const deletionPlaceholder = DELETED_PLACEHOLDER;
+      const computeLastMessagePreview = (messages = []) => {
+        if (!Array.isArray(messages) || messages.length === 0) {
+          return deletionPlaceholder;
+        }
+        const latestVisible = [...messages].reverse().find(entry => entry && !entry.isDeleted);
+        if (!latestVisible) {
+          return deletionPlaceholder;
+        }
+        if (latestVisible.messageType === 'image') {
+          return '📷 Image';
+        }
+        return latestVisible.message;
+      };
+
+      // Update selected chat by marking the message as deleted so the placeholder remains visible
       setSelectedChat(prev => {
-        if (!prev) return prev;
-        const filtered = (prev.messages || []).filter((_, idx) => idx !== messageIndex);
-        return sanitizeChatData({ ...prev, messages: filtered });
+        if (!prev) {
+          return prev;
+        }
+        const updatedMessages = (prev.messages || []).map((msg, idx) => {
+          if (idx !== messageIndex) {
+            return msg;
+          }
+          return {
+            ...msg,
+            isDeleted: true,
+            deletedAt: deletionTimestamp,
+            message: deletionPlaceholder
+          };
+        });
+
+        return {
+          ...prev,
+          messages: updatedMessages,
+          lastMessage: computeLastMessagePreview(updatedMessages)
+        };
       });
 
-      // Keep main chat list in sync so reopening the chat reflects removal
+      // Keep chats list in sync so sidebars and previews show the deleted state immediately
       setChats(prevChats => prevChats.map(chat => {
         if (chat._id !== selectedChat._id) {
           return chat;
         }
 
-        const updatedMessages = (chat.messages || []).filter((_, idx) => idx !== messageIndex);
-        return sanitizeChatData({ ...chat, messages: updatedMessages });
+        const updatedMessages = (chat.messages || []).map((msg, idx) => {
+          if (idx !== messageIndex) {
+            return msg;
+          }
+          return {
+            ...msg,
+            isDeleted: true,
+            deletedAt: deletionTimestamp,
+            message: deletionPlaceholder
+          };
+        });
+
+        return {
+          ...chat,
+          messages: updatedMessages,
+          lastMessage: computeLastMessagePreview(updatedMessages),
+          updatedAt: deletionTimestamp
+        };
       }));
       
     } catch (error) {
@@ -2891,14 +2956,12 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 </div>
               )}
 
-              {([...(selectedChat?.messages || [])].reverse()).filter(msg => {
-                if (!msg || msg.isDeleted) return false;
-                if (typeof msg.message === 'string' && msg.message.includes('[This message has been deleted]')) {
-                  return false;
+              {([...(selectedChat?.messages || [])].reverse()).map((msg, idx) => {
+                if (!msg) {
+                  return null;
                 }
-                return true;
-              }).map((msg, idx) => {
                 const origIndex = (selectedChat?.messages?.length || 0) - 1 - idx;
+                const isDeleted = !!msg.isDeleted;
                 return (
                   <div key={msg._id || origIndex} className="mb-3">
                     {/* Sender Label */}
@@ -2925,7 +2988,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                             msg.sender === 'agent'
                               ? 'border-red-400 bg-transparent text-white'
                               : 'border-yellow-400 bg-transparent text-white'
-                          } ${msg.isDeleted ? 'opacity-50' : ''}`}
+                          } ${isDeleted ? 'opacity-40 italic' : ''}`}
                           style={{ wordBreak: 'break-word' }}
                         >
                         {editingMessage === origIndex ? (
@@ -2944,7 +3007,11 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                           </div>
                         ) : (
                           <>
-                            {msg.messageType === 'image' && (msg.imageData || msg.filename) ? (
+                            {isDeleted ? (
+                              <p className="whitespace-pre-wrap text-gray-300">
+                                {msg.message || DELETED_PLACEHOLDER}
+                              </p>
+                            ) : msg.messageType === 'image' && (msg.imageData || msg.filename) ? (
                               <div className="space-y-2">
                                 <div className="relative">
                                   <img
@@ -2997,7 +3064,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                             {/* Time stamp at bottom right */}
                             <div className={`flex justify-end mt-2`}>
                               <span className="text-xs opacity-75">{formatDate(msg.timestamp)}</span>
-                              {!msg.isDeleted && msg.sender === 'agent' && msg.messageType !== 'image' && (
+                              {!isDeleted && msg.sender === 'agent' && msg.messageType !== 'image' && (
                                 <div className="flex ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button onClick={() => handleStartEditMessage(origIndex, msg.message)} className="p-1 text-gray-200 hover:text-white transition-colors" title="Edit your message">
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3016,7 +3083,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                         )}
                         </div>
                         
-                        {msg.note && (
+                        {msg.note && !isDeleted && (
                           <div className="px-3 py-1 mt-1 bg-yellow-500/20 text-yellow-300 rounded-lg text-xs">
                             <div className="flex justify-between">
                               <span className="font-medium">Note: {msg.note.text}</span>
@@ -3032,7 +3099,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                             </div>
                           )}
                           
-                          {msg.sender === 'customer' && !msg.note && (
+                            {msg.sender === 'customer' && !msg.note && !isDeleted && (
                             <MessageReminderBadge message={msg} onAddQuickNote={(text) => handleAddMessageNote(origIndex, text)} />
                           )}
                         </div>
