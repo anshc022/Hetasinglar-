@@ -502,13 +502,82 @@ const AdminDashboard = () => {
                   <h2 className="text-lg lg:text-xl font-semibold text-white">Agent Overview</h2>
                 </div>
                 
-                {/* Responsive Table View */}
-                <div className="overflow-x-auto w-full">
+                {/* Mobile Card View */}
+                <div className="block md:hidden space-y-4">
+                  {stats.agents?.map(agent => (
+                    <motion.div
+                      key={agent.id}
+                      className="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-lg"
+                      whileHover={{ scale: 1.02 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {/* Header with name and status */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white text-base">{agent.name}</h3>
+                          <p className="text-xs text-gray-400 mt-1">{agent.agentId}</p>
+                        </div>
+                        <span className="px-2 py-1 rounded text-xs bg-blue-500/20 text-blue-300 ml-2">
+                          {agent.role}
+                        </span>
+                      </div>
+                      
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-gray-700/30 rounded-lg p-3">
+                          <div className="text-lg font-bold text-green-400">
+                            {agent.stats?.liveMessageCount || 0}
+                          </div>
+                          <div className="text-xs text-gray-400">Live Messages</div>
+                        </div>
+                        <div className="bg-gray-700/30 rounded-lg p-3">
+                          <div className="text-lg font-bold text-blue-400">
+                            {agent.stats?.totalMessagesSent || 0}
+                          </div>
+                          <div className="text-xs text-gray-400">Total Messages</div>
+                        </div>
+                      </div>
+                      
+                      {/* Action buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditAgent(agent)}
+                          className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium transition-colors"
+                        >
+                          Edit Agent
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAgent(agent.id)}
+                          disabled={deletingAgent?.id === agent.id}
+                          className={`flex-1 px-3 py-2 text-white rounded-lg text-sm font-medium transition-all ${
+                            deletingAgent?.id === agent.id 
+                              ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                              : 'bg-red-500 hover:bg-red-600'
+                          }`}
+                        >
+                          {deletingAgent?.id === agent.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {/* Empty state for mobile */}
+                  {!stats.agents?.length && (
+                    <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
+                      <FaUsers className="text-4xl mb-4 text-gray-600 mx-auto" />
+                      <p className="text-lg font-medium text-gray-400">No agents found</p>
+                      <p className="text-sm text-gray-500">Create some agents to see them here.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto w-full">
                   <table className="w-full text-left bg-gray-800 rounded-lg shadow-lg min-w-full">
                     <thead className="text-gray-400 text-xs sm:text-sm uppercase">
                       <tr>
                         <th className="px-3 sm:px-6 py-3 text-left">Name</th>
-                        <th className="px-3 sm:px-6 py-3 text-left hidden sm:table-cell">ID</th>
+                        <th className="px-3 sm:px-6 py-3 text-left">ID</th>
                         <th className="px-3 sm:px-6 py-3 text-left">Role</th>
                         <th className="px-3 sm:px-6 py-3 text-center">Live</th>
                         <th className="px-3 sm:px-6 py-3 text-center">Total</th>
@@ -519,12 +588,9 @@ const AdminDashboard = () => {
                       {stats.agents?.map(agent => (
                         <tr key={agent.id} className="border-t border-gray-700 hover:bg-gray-700/30">
                           <td className="px-3 sm:px-6 py-3 sm:py-4">
-                            <div>
-                              <div className="font-semibold text-sm sm:text-base">{agent.name}</div>
-                              <div className="text-xs text-gray-400 sm:hidden">{agent.agentId}</div>
-                            </div>
+                            <div className="font-semibold text-sm sm:text-base">{agent.name}</div>
                           </td>
-                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-400 hidden sm:table-cell">
+                          <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-400">
                             {agent.agentId}
                           </td>
                           <td className="px-3 sm:px-6 py-3 sm:py-4">
@@ -539,7 +605,7 @@ const AdminDashboard = () => {
                             {agent.stats?.totalMessagesSent || 0}
                           </td>
                           <td className="px-3 sm:px-6 py-3 sm:py-4">
-                            <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                            <div className="flex gap-2">
                               <button
                                 onClick={() => handleEditAgent(agent)}
                                 className="px-2 sm:px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs sm:text-sm"

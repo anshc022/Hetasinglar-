@@ -23,10 +23,14 @@ const LogsList = ({
 
   // Group logs by category for better organization
   const groupedLogs = logs.reduce((groups, log) => {
-    if (!groups[log.category]) {
-      groups[log.category] = [];
+    const rawCategory = typeof log?.category === 'string' ? log.category.trim() : '';
+    const categoryKey = rawCategory || log?.categoryPreset || 'Uncategorized';
+
+    if (!groups[categoryKey]) {
+      groups[categoryKey] = [];
     }
-    groups[log.category].push(log);
+
+    groups[categoryKey].push(log);
     return groups;
   }, {});
 
@@ -49,48 +53,62 @@ const LogsList = ({
         </div>
       ) : (
         <div className="space-y-2">
-          {Object.entries(groupedLogs).map(([category, categoryLogs]) => (
-            <div key={category} className="space-y-1.5">
-              <h4 className="text-blue-400 text-xs font-medium border-b border-gray-600/50 pb-1">{category}</h4>
-              <div className="space-y-1.5">
-                {categoryLogs.map((log) => (
-                  <div key={log._id} className="bg-gray-700/30 rounded-lg p-2 border border-gray-600/30">
-                    <p className="text-white text-xs leading-relaxed whitespace-pre-wrap break-words">{log.content}</p>
-                    <div className="flex justify-between items-center mt-2 text-xs">
-                      <span className="text-blue-400 font-medium">
-                        {log.createdBy?.name || log.createdBy?.type || 'Agent'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-400">
-                          {formatDate(log.createdAt)}
+          {Object.entries(groupedLogs).map(([categoryKey, categoryLogs]) => {
+            const displayCategory = categoryKey || 'Uncategorized';
+
+            return (
+              <div key={displayCategory} className="space-y-1.5">
+                <h4 className="text-blue-300 text-xs font-semibold border-b border-gray-600/50 pb-1 uppercase tracking-wide">
+                  {displayCategory}
+                </h4>
+                <div className="space-y-1.5">
+                  {categoryLogs.map((log) => (
+                    <div key={log._id} className="bg-gray-700/30 rounded-lg p-3 border border-gray-600/30">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-200 text-[11px] font-semibold rounded-full uppercase tracking-wide">
+                          {typeof log?.category === 'string' && log.category.trim() ? log.category : (log?.categoryPreset || 'Uncategorized')}
                         </span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           {canEdit && onEditLog && (
                             <button
                               onClick={() => onEditLog(log)}
-                              className="text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                              className="text-blue-300 hover:text-blue-200 p-1.5 rounded-full hover:bg-gray-600/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400/60"
                               title="Edit log"
+                              aria-label="Edit log"
                             >
-                              <FaEdit className="w-3 h-3" />
+                              <FaEdit className="w-4 h-4" />
                             </button>
                           )}
                           {canDelete && onDeleteLog && (
                             <button
                               onClick={() => onDeleteLog(log)}
-                              className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-gray-600/50 transition-colors"
+                              className="text-red-300 hover:text-red-200 p-1.5 rounded-full hover:bg-gray-600/60 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400/60"
                               title="Delete log"
+                              aria-label="Delete log"
                             >
-                              <FaTrash className="w-3 h-3" />
+                              <FaTrash className="w-4 h-4" />
                             </button>
                           )}
                         </div>
                       </div>
+
+                      <p className="text-white text-xs leading-relaxed whitespace-pre-wrap break-words">
+                        {log.content}
+                      </p>
+                      <div className="flex justify-between items-center mt-3 text-[11px] text-gray-400">
+                        <span className="text-blue-200 font-medium">
+                          {log.createdBy?.name || log.createdBy?.type || 'Agent'}
+                        </span>
+                        <span>
+                          {formatDate(log.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

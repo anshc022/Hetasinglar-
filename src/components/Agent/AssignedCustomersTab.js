@@ -133,66 +133,127 @@ const AssignedCustomersTab = ({ agentId, navigate }) => {
             <p className="text-sm mt-2">Try a different search term</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Registration Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Last Activity</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {filteredCustomers.map((customer) => (
-                  <tr key={customer._id || customer.customerId?._id} className="hover:bg-gray-700/30 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white font-bold">
-                          {(customer.customerId?.username?.[0] || 'U').toUpperCase()}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-white">{customer.customerId?.username || 'Unknown'}</div>
-                          <div className="text-sm text-gray-400">{customer.customerId?.email || 'No email'}</div>
-                        </div>
+          <>
+            {/* Mobile Card View */}
+            <div className="block md:hidden space-y-4">
+              {filteredCustomers.map((customer) => (
+                <div key={customer._id || customer.customerId?._id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                  {/* Header with avatar and basic info */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center flex-1">
+                      <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white font-bold text-lg">
+                        {(customer.customerId?.username?.[0] || 'U').toUpperCase()}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {customer.registrationDate ? format(new Date(customer.registrationDate), 'MMM dd, yyyy') : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {customer.lastActivity ? formatDistanceToNow(new Date(customer.lastActivity), { addSuffix: true }) : 'Never'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${customer.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {customer.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleStartChat(customer.customerId?._id)}
-                          className="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md flex items-center gap-1"
-                        >
-                          <FaComments className="text-xs" />
-                          <span>Chat</span>
-                        </button>
-                        <button
-                          onClick={() => handleViewProfile(customer.customerId?._id)}
-                          className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center gap-1"
-                        >
-                          <FaEye className="text-xs" />
-                          <span>Profile</span>
-                        </button>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <h3 className="text-white font-semibold text-base truncate">{customer.customerId?.username || 'Unknown'}</h3>
+                        <p className="text-gray-400 text-sm truncate">{customer.customerId?.email || 'No email'}</p>
                       </div>
-                    </td>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ml-2 
+                      ${customer.isActive ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'}`}>
+                      {customer.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  
+                  {/* Customer Details Grid */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Registration</div>
+                      <div className="text-sm text-white font-medium">
+                        {customer.registrationDate ? format(new Date(customer.registrationDate), 'MMM dd, yyyy') : 'N/A'}
+                      </div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">Last Activity</div>
+                      <div className="text-sm text-white font-medium">
+                        {customer.lastActivity ? formatDistanceToNow(new Date(customer.lastActivity), { addSuffix: true }) : 'Never'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleStartChat(customer.customerId?._id)}
+                      className="flex-1 px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaComments className="text-sm" />
+                      <span>Start Chat</span>
+                    </button>
+                    <button
+                      onClick={() => handleViewProfile(customer.customerId?._id)}
+                      className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FaEye className="text-sm" />
+                      <span>View Profile</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-900">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Registration Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Last Activity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                  {filteredCustomers.map((customer) => (
+                    <tr key={customer._id || customer.customerId?._id} className="hover:bg-gray-700/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white font-bold">
+                            {(customer.customerId?.username?.[0] || 'U').toUpperCase()}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-white">{customer.customerId?.username || 'Unknown'}</div>
+                            <div className="text-sm text-gray-400">{customer.customerId?.email || 'No email'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {customer.registrationDate ? format(new Date(customer.registrationDate), 'MMM dd, yyyy') : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {customer.lastActivity ? formatDistanceToNow(new Date(customer.lastActivity), { addSuffix: true }) : 'Never'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${customer.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {customer.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleStartChat(customer.customerId?._id)}
+                            className="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md flex items-center gap-1"
+                          >
+                            <FaComments className="text-xs" />
+                            <span>Chat</span>
+                          </button>
+                          <button
+                            onClick={() => handleViewProfile(customer.customerId?._id)}
+                            className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md flex items-center gap-1"
+                          >
+                            <FaEye className="text-xs" />
+                            <span>Profile</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -233,107 +233,198 @@ const UserAssignmentManagement = () => {
                 <p className="text-sm mt-2">No users are registered in the system yet.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
-                    <tr>
-                      <th className="px-6 py-3">User</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Assigned Agent</th>
-                      <th className="px-6 py-3">Assignment Date</th>
-                      <th className="px-6 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {users.map((user) => {
-                      const assignment = getAssignmentForUser(user._id);
-                      const isAssigned = !!assignment;
-                      
-                      return (
-                        <tr key={user._id} className="border-t border-gray-700 hover:bg-gray-700/30">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center">
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold mr-3">
-                                {user.username?.charAt(0)?.toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-medium text-white">{user.username}</div>
-                                <div className="text-sm text-gray-400">{user.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              isAssigned 
-                                ? 'bg-green-500/20 text-green-400' 
-                                : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {isAssigned ? (
-                                <>
-                                  <FaUserCheck className="mr-1 h-3 w-3" />
-                                  Assigned
-                                </>
-                              ) : (
-                                <>
-                                  <FaUserTimes className="mr-1 h-3 w-3" />
-                                  Unassigned
-                                </>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-300">
-                              {isAssigned ? getAgentName(assignment.agentId) : '-'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center text-sm">
-                              {isAssigned ? (
-                                <>
-                                  <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
-                                  <span className="text-gray-300">{formatDate(assignment.createdAt)}</span>
-                                </>
-                              ) : (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
+              <>
+                {/* Mobile Card View */}
+                <div className="block md:hidden p-4 space-y-4">
+                  {users.map((user) => {
+                    const assignment = getAssignmentForUser(user._id);
+                    const isAssigned = !!assignment;
+                    
+                    return (
+                      <div key={user._id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                        {/* Header with user info */}
+                        <div className="flex items-center mb-3">
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                            {user.username?.charAt(0)?.toUpperCase()}
+                          </div>
+                          <div className="ml-3 flex-1 min-w-0">
+                            <h3 className="text-white font-semibold text-base truncate">{user.username}</h3>
+                            <p className="text-gray-400 text-sm truncate">{user.email}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Status Badge */}
+                        <div className="mb-3">
+                          <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                            isAssigned 
+                              ? 'bg-green-500/20 text-green-400' 
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
                             {isAssigned ? (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleUnassignUser(assignment._id)}
-                                className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1 rounded-md transition-colors text-sm flex items-center gap-1"
-                              >
-                                <FaUserTimes className="h-3 w-3" />
-                                Unassign
-                              </motion.button>
+                              <>
+                                <FaUserCheck className="mr-1 h-3 w-3" />
+                                Assigned
+                              </>
                             ) : (
-                              <select
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    handleAssignUser(user._id, e.target.value);
-                                    e.target.value = '';
-                                  }
-                                }}
-                                className="text-sm bg-gray-700 border border-gray-600 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-400"
-                              >
-                                <option value="">Assign to agent...</option>
-                                {agents.map(agent => (
-                                  <option key={agent._id} value={agent._id}>
-                                    {agent.name} ({agent.agentId})
-                                  </option>
-                                ))}
-                              </select>
+                              <>
+                                <FaUserTimes className="mr-1 h-3 w-3" />
+                                Unassigned
+                              </>
                             )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </span>
+                        </div>
+                        
+                        {/* Assignment Details */}
+                        {isAssigned && (
+                          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg">
+                            <div className="text-xs text-gray-400 mb-1">Assigned Agent:</div>
+                            <div className="text-sm text-white font-medium">{getAgentName(assignment.agentId)}</div>
+                            <div className="flex items-center mt-2 text-xs text-gray-400">
+                              <FaCalendar className="mr-1 h-3 w-3" />
+                              Assignment Date: {formatDate(assignment.createdAt)}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Action */}
+                        <div>
+                          {isAssigned ? (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleUnassignUser(assignment._id)}
+                              className="w-full text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                              <FaUserTimes className="h-4 w-4" />
+                              Unassign User
+                            </motion.button>
+                          ) : (
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignUser(user._id, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="w-full text-sm bg-gray-600 border border-gray-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                            >
+                              <option value="">Select agent to assign...</option>
+                              {agents.map(agent => (
+                                <option key={agent._id} value={agent._id}>
+                                  {agent.name} ({agent.agentId})
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
+                      <tr>
+                        <th className="px-6 py-3">User</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Assigned Agent</th>
+                        <th className="px-6 py-3">Assignment Date</th>
+                        <th className="px-6 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-300">
+                      {users.map((user) => {
+                        const assignment = getAssignmentForUser(user._id);
+                        const isAssigned = !!assignment;
+                        
+                        return (
+                          <tr key={user._id} className="border-t border-gray-700 hover:bg-gray-700/30">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold mr-3">
+                                  {user.username?.charAt(0)?.toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">{user.username}</div>
+                                  <div className="text-sm text-gray-400">{user.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                isAssigned 
+                                  ? 'bg-green-500/20 text-green-400' 
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {isAssigned ? (
+                                  <>
+                                    <FaUserCheck className="mr-1 h-3 w-3" />
+                                    Assigned
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaUserTimes className="mr-1 h-3 w-3" />
+                                    Unassigned
+                                  </>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm text-gray-300">
+                                {isAssigned ? getAgentName(assignment.agentId) : '-'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center text-sm">
+                                {isAssigned ? (
+                                  <>
+                                    <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
+                                    <span className="text-gray-300">{formatDate(assignment.createdAt)}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-500">-</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              {isAssigned ? (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => handleUnassignUser(assignment._id)}
+                                  className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1 rounded-md transition-colors text-sm flex items-center gap-1"
+                                >
+                                  <FaUserTimes className="h-3 w-3" />
+                                  Unassign
+                                </motion.button>
+                              ) : (
+                                <select
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleAssignUser(user._id, e.target.value);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="text-sm bg-gray-700 border border-gray-600 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-400"
+                                >
+                                  <option value="">Assign to agent...</option>
+                                  {agents.map(agent => (
+                                    <option key={agent._id} value={agent._id}>
+                                      {agent.name} ({agent.agentId})
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}        {activeTab === 'assigned' && (
@@ -359,94 +450,183 @@ const UserAssignmentManagement = () => {
                 <p className="text-sm mt-2">No users have been assigned to agents yet.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
-                    <tr>
-                      <th className="px-6 py-3">User</th>
-                      <th className="px-6 py-3">Assigned Agent</th>
-                      <th className="px-6 py-3">Assignment Date</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {assignments.map((assignment) => {
-                      const user = users.find(u => u._id === assignment.customerId);
-                      
-                      return (
-                        <tr key={assignment._id} className="border-t border-gray-700 hover:bg-gray-700/30">
-                          <td className="px-6 py-4">
+              <>
+                {/* Mobile Card View */}
+                <div className="block md:hidden p-4 space-y-4">
+                  {assignments.map((assignment) => {
+                    const user = users.find(u => u._id === assignment.customerId);
+                    
+                    return (
+                      <div key={assignment._id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                        {/* Header with user info */}
+                        <div className="flex items-center mb-3">
+                          {user ? (
+                            <>
+                              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                                {user.username?.charAt(0)?.toUpperCase() || 'U'}
+                              </div>
+                              <div className="ml-3 flex-1 min-w-0">
+                                <h3 className="text-white font-semibold text-base truncate">{user.username || 'Unknown User'}</h3>
+                                <p className="text-gray-400 text-sm truncate">{user.email || 'No email'}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                                !
+                              </div>
+                              <div className="ml-3 flex-1 min-w-0">
+                                <h3 className="text-red-400 font-semibold text-base">User Not Found</h3>
+                                <p className="text-red-500 text-sm truncate">ID: {assignment.customerId || 'Unknown'}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Status Badge */}
+                        <div className="mb-3">
+                          <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                            user ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                          }`}>
                             {user ? (
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white text-sm font-bold mr-3">
-                                  {user.username?.charAt(0)?.toUpperCase() || 'U'}
-                                </div>
-                                <div>
-                                  <div className="font-medium text-white">{user.username || 'Unknown User'}</div>
-                                  <div className="text-sm text-gray-400">{user.email || 'No email'}</div>
-                                </div>
-                              </div>
+                              <>
+                                <FaUserCheck className="mr-1 h-3 w-3" />
+                                Active
+                              </>
                             ) : (
-                              <div className="flex items-center">
-                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-sm font-bold mr-3">
-                                  !
-                                </div>
-                                <div>
-                                  <div className="font-medium text-red-400">User Not Found</div>
-                                  <div className="text-sm text-red-500">ID: {assignment.customerId || 'Unknown'}</div>
-                                </div>
-                              </div>
+                              <>
+                                <FaUserTimes className="mr-1 h-3 w-3" />
+                                Missing
+                              </>
                             )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center">
-                              <FaShieldAlt className="text-purple-500 mr-2 h-4 w-4" />
-                              <span className="text-gray-300">{getAgentName(assignment.agentId)}</span>
+                          </span>
+                        </div>
+                        
+                        {/* Assignment Details */}
+                        <div className="mb-4 p-3 bg-gray-800/50 rounded-lg space-y-2">
+                          <div className="flex items-center">
+                            <FaShieldAlt className="text-purple-500 mr-2 h-4 w-4" />
+                            <div>
+                              <div className="text-xs text-gray-400">Assigned Agent:</div>
+                              <div className="text-sm text-white font-medium">{getAgentName(assignment.agentId)}</div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center text-sm">
-                              <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
-                              <span className="text-gray-300">
+                          </div>
+                          <div className="flex items-center">
+                            <FaCalendar className="text-gray-400 mr-2 h-4 w-4" />
+                            <div>
+                              <div className="text-xs text-gray-400">Assignment Date:</div>
+                              <div className="text-sm text-gray-300">
                                 {assignment.createdAt ? formatDate(assignment.createdAt) : 'Unknown date'}
-                              </span>
+                              </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              user ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                            }`}>
+                          </div>
+                        </div>
+                        
+                        {/* Action */}
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handleUnassignUser(assignment._id)}
+                          className="w-full text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <FaUserTimes className="h-4 w-4" />
+                          {user ? 'Unassign User' : 'Remove Assignment'}
+                        </motion.button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
+                      <tr>
+                        <th className="px-6 py-3">User</th>
+                        <th className="px-6 py-3">Assigned Agent</th>
+                        <th className="px-6 py-3">Assignment Date</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-gray-300">
+                      {assignments.map((assignment) => {
+                        const user = users.find(u => u._id === assignment.customerId);
+                        
+                        return (
+                          <tr key={assignment._id} className="border-t border-gray-700 hover:bg-gray-700/30">
+                            <td className="px-6 py-4">
                               {user ? (
-                                <>
-                                  <FaUserCheck className="mr-1 h-3 w-3" />
-                                  Active
-                                </>
+                                <div className="flex items-center">
+                                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center text-white text-sm font-bold mr-3">
+                                    {user.username?.charAt(0)?.toUpperCase() || 'U'}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-white">{user.username || 'Unknown User'}</div>
+                                    <div className="text-sm text-gray-400">{user.email || 'No email'}</div>
+                                  </div>
+                                </div>
                               ) : (
-                                <>
-                                  <FaUserTimes className="mr-1 h-3 w-3" />
-                                  User Missing
-                                </>
+                                <div className="flex items-center">
+                                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white text-sm font-bold mr-3">
+                                    !
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-red-400">User Not Found</div>
+                                    <div className="text-sm text-red-500">ID: {assignment.customerId || 'Unknown'}</div>
+                                  </div>
+                                </div>
                               )}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleUnassignUser(assignment._id)}
-                              className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1 rounded-md transition-colors text-sm flex items-center gap-1"
-                            >
-                              <FaUserTimes className="h-3 w-3" />
-                              {user ? 'Unassign' : 'Remove'}
-                            </motion.button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <FaShieldAlt className="text-purple-500 mr-2 h-4 w-4" />
+                                <span className="text-gray-300">{getAgentName(assignment.agentId)}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center text-sm">
+                                <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
+                                <span className="text-gray-300">
+                                  {assignment.createdAt ? formatDate(assignment.createdAt) : 'Unknown date'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                user ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {user ? (
+                                  <>
+                                    <FaUserCheck className="mr-1 h-3 w-3" />
+                                    Active
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaUserTimes className="mr-1 h-3 w-3" />
+                                    User Missing
+                                  </>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleUnassignUser(assignment._id)}
+                                className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1 rounded-md transition-colors text-sm flex items-center gap-1"
+                              >
+                                <FaUserTimes className="h-3 w-3" />
+                                {user ? 'Unassign' : 'Remove'}
+                              </motion.button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}        {activeTab === 'unassigned' && (
@@ -472,67 +652,127 @@ const UserAssignmentManagement = () => {
                 <p className="text-sm mt-2">Every user has been assigned to an agent.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
-                    <tr>
-                      <th className="px-6 py-3">User</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Registration Date</th>
-                      <th className="px-6 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {unassignedUsers.map((user) => (
-                      <tr key={user._id} className="border-t border-gray-700 hover:bg-gray-700/30">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white text-sm font-bold mr-3">
-                              {user.username?.charAt(0)?.toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="font-medium text-white">{user.username}</div>
-                              <div className="text-sm text-gray-400">{user.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400">
-                            <FaUserTimes className="mr-1 h-3 w-3" />
-                            Unassigned
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center text-sm">
-                            <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
-                            <span className="text-gray-300">
+              <>
+                {/* Mobile Card View */}
+                <div className="block md:hidden p-4 space-y-4">
+                  {unassignedUsers.map((user) => (
+                    <div key={user._id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                      {/* Header with user info */}
+                      <div className="flex items-center mb-3">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                          {user.username?.charAt(0)?.toUpperCase()}
+                        </div>
+                        <div className="ml-3 flex-1 min-w-0">
+                          <h3 className="text-white font-semibold text-base truncate">{user.username}</h3>
+                          <p className="text-gray-400 text-sm truncate">{user.email}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Status Badge */}
+                      <div className="mb-3">
+                        <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400">
+                          <FaUserTimes className="mr-1 h-3 w-3" />
+                          Unassigned
+                        </span>
+                      </div>
+                      
+                      {/* Registration Details */}
+                      <div className="mb-4 p-3 bg-gray-800/50 rounded-lg">
+                        <div className="flex items-center">
+                          <FaCalendar className="text-gray-400 mr-2 h-4 w-4" />
+                          <div>
+                            <div className="text-xs text-gray-400">Registration Date:</div>
+                            <div className="text-sm text-gray-300">
                               {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
-                            </span>
+                            </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                handleAssignUser(user._id, e.target.value);
-                                e.target.value = '';
-                              }
-                            }}
-                            className="text-sm bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-400 min-w-[180px]"
-                          >
-                            <option value="">Assign to agent...</option>
-                            {agents.map(agent => (
-                              <option key={agent._id} value={agent._id}>
-                                {agent.name} ({agent.agentId})
-                              </option>
-                            ))}
-                          </select>
-                        </td>
+                        </div>
+                      </div>
+                      
+                      {/* Assignment Action */}
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAssignUser(user._id, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        className="w-full text-sm bg-gray-600 border border-gray-500 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                      >
+                        <option value="">Select agent to assign...</option>
+                        {agents.map(agent => (
+                          <option key={agent._id} value={agent._id}>
+                            {agent.name} ({agent.agentId})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="text-gray-400 text-sm uppercase bg-gray-900/40">
+                      <tr>
+                        <th className="px-6 py-3">User</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3">Registration Date</th>
+                        <th className="px-6 py-3">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="text-gray-300">
+                      {unassignedUsers.map((user) => (
+                        <tr key={user._id} className="border-t border-gray-700 hover:bg-gray-700/30">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white text-sm font-bold mr-3">
+                                {user.username?.charAt(0)?.toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-medium text-white">{user.username}</div>
+                                <div className="text-sm text-gray-400">{user.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400">
+                              <FaUserTimes className="mr-1 h-3 w-3" />
+                              Unassigned
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center text-sm">
+                              <FaCalendar className="text-gray-400 mr-2 h-3 w-3" />
+                              <span className="text-gray-300">
+                                {user.createdAt ? formatDate(user.createdAt) : 'N/A'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleAssignUser(user._id, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="text-sm bg-gray-700 border border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-400 min-w-[180px]"
+                            >
+                              <option value="">Assign to agent...</option>
+                              {agents.map(agent => (
+                                <option key={agent._id} value={agent._id}>
+                                  {agent.name} ({agent.agentId})
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}

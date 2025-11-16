@@ -58,7 +58,7 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
 
       {/* Sidebar */}
       <div className={`
-        bg-gray-900 text-gray-300 w-64 h-screen flex flex-col
+        bg-gray-900 text-gray-300 w-72 sm:w-64 h-screen flex flex-col
         fixed lg:sticky top-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -84,12 +84,12 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
               badge: panicRoomCount,
               badgeColor: panicRoomCount > 0 ? 'bg-red-500' : 'bg-blue-500'
             },
-            { name: 'Escort Profiles', icon: FaUsers },
+            { name: 'Escort Profiles', icon: FaUsers, mobileTitle: 'Profiles' },
             { name: 'Earnings', icon: FaDollarSign },
             { name: 'Affiliates', icon: FaUserTie },
-            { name: 'Affiliate Links', icon: FaLink },
-            { name: 'My Assigned Customers', icon: FaUserFriends },
-            { name: 'Chat Statistics', icon: FaChartBar }
+            { name: 'Affiliate Links', icon: FaLink, mobileTitle: 'Links' },
+            { name: 'My Assigned Customers', icon: FaUserFriends, mobileTitle: 'Customers' },
+            { name: 'Chat Statistics', icon: FaChartBar, mobileTitle: 'Stats' }
           ].map((item) => {
             const Icon = item.icon;
             const showBadge = item.badge > 0;
@@ -101,14 +101,17 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
                   setActiveTab(item.name.toLowerCase());
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-all flex items-center gap-3 relative text-sm ${
+                className={`w-full text-left px-3 py-3 rounded-lg transition-all flex items-center gap-2 sm:gap-3 relative text-sm ${
                   activeTab === item.name.toLowerCase()
                     ? 'bg-blue-600 text-white shadow-lg'
                     : 'hover:bg-gray-800'
                 }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{item.name}</span>
+                <span className="truncate">
+                  <span className="hidden sm:inline">{item.name}</span>
+                  <span className="sm:hidden">{item.mobileTitle || item.name}</span>
+                </span>
                 {showBadge && (
                   <span className={`absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-xs rounded-full text-white ${item.badgeColor || 'bg-blue-500'}`}>
                     {item.badge}
@@ -235,34 +238,10 @@ const NotificationBell = ({ notifications, onNotificationClick }) => {
   );
 };
 
-const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading, currentAgent = null }) => {
+const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpenChat, onTogglePanicRoom, navigate, onCreateFirstContact, userPresence = new Map(), likes = [], onMarkLikeAsRead, onDeleteLike, onStartChatFromLike, fetchLikesData, likesLoading, currentAgent = null }) => {
   const [filterType, setFilterType] = useState('all'); // 'all', 'panic', 'queue', 'unread', 'reminders', 'likes'
   const currentAgentId = currentAgent?._id || currentAgent?.id || null;
   const currentAgentCode = currentAgent?.agentId || currentAgent?.agentCode || null;
-  // Move chat to Panic Room or remove from it
-  const handleTogglePanicRoom = async (chat) => {
-    try {
-      if (!chat?._id) return;
-      if (chat.isInPanicRoom || chat.chatType === 'panic') {
-        const confirmRemove = window.confirm('Remove this chat from Panic Room?');
-        if (!confirmRemove) return;
-        await agentAuth.removeFromPanicRoom(chat._id, 'Removed via dashboard');
-      } else {
-        // Ask for a reason (simple prompt for now)
-        const reason = window.prompt('Reason for Panic Room (e.g., AGENT_ESCALATION, ABUSE, FRAUD):', 'AGENT_ESCALATION') || 'AGENT_ESCALATION';
-        const notes = window.prompt('Optional notes for Panic Room:', '') || undefined;
-        await agentAuth.moveToPanicRoom(chat._id, reason, notes);
-      }
-
-      if (window.fetchLiveQueueData) {
-        setTimeout(() => window.fetchLiveQueueData(), 150);
-      }
-    } catch (error) {
-      console.error('Panic Room action failed:', error);
-      const msg = error?.message || error?.response?.data?.message || 'Failed to update Panic Room';
-      alert(msg);
-    }
-  };
 
   const openChat = useCallback((chat) => {
     if (!chat || !chat._id) {
@@ -668,7 +647,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
             {unreadCount > 0 ? 'View Messages' : 'Open Chat'}
           </button>
           <button
-            onClick={() => handleTogglePanicRoom(chat)}
+            onClick={() => onTogglePanicRoom && onTogglePanicRoom(chat)}
             className={`${isPanic ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} text-white py-2 rounded-lg flex items-center justify-center gap-2`}
           >
             <FaExclamationTriangle className="w-4 h-4" />
@@ -1285,7 +1264,7 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                       </button>
                       {/* Panic Room toggle */}
                       <button
-                        onClick={() => handleTogglePanicRoom(chat)}
+                        onClick={() => onTogglePanicRoom && onTogglePanicRoom(chat)}
                         className={`p-1.5 lg:p-2 rounded-lg text-white text-xs ${chat.isInPanicRoom || chat.chatType === 'panic' ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'}`}
                         title={chat.isInPanicRoom || chat.chatType === 'panic' ? 'Remove from Panic Room' : 'Move to Panic Room'}
                       >
@@ -1479,9 +1458,125 @@ const AgentDashboard = () => {
       return chat;
     }
 
-    const unreadCount = chat.unreadCount || 0;
-    const reminderActive = !!chat.reminderActive;
-    const baseChatType = chat.chatType || (chat.isInPanicRoom ? 'panic' : (unreadCount > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle')));
+    const messagesArray = Array.isArray(chat.messages) ? chat.messages : [];
+
+    const resolveSender = (message = {}) => {
+      const normalize = (value) => value?.toString().toLowerCase() || '';
+      const senderRaw = normalize(message.sender);
+      if (senderRaw) {
+        if (['customer', 'user', 'incoming', 'client'].includes(senderRaw)) {
+          return 'customer';
+        }
+        if (['agent', 'staff', 'operator', 'moderator', 'outgoing'].includes(senderRaw)) {
+          return 'agent';
+        }
+      }
+
+      const directionRaw = normalize(message.direction);
+      if (directionRaw) {
+        if (directionRaw === 'incoming') {
+          return 'customer';
+        }
+        if (directionRaw === 'outgoing') {
+          return 'agent';
+        }
+      }
+
+      const fromRaw = normalize(message.from);
+      if (fromRaw) {
+        if (['customer', 'user', 'client'].includes(fromRaw)) {
+          return 'customer';
+        }
+        if (['agent', 'staff', 'operator'].includes(fromRaw)) {
+          return 'agent';
+        }
+      }
+
+      return null;
+    };
+
+    const toNumber = (value) => {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const isReadByAgent = (value) => {
+      if (value === null || value === undefined) {
+        return false;
+      }
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const lowered = value.trim().toLowerCase();
+        if (['true', '1', 'yes', 'y'].includes(lowered)) {
+          return true;
+        }
+        if (['false', '0', 'no', 'n', ''].includes(lowered)) {
+          return false;
+        }
+      }
+      return Boolean(value);
+    };
+
+    const derivedUnread = messagesArray.reduce((count, msg) => {
+      const senderType = resolveSender(msg);
+      if (senderType !== 'customer') {
+        return count;
+      }
+      const readFlag = msg?.readByAgent ?? msg?.isReadByAgent ?? msg?.agentHasRead ?? msg?.read ?? msg?.seenByAgent;
+      return isReadByAgent(readFlag) ? count : count + 1;
+    }, 0);
+
+    let unreadCount = toNumber(chat.unreadCount) ?? 0;
+    const unseenFromBackend = toNumber(chat.unseenCustomerMessages);
+    if (unseenFromBackend !== null && unseenFromBackend > unreadCount) {
+      unreadCount = unseenFromBackend;
+    }
+    if (derivedUnread > unreadCount) {
+      unreadCount = derivedUnread;
+    }
+
+    const resolvedLastMessageRaw = chat.lastMessage || (messagesArray.length ? messagesArray[messagesArray.length - 1] : null);
+    const resolvedLastMessage = resolvedLastMessageRaw
+      ? {
+          ...resolvedLastMessageRaw,
+          sender: resolveSender(resolvedLastMessageRaw) || resolvedLastMessageRaw.sender,
+          messageType: resolvedLastMessageRaw.messageType || (resolvedLastMessageRaw.imageData ? 'image' : resolvedLastMessageRaw.type || 'text'),
+          timestamp: resolvedLastMessageRaw.timestamp || resolvedLastMessageRaw.createdAt || resolvedLastMessageRaw.sentAt || resolvedLastMessageRaw.created_at || chat.updatedAt || chat.lastActive
+        }
+      : null;
+
+    if (resolvedLastMessage?.sender === 'customer') {
+      const lastReadFlag = resolvedLastMessage?.readByAgent ?? resolvedLastMessage?.isReadByAgent ?? resolvedLastMessage?.agentHasRead ?? resolvedLastMessage?.read ?? resolvedLastMessage?.seenByAgent;
+      if (!isReadByAgent(lastReadFlag)) {
+        unreadCount = Math.max(unreadCount, 1);
+      }
+    }
+
+    const hasUnread = unreadCount > 0;
+
+    const reminderActiveRaw = Boolean(chat.reminderActive || chat.chatType === 'reminder');
+    const reminderActive = reminderActiveRaw && !hasUnread;
+
+    let baseChatType;
+    if (chat.chatType) {
+      baseChatType = chat.chatType;
+      if (hasUnread && baseChatType === 'reminder') {
+        baseChatType = 'queue';
+      }
+    } else if (chat.isInPanicRoom) {
+      baseChatType = 'panic';
+    } else if (hasUnread) {
+      baseChatType = 'queue';
+    } else if (reminderActive) {
+      baseChatType = 'reminder';
+    } else {
+      baseChatType = 'idle';
+    }
 
     const customerProfile = (chat.customerId && typeof chat.customerId === 'object' && chat.customerId._id)
       ? chat.customerId
@@ -1507,14 +1602,16 @@ const AgentDashboard = () => {
       lastSeen: chat.lastActive || null
     };
 
-    const lastActive = presence.lastSeen || chat.lastActive || null;
+    const lastActive = presence.lastSeen || resolvedLastMessage?.timestamp || chat.lastActive || chat.updatedAt || chat.createdAt || null;
 
     return {
       ...chat,
       unreadCount,
+      hasNewMessages: hasUnread || chat.hasNewMessages || chat.hasUnreadAgentMessages === false,
       reminderActive,
       reminderCount: chat.reminderCount || 0,
       chatType: baseChatType,
+      lastMessage: resolvedLastMessage,
       moderators: Array.isArray(chat.moderators) ? chat.moderators : [],
       customerId: customerProfile || (customerObjectId ? { _id: customerObjectId } : chat.customerId),
       customerProfile: customerProfile || chat.customerProfile || null,
@@ -2109,13 +2206,127 @@ const AgentDashboard = () => {
     }
   };
 
+  const handleTogglePanicRoom = async (chat) => {
+    if (!chat?._id) {
+      return;
+    }
+
+    const chatId = chat._id;
+    const wasInPanic = chat.isInPanicRoom || chat.chatType === 'panic';
+
+    try {
+      if (wasInPanic) {
+        const confirmRemove = typeof window !== 'undefined'
+          ? window.confirm('Remove this chat from Panic Room?')
+          : true;
+        if (!confirmRemove) {
+          return;
+        }
+
+        await agentAuth.removeFromPanicRoom(chatId, 'Removed via dashboard');
+
+        setChats(prevChats => {
+          const next = prevChats.map(item => {
+            if (item._id !== chatId) {
+              return item;
+            }
+
+            const unread = item.unreadCount || 0;
+            const reminderActive = item.reminderActive && unread === 0;
+            return {
+              ...item,
+              isInPanicRoom: false,
+              chatType: unread > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle'),
+              reminderActive
+            };
+          });
+
+          updatePanicRoomCount(next);
+          return next;
+        });
+      } else {
+        let reason = 'AGENT_ESCALATION';
+        let notes;
+
+        if (typeof window !== 'undefined') {
+          const isSmallScreen = window.matchMedia?.('(max-width: 768px)').matches;
+          if (!isSmallScreen) {
+            reason = window.prompt('Reason for Panic Room (e.g., AGENT_ESCALATION, ABUSE, FRAUD):', reason) || reason;
+            notes = window.prompt('Optional notes for Panic Room:', '') || undefined;
+          }
+        }
+
+        await agentAuth.moveToPanicRoom(chatId, reason, notes);
+
+        setChats(prevChats => {
+          const next = prevChats.map(item => {
+            if (item._id !== chatId) {
+              return item;
+            }
+
+            return {
+              ...item,
+              isInPanicRoom: true,
+              chatType: 'panic',
+              reminderActive: false,
+              reminderHandled: false
+            };
+          });
+
+          updatePanicRoomCount(next);
+          return next;
+        });
+      }
+
+      if (typeof window !== 'undefined' && window.fetchLiveQueueData) {
+        setTimeout(() => window.fetchLiveQueueData(), 150);
+      }
+    } catch (error) {
+      console.error('Panic Room action failed:', error);
+      const msg = error?.message || error?.response?.data?.message || 'Failed to update Panic Room';
+      if (typeof window !== 'undefined') {
+        window.alert(msg);
+      }
+    }
+  };
+
   const handlePushBack = async (chatId) => {
     try {
       const hours = 2; // Default pushback time (2 hours)
       await agentAuth.pushBackChat(chatId, hours);
-      // The websocket will handle updating the UI
+
+      setChats(prevChats => {
+        const now = new Date().toISOString();
+        const next = prevChats.map(chatItem => {
+          if (chatItem._id !== chatId) {
+            return chatItem;
+          }
+
+          const incrementedReminders = (chatItem.reminderCount || 0) + 1;
+          return {
+            ...chatItem,
+            chatType: 'reminder',
+            reminderActive: true,
+            reminderHandled: false,
+            reminderCount: incrementedReminders,
+            lastAgentResponse: chatItem.lastAgentResponse || now,
+            nextReminderAt: now
+          };
+        });
+
+        updatePanicRoomCount(next);
+        return next;
+      });
+
+      if (typeof window !== 'undefined' && window.fetchLiveQueueData) {
+        setTimeout(() => window.fetchLiveQueueData(), 200);
+      }
     } catch (error) {
       console.error('Failed to push back chat:', error);
+      const msg = error?.message || error?.response?.data?.message || 'Failed to push back chat';
+      if (typeof window !== 'undefined') {
+        window.alert(msg);
+      }
     }
   };
 
@@ -2266,8 +2477,8 @@ const AgentDashboard = () => {
         panicRoomCount={panicRoomCount} 
       />
       
-      <div className="flex-1 lg:ml-0 ml-0 min-w-0">
-        <div className="p-4 lg:p-6">
+      <div className="flex-1 lg:ml-0 min-w-0">
+        <div className="p-4 lg:p-6 pt-16 lg:pt-4">
           <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl lg:text-3xl font-bold text-white">Agent Dashboard</h1>
@@ -2312,6 +2523,7 @@ const AgentDashboard = () => {
             onPushBack={handlePushBack}
             onRemoveFromTable={handleRemoveChatFromTable}
             onOpenChat={handleOpenChat}
+            onTogglePanicRoom={handleTogglePanicRoom}
             onCreateFirstContact={handleCreateFirstContact}
             navigate={navigate}
             userPresence={userPresence}

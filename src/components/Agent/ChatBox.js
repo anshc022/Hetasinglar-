@@ -562,6 +562,28 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   // Image selector state
   const [showImageSelector, setShowImageSelector] = useState(false);
 
+  const isSmallScreen = () => typeof window !== 'undefined' && window.matchMedia?.('(max-width: 768px)').matches;
+
+  const updateChatState = React.useCallback((chatId, updater) => {
+    if (!chatId) {
+      return;
+    }
+
+    setChats(prevChats => prevChats.map(chat => {
+      if (chat._id !== chatId) {
+        return chat;
+      }
+      return typeof updater === 'function' ? updater(chat) : { ...chat, ...updater };
+    }));
+
+    setSelectedChat(prevChat => {
+      if (!prevChat || prevChat._id !== chatId) {
+        return prevChat;
+      }
+      return typeof updater === 'function' ? updater(prevChat) : { ...prevChat, ...updater };
+    });
+  }, []);
+
   const assetBaseUrl = React.useMemo(() => {
     if (!config.API_URL) {
       return '';
@@ -667,6 +689,7 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   const {
     addEscortLog,
     deleteEscortLog,
+    deleteUserLog,
     addUserLog,
     editEscortLog,
     editUserLog,
@@ -1445,38 +1468,86 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     }
   };
 
-  const handlePushBack = async (hours) => {
-    if (!selectedChat) return;
-    try {
-      await agentAuth.pushBackChat(selectedChat._id, hours);
-      setChats(prev => prev.filter(chat => chat._id !== selectedChat._id));
-      setSelectedChat(null);
-    } catch (error) {
-      setError('Failed to push back chat');
-    }
-  };
-
   // New handler for the push back dialog
   const handlePushBackDialog = () => {
+    if (!selectedChat) {
+      return;
+    }
+
+    if (isSmallScreen()) {
+      const confirmed = typeof window === 'undefined'
+        ? true
+        : window.confirm('Push back this chat for 2 hours?');
+      if (!confirmed) {
+        return;
+      }
+      const defaultMinutes = 120;
+      handlePushBackConfirm({
+        minutes: defaultMinutes,
+        pushBackUntil: new Date(Date.now() + defaultMinutes * 60000),
+        reason: 'Quick mobile push back',
+        selectedOption: '2h'
+      });
+      return;
+    }
+
     setShowPushBackDialog(true);
   };
 
   const handlePushBackConfirm = async (pushBackData) => {
     if (!selectedChat) return;
-    
+
+    const minutes = pushBackData?.minutes;
+    if (!minutes || minutes <= 0) {
+      showNotification('Please choose how long to push back the chat.', 'warning');
+      return;
+    }
+
+    const chatId = selectedChat._id;
+    const hours = minutes / 60;
+    const pushBackUntil = pushBackData?.pushBackUntil || new Date(Date.now() + minutes * 60000);
+    const pushBackReason = pushBackData?.reason && pushBackData.reason !== 'custom'
+      ? pushBackData.reason
+      : undefined;
+    const reminderTimestamp = pushBackUntil instanceof Date ? pushBackUntil : new Date(pushBackUntil);
+
     setIsLoading(true);
     try {
-      await agentAuth.pushBackChat(selectedChat._id, pushBackData.minutes / 60);
-      
-      // Remove the chat from the list and clear selection
-      setChats(prev => prev.filter(chat => chat._id !== selectedChat._id));
-      setSelectedChat(null);
+      await agentAuth.pushBackChat(chatId, hours);
+
+      const reminderIso = reminderTimestamp.toISOString();
+      updateChatState(chatId, (chat) => {
+        const incrementedReminders = (chat.reminderCount || 0) + 1;
+        const followUpDue = pushBackData?.pushBackUntil
+          ? reminderIso
+          : (chat.followUpDue || reminderIso);
+        return {
+          ...chat,
+          chatType: 'reminder',
+          reminderActive: true,
+          reminderHandled: false,
+          reminderCount: incrementedReminders,
+          lastAgentResponse: chat.lastAgentResponse || reminderIso,
+          nextReminderAt: reminderIso,
+          requiresFollowUp: true,
+          followUpDue,
+          pushBackReason: pushBackReason || chat.pushBackReason,
+          isInPanicRoom: false
+        };
+      });
+
       setShowPushBackDialog(false);
       setError(null); // Clear any previous errors
+      showNotification('Chat pushed back successfully', 'success');
+
+      if (!isViewMode && isSmallScreen()) {
+        setSelectedChat(null);
+      }
       
     } catch (error) {
       const errorMessage = error?.message || 'Failed to push back chat. Please try again.';
       setError(errorMessage);
+      showNotification(errorMessage, 'error');
       // Don't close the dialog on error so user can retry
     } finally {
       setIsLoading(false);
@@ -1522,52 +1593,69 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
   // Panic Room handlers
   const handleMoveToPanicRoom = () => {
+    if (!selectedChat) {
+      return;
+    }
+
+    if (isSmallScreen()) {
+      const confirmed = typeof window === 'undefined'
+        ? true
+        : window.confirm('Move this chat to the Panic Room with reason AGENT_ESCALATION?');
+      if (!confirmed) {
+        return;
+      }
+      handleConfirmMoveToPanicRoom('AGENT_ESCALATION');
+      return;
+    }
+
+    setPanicRoomReason(prev => prev || 'AGENT_ESCALATION');
     setShowPanicRoomDialog(true);
   };
 
-  const handleConfirmMoveToPanicRoom = async () => {
-    if (!selectedChat || !panicRoomReason.trim()) return;
-    
-    // Check if chat is already in panic room
+  const handleConfirmMoveToPanicRoom = async (reasonOverride, notesOverride = '') => {
+    if (!selectedChat) return;
+
+    const chosenReason = (reasonOverride ?? panicRoomReason ?? '').trim();
+    if (!chosenReason) {
+      showNotification('Please choose a reason for the panic room.', 'warning');
+      return;
+    }
+
     if (selectedChat.isInPanicRoom) {
       showNotification('This chat is already in the panic room. No duplicate entries allowed.', 'warning');
       setShowPanicRoomDialog(false);
+      setPanicRoomReason('');
       return;
     }
     
     setIsLoading(true);
     try {
-      await agentAuth.moveToPanicRoom(selectedChat._id, panicRoomReason, '');
-      
-      // Update local state
-      setSelectedChat(prev => ({
-        ...prev,
+      await agentAuth.moveToPanicRoom(selectedChat._id, chosenReason, notesOverride);
+
+      const movedAt = new Date();
+      updateChatState(selectedChat._id, (chat) => ({
+        ...chat,
         isInPanicRoom: true,
-        panicRoomReason: panicRoomReason,
+        chatType: 'panic',
+        reminderActive: false,
+        reminderHandled: false,
+        requiresFollowUp: false,
+        followUpDue: null,
+        panicRoomReason: chosenReason,
         panicRoomMovedBy: currentAgent?.name || 'Agent',
-        panicRoomMovedAt: new Date()
+        panicRoomMovedAt: movedAt
       }));
-      
-      // Update chats list as well
-      setChats(prev => prev.map(chat => 
-        chat._id === selectedChat._id 
-          ? { ...chat, isInPanicRoom: true, panicRoomReason: panicRoomReason, panicRoomMovedAt: new Date() }
-          : chat
-      ));
-      
+
       setShowPanicRoomDialog(false);
       setPanicRoomReason('');
       setError(null);
-      
-      // Show success notification
       showNotification('Chat moved to panic room successfully', 'success');
     } catch (error) {
-      // Handle duplicate panic room entries with a more user-friendly message
-      if (error.response?.data?.isAlreadyInPanicRoom || error.response?.status === 400) {
-        showNotification('This chat is already in the panic room. No duplicate entries allowed.', 'error');
-      } else {
-        showNotification(`Failed to move chat to panic room: ${error.response?.data?.message || error.message}`, 'error');
-      }
+      const duplicate = error?.response?.data?.isAlreadyInPanicRoom || error?.response?.status === 400;
+      const message = duplicate
+        ? 'This chat is already in the panic room. No duplicate entries allowed.'
+        : `Failed to move chat to panic room: ${error?.response?.data?.message || error?.message}`;
+      showNotification(message, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -1584,25 +1672,32 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       await agentAuth.removeFromPanicRoom(selectedChat._id, '');
       
-      // Update local state
-      setSelectedChat(prev => ({
-        ...prev,
-        isInPanicRoom: false,
-        panicRoomReason: null,
-        panicRoomMovedBy: null,
-        panicRoomMovedAt: null
-      }));
-      
-      // Update chats list as well
-      setChats(prev => prev.map(chat => 
-        chat._id === selectedChat._id 
-          ? { ...chat, isInPanicRoom: false, panicRoomReason: null, panicRoomMovedAt: null }
-          : chat
-      ));
-      
+      const reopenedAt = new Date().toISOString();
+
+      updateChatState(selectedChat._id, (chat) => {
+        const unread = chat.unreadCount || 0;
+        const hadReminder = Boolean(chat.reminderActive || chat.requiresFollowUp);
+        const reminderActive = hadReminder && unread === 0;
+        const followUpDue = reminderActive
+          ? chat.followUpDue || chat.nextReminderAt || reopenedAt
+          : null;
+
+        return {
+          ...chat,
+          isInPanicRoom: false,
+          panicRoomReason: null,
+          panicRoomMovedBy: null,
+          panicRoomMovedAt: null,
+          chatType: unread > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle'),
+          reminderActive,
+          reminderHandled: reminderActive ? false : chat.reminderHandled,
+          requiresFollowUp: reminderActive,
+          followUpDue,
+          nextReminderAt: reminderActive ? (chat.nextReminderAt || followUpDue) : null
+        };
+      });
+
       setError(null);
-      
-      // Show success notification
       showNotification('Chat removed from panic room successfully', 'success');
     } catch (error) {
       showNotification(`Failed to remove chat from panic room: ${error.response?.data?.message || error.message}`, 'error');
@@ -2121,9 +2216,12 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     try {
       await deleteEscortLog(log._id);
 
+      // Optimistically remove the log to keep UI in sync while refetching
+      setEscortLogs(prev => prev.filter(item => item._id !== log._id));
+
       // Refresh escort logs
       if (selectedChat?.escortId?._id) {
-        fetchChatEscortLogs(selectedChat._id);
+        await fetchChatEscortLogs(selectedChat._id);
       }
 
       showNotification('Log deleted successfully', 'success');
@@ -2256,25 +2354,14 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('agentToken');
-      console.log('🔍 Delete log API URL:', `${config.API_URL}/logs/user/${log._id}`);
-      const response = await fetch(`${config.API_URL}/logs/user/${log._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-Debug-Info': 'User log deletion request'
-        }
-      });
+      await deleteUserLog(log._id);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete log');
-      }
+      // Optimistically remove log while the list refreshes
+      setUserLogs(prev => prev.filter(item => item._id !== log._id));
 
       // Refresh user logs
       if (selectedChat?.customerId?._id) {
-        fetchUserLogs(selectedChat.customerId._id);
+        await fetchUserLogs(selectedChat.customerId._id);
       }
 
       showNotification('Log deleted successfully', 'success');
@@ -3702,6 +3789,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                       <span className="text-white text-xs">{selectedChat?.escortId?.gender || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
+                      <span className="text-xs text-gray-400">Age</span>
+                      <span className="text-white text-xs">{calculateAge(selectedChat?.escortId?.dateOfBirth)} years</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1 border-b border-gray-700/50">
                       <span className="text-xs text-gray-400">Location</span>
                       <span className="text-white text-xs truncate ml-2" title={selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}>
                         {selectedChat?.escortId?.region ? `${selectedChat.escortId.region}, ${selectedChat.escortId.country}` : selectedChat?.escortId?.country || 'N/A'}
@@ -3933,6 +4024,9 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                 className="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
               >
                 <option value="">Select a reason...</option>
+                <option value="AGENT_ESCALATION">Agent escalation / safety concern</option>
+                <option value="ABUSE">Abuse or harassment</option>
+                <option value="FRAUD">Fraud or suspicious payment</option>
                 <option value="new_customer">New customer needing onboarding</option>
                 <option value="unclear_behavior">Unclear or suspicious behavior</option>
                 <option value="technical_issues">Technical problems</option>
@@ -3944,7 +4038,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => setShowPanicRoomDialog(false)}
+                onClick={() => {
+                  setShowPanicRoomDialog(false);
+                  setPanicRoomReason('');
+                }}
                 className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-md hover:bg-gray-700 transition-colors"
                 disabled={isLoading}
               >

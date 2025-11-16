@@ -239,6 +239,19 @@ export const logApiMethods = {
     }
   },
 
+  // Delete a user log
+  async deleteUserLog(logId) {
+    try {
+      console.log(`Deleting user log: ${logId}`);
+      const response = await logApiInstance.delete(`/logs/user/${logId}`);
+      console.log('User log deleted:', response.status);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting user log:', error);
+      throw new Error(error.response?.data?.message || 'Failed to delete user log');
+    }
+  },
+
   // Edit an existing user log
   async editUserLog(logId, logData) {
     try {

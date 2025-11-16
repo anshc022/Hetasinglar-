@@ -305,48 +305,158 @@ const EscortProfilesTab = ({
         </div>
       </div>
 
-      {/* Responsive Escort Table */}
+      {/* Responsive Escort Display */}
       {sortedEscorts.length > 0 ? (
-        <div className="bg-gray-800 rounded border border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-900 text-gray-400 text-xs uppercase">
-                <tr>
-                  <th className="px-2 py-2 hidden sm:table-cell">Profile</th>
-                  <th className="px-2 py-2">Name/Info</th>
-                  <th className="px-2 py-2 hidden md:table-cell">Status</th>
-                  <th className="px-2 py-2 hidden xl:table-cell">Interests</th>
-                  <th className="px-2 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700 text-gray-300 text-xs">
-                {sortedEscorts.map((profile) => (
-                  <tr key={profile._id} className="hover:bg-gray-700/30 transition-colors">
-                    {/* Profile Image - Hidden on mobile */}
-                    <td className="px-2 py-2 hidden sm:table-cell">
-                      <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden flex-shrink-0">
-            {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
-                          <img
-              src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
-                            alt={profile.firstName}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <FaUser className="text-gray-500 text-xs" />
-                          </div>
+        <>
+          {/* Mobile Card View */}
+          <div className="block md:hidden space-y-4">
+            {sortedEscorts.map((profile) => (
+              <div key={profile._id} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                {/* Header with avatar and basic info */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center flex-1">
+                    <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gray-700 overflow-hidden">
+                      {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
+                        <img
+                          src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
+                          alt={profile.firstName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FaUser className="text-gray-500 text-lg" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="ml-3 flex-1 min-w-0">
+                      <h3 className="text-white font-semibold text-base truncate">{profile.firstName}</h3>
+                      <p className="text-gray-400 text-sm truncate">@{profile.username}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        {getGenderIcon(profile.gender)}
+                        <span className="text-xs text-gray-400">{profile.gender || 'Unknown'}</span>
+                        {profile.dateOfBirth && (
+                          <>
+                            <span className="text-gray-500">•</span>
+                            <span className="text-xs text-gray-400">{calculateAge(profile.dateOfBirth)}y</span>
+                          </>
                         )}
                       </div>
-                    </td>
-                    
-                    {/* Name and Info - Always visible */}
-                    <td className="px-2 py-2">
-                      <div className="flex items-center space-x-2 sm:space-x-0 sm:block">
-                        {/* Mobile profile image */}
-                        <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden flex-shrink-0 sm:hidden">
-              {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full flex-shrink-0 ml-2 ${
+                    profile.status === 'active' 
+                      ? 'bg-green-500/20 text-green-300' 
+                      : profile.status === 'pending'
+                        ? 'bg-yellow-500/20 text-yellow-300'
+                        : 'bg-gray-500/20 text-gray-300'
+                  }`}>
+                    {profile.status || 'Active'}
+                  </span>
+                </div>
+                
+                {/* Profile Details */}
+                <div className="mb-4">
+                  {profile.interests && profile.interests.length > 0 && (
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-400 mb-1">Interests:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {profile.interests.slice(0, 3).map((interest, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded"
+                          >
+                            {interest}
+                          </span>
+                        ))}
+                        {profile.interests.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-600/50 text-gray-300 text-xs rounded">
+                            +{profile.interests.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(profile.country || profile.region) && (
+                    <div className="text-xs text-gray-400">
+                      <FaMapMarkerAlt className="inline mr-1" />
+                      {[profile.country, profile.region].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => navigate(`/agent/live-queue/${profile._id}`)}
+                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaEye className="text-sm" />
+                    <span>View Queue</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedEscortForImages(profile)}
+                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaImages className="text-sm" />
+                    <span>Images</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedProfile(profile);
+                      setEditForm(profile);
+                      setImagePreview(profile.profileImage || null);
+                      setIsEditMode(false);
+                    }}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaEdit className="text-sm" />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const confirmDelete = window.confirm('Delete this escort profile? This will deactivate it and hide from lists.');
+                      if (!confirmDelete) return;
+                      try {
+                        await agentAuth.deleteEscortProfile(profile._id);
+                        if (onDeleteProfile) onDeleteProfile(profile._id);
+                      } catch (err) {
+                        console.error('Delete escort failed', err);
+                        alert(err?.message || 'Failed to delete profile');
+                      }
+                    }}
+                    className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaTrash className="text-sm" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-gray-800 rounded border border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-900 text-gray-400 text-xs uppercase">
+                  <tr>
+                    <th className="px-2 py-2">Profile</th>
+                    <th className="px-2 py-2">Name/Info</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2 hidden xl:table-cell">Interests</th>
+                    <th className="px-2 py-2 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700 text-gray-300 text-xs">
+                  {sortedEscorts.map((profile) => (
+                    <tr key={profile._id} className="hover:bg-gray-700/30 transition-colors">
+                      {/* Profile Image */}
+                      <td className="px-2 py-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden flex-shrink-0">
+                          {(profile.profileImage || profile.profilePicture || profile.imageUrl) ? (
                             <img
-                src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
+                              src={getImageSrc(profile.profileImage || profile.profilePicture || profile.imageUrl)}
                               alt={profile.firstName}
                               className="w-full h-full object-cover"
                             />
@@ -356,12 +466,14 @@ const EscortProfilesTab = ({
                             </div>
                           )}
                         </div>
-                        
-                        <div className="min-w-0 flex-1">
+                      </td>
+                      
+                      {/* Name and Info */}
+                      <td className="px-2 py-2">
+                        <div>
                           <div className="text-white font-medium truncate text-xs">{profile.firstName}</div>
                           <div className="text-xs text-gray-400 truncate">@{profile.username}</div>
-                          {/* Mobile-only additional info */}
-                          <div className="sm:hidden text-xs text-gray-400 mt-0.5">
+                          <div className="text-xs text-gray-400 mt-0.5">
                             <div className="flex items-center space-x-1">
                               {getGenderIcon(profile.gender)}
                               <span>{profile.gender || 'Unknown'}</span>
@@ -374,104 +486,104 @@ const EscortProfilesTab = ({
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    
-                    {/* Status - Hidden on mobile */}
-                    <td className="px-2 py-2 hidden md:table-cell">
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                        profile.status === 'active' 
-                          ? 'bg-green-900 text-green-200' 
-                          : profile.status === 'pending'
-                            ? 'bg-yellow-900 text-yellow-200'
-                            : 'bg-gray-900 text-gray-200'
-                      }`}>
-                        {profile.status || 'Active'}
-                      </span>
-                    </td>
-                    
-                    {/* Interests - Hidden on mobile, tablet, and some desktop */}
-                    <td className="px-2 py-2 hidden xl:table-cell">
-                      {profile.interests && profile.interests.length > 0 ? (
-                        <div className="flex flex-wrap gap-0.5 max-w-24">
-                          {profile.interests.slice(0, 1).map((interest, index) => (
-                            <span
-                              key={index}
-                              className="px-1.5 py-0.5 bg-blue-900 text-blue-200 text-xs rounded truncate"
-                              title={interest}
-                            >
-                              {interest}
-                            </span>
-                          ))}
-                          {profile.interests.length > 1 && (
-                            <span className="px-1.5 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
-                              +{profile.interests.length - 1}
-                            </span>
-                          )}
+                      </td>
+                      
+                      {/* Status */}
+                      <td className="px-2 py-2">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                          profile.status === 'active' 
+                            ? 'bg-green-900 text-green-200' 
+                            : profile.status === 'pending'
+                              ? 'bg-yellow-900 text-yellow-200'
+                              : 'bg-gray-900 text-gray-200'
+                        }`}>
+                          {profile.status || 'Active'}
+                        </span>
+                      </td>
+                      
+                      {/* Interests */}
+                      <td className="px-2 py-2 hidden xl:table-cell">
+                        {profile.interests && profile.interests.length > 0 ? (
+                          <div className="flex flex-wrap gap-0.5 max-w-24">
+                            {profile.interests.slice(0, 1).map((interest, index) => (
+                              <span
+                                key={index}
+                                className="px-1.5 py-0.5 bg-blue-900 text-blue-200 text-xs rounded truncate"
+                                title={interest}
+                              >
+                                {interest}
+                              </span>
+                            ))}
+                            {profile.interests.length > 1 && (
+                              <span className="px-1.5 py-0.5 bg-gray-700 text-gray-300 text-xs rounded">
+                                +{profile.interests.length - 1}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">None</span>
+                        )}
+                      </td>
+                      
+                      {/* Actions */}
+                      <td className="px-2 py-2">
+                        <div className="flex justify-center space-x-1">
+                          <button
+                            onClick={() => navigate(`/agent/live-queue/${profile._id}`)}
+                            className="px-1.5 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
+                            title="View Queue"
+                          >
+                            <FaEye className="text-xs" />
+                            <span className="hidden lg:inline">Queue</span>
+                          </button>
+                          <button
+                            onClick={() => setSelectedEscortForImages(profile)}
+                            className="px-1.5 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
+                            title="Manage Images"
+                          >
+                            <FaImages className="text-xs" />
+                            <span className="hidden lg:inline">Images</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedProfile(profile);
+                              setEditForm(profile);
+                              setImagePreview(profile.profileImage || null);
+                              setIsEditMode(false);
+                            }}
+                            className="px-1.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
+                            title="Edit Profile"
+                          >
+                            <FaEdit className="text-xs" />
+                            <span className="hidden lg:inline">Edit</span>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const confirmDelete = window.confirm('Delete this escort profile? This will deactivate it and hide from lists.');
+                              if (!confirmDelete) return;
+                              try {
+                                await agentAuth.deleteEscortProfile(profile._id);
+                                if (onDeleteProfile) onDeleteProfile(profile._id);
+                              } catch (err) {
+                                console.error('Delete escort failed', err);
+                                alert(err?.message || 'Failed to delete profile');
+                              }
+                            }}
+                            className="px-1.5 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
+                            title="Delete Profile"
+                          >
+                            <FaTrash className="text-xs" />
+                            <span className="hidden lg:inline">Delete</span>
+                          </button>
                         </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">None</span>
-                      )}
-                    </td>
-                    
-                    {/* Actions - Always visible */}
-                    <td className="px-2 py-2">
-                      <div className="flex justify-center space-x-1">
-                        <button
-                          onClick={() => navigate(`/agent/live-queue/${profile._id}`)}
-                          className="px-1.5 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
-                          title="View Queue"
-                        >
-                          <FaEye className="text-xs" />
-                          <span className="hidden sm:inline">Queue</span>
-                        </button>
-                        <button
-                          onClick={() => setSelectedEscortForImages(profile)}
-                          className="px-1.5 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
-                          title="Manage Images"
-                        >
-                          <FaImages className="text-xs" />
-                          <span className="hidden sm:inline">Images</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedProfile(profile);
-                            setEditForm(profile);
-                            setImagePreview(profile.profileImage || null);
-                            setIsEditMode(false);
-                          }}
-                          className="px-1.5 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
-                          title="Edit Profile"
-                        >
-                          <FaEdit className="text-xs" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const confirmDelete = window.confirm('Delete this escort profile? This will deactivate it and hide from lists.');
-                            if (!confirmDelete) return;
-                            try {
-                              await agentAuth.deleteEscortProfile(profile._id);
-                              if (onDeleteProfile) onDeleteProfile(profile._id);
-                            } catch (err) {
-                              console.error('Delete escort failed', err);
-                              alert(err?.message || 'Failed to delete profile');
-                            }
-                          }}
-                          className="px-1.5 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs font-medium flex items-center space-x-0.5"
-                          title="Delete Profile"
-                        >
-                          <FaTrash className="text-xs" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
           <div className="max-w-sm mx-auto">
