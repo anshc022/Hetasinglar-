@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FaExclamationTriangle, FaUser, FaClock, FaComments, FaEye, FaSearch } from 'react-icons/fa';
 import { format, formatDistanceToNow } from 'date-fns';
 import { agentAuth } from '../../services/agentApi';
 import Notification from '../common/Notification';
+import websocketService from '../../services/websocket';
 
 const PanicRoomTab = ({ onChatSelect }) => {
   const [panicRoomChats, setPanicRoomChats] = useState([]);
@@ -17,23 +18,89 @@ const PanicRoomTab = ({ onChatSelect }) => {
     setNotification({ message, type });
   };
 
-  useEffect(() => {
-    loadPanicRoomChats();
-    // Refresh panic room chats every minute
-    const interval = setInterval(loadPanicRoomChats, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadPanicRoomChats = async () => {
+  const loadPanicRoomChats = useCallback(async () => {
     try {
       const response = await agentAuth.getPanicRoomChats();
-      setPanicRoomChats(response.chats);
+      setPanicRoomChats(Array.isArray(response?.chats) ? response.chats : []);
     } catch (error) {
       console.error('Error loading panic room chats:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadPanicRoomChats();
+    // Refresh panic room chats every minute
+    const interval = setInterval(() => {
+      loadPanicRoomChats();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [loadPanicRoomChats]);
+
+  useEffect(() => {
+    const unsubscribe = websocketService.onMessage((data) => {
+      if (data?.type !== 'live_queue_refresh' || !data.chatId) {
+        return;
+      }
+
+      const {
+        chatId,
+        isInPanicRoom,
+        panicRoomEnteredAt,
+        panicRoomReason,
+        panicRoomEnteredBy
+      } = data;
+
+      if (!isInPanicRoom) {
+        setPanicRoomChats(prev => {
+          if (!Array.isArray(prev) || prev.length === 0) {
+            return prev;
+          }
+          const exists = prev.some(chat => chat?._id === chatId);
+          if (!exists) {
+            return prev;
+          }
+          return prev.filter(chat => chat?._id !== chatId);
+        });
+        return;
+      }
+
+      let seenExisting = false;
+      setPanicRoomChats(prev => {
+        if (!Array.isArray(prev) || prev.length === 0) {
+          return prev;
+        }
+
+        const next = prev.map(chat => {
+          if (!chat || chat._id !== chatId) {
+            return chat;
+          }
+
+          seenExisting = true;
+          return {
+            ...chat,
+            isInPanicRoom: true,
+            panicRoomEnteredAt: panicRoomEnteredAt ?? chat.panicRoomEnteredAt ?? new Date().toISOString(),
+            panicRoomMovedAt: panicRoomEnteredAt ?? chat.panicRoomMovedAt ?? chat.panicRoomEnteredAt ?? null,
+            panicRoomReason: panicRoomReason ?? chat.panicRoomReason ?? null,
+            panicRoomEnteredBy: panicRoomEnteredBy ?? chat.panicRoomEnteredBy ?? null
+          };
+        });
+
+        return next;
+      });
+
+      if (!seenExisting) {
+        loadPanicRoomChats();
+      }
+    });
+
+    return () => {
+      unsubscribe && unsubscribe();
+    };
+  }, [loadPanicRoomChats]);
 
   const handleRevokePanicRoom = async (e, chat) => {
     e.stopPropagation(); // Prevent chat selection

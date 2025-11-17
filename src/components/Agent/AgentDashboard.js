@@ -33,6 +33,23 @@ import { format, formatDistanceToNow } from 'date-fns';
 
 const SUPPRESSION_STORAGE_PREFIX = 'agentDashboard:suppressed:';
 
+const getMessageTimeMeta = (timestamp) => {
+  if (!timestamp) {
+    return null;
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return {
+    short: format(date, 'HH:mm'),
+    full: format(date, 'PP p'),
+    relative: formatDistanceToNow(date, { addSuffix: true })
+  };
+};
+
 const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -552,6 +569,17 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
 
     const unreadCount = chat.unreadCount || 0;
     const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
+    const lastMessageMeta = getMessageTimeMeta(lastMessage?.timestamp);
+    const lastMessageSender = (() => {
+      const raw = (lastMessage?.sender || '').toString().toLowerCase();
+      if (raw === 'agent' || raw === 'staff' || raw === 'operator') {
+        return 'Agent';
+      }
+      if (raw === 'customer' || raw === 'user' || raw === 'client') {
+        return 'Customer';
+      }
+      return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Message';
+    })();
     const presenceKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
     const presenceInfo = getUserPresence(presenceKey);
     const assignedAgent = getAssignedAgentMeta(chat);
@@ -620,8 +648,24 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
             {renderModeratorTags(moderators)}
           </div>
           {lastMessage && (
-            <div>
-              <span className="font-semibold text-gray-200">Last message:</span>{' '}
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-gray-200">Last message:</span>
+                {lastMessageMeta && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-800/60 text-[11px] text-gray-200 font-mono"
+                    title={`${lastMessageMeta.full} • ${lastMessageMeta.relative}`}
+                  >
+                    <FaClock className="w-3 h-3 text-gray-400" />
+                    {lastMessageMeta.short}
+                  </span>
+                )}
+                {lastMessage && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-200 text-[10px] uppercase tracking-wide">
+                    {lastMessageSender}
+                  </span>
+                )}
+              </div>
               <span className="text-gray-400 break-words">
                 {lastMessage.messageType === 'image' ? '📷 Image' : lastMessage.message}
               </span>
@@ -1061,6 +1105,17 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
               const unreadCount = chat.unreadCount || 0;
               
               const lastMessage = chat.lastMessage || chat.messages?.[chat.messages.length - 1];
+              const lastMessageMeta = getMessageTimeMeta(lastMessage?.timestamp);
+              const lastMessageSender = (() => {
+                const raw = (lastMessage?.sender || '').toString().toLowerCase();
+                if (['agent', 'staff', 'operator'].includes(raw)) {
+                  return 'Agent';
+                }
+                if (['customer', 'user', 'client'].includes(raw)) {
+                  return 'Customer';
+                }
+                return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Message';
+              })();
               const presenceKey = chat.customerObjectId || chat.customerId?._id || chat.customerProfile?._id;
               const userPresence = getUserPresence(presenceKey);
               const assignedAgent = chat.assignedAgent || ((chat.agentId && typeof chat.agentId === 'object' && (chat.agentId.name || chat.agentId.agentId)) ? {
@@ -1141,9 +1196,25 @@ const LiveQueueTable = ({ chats, onAssign, onPushBack, onRemoveFromTable, onOpen
                         )}
                         
                         {lastMessage && (
-                          <span className="block text-xs text-gray-400 mt-1 max-w-[180px] truncate">
-                            {lastMessage.messageType === 'image' ? '📷 Image' : lastMessage.message}
-                          </span>
+                          <div className="mt-1 max-w-[200px] space-y-1">
+                            <span className="block text-xs text-gray-400 truncate">
+                              {lastMessage.messageType === 'image' ? '📷 Image' : lastMessage.message}
+                            </span>
+                            {lastMessageMeta && (
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-800/60 rounded-full font-mono text-gray-200"
+                                  title={`${lastMessageMeta.full} • ${lastMessageMeta.relative}`}
+                                >
+                                  <FaClock className="w-3 h-3 text-gray-400" />
+                                  {lastMessageMeta.short}
+                                </span>
+                                <span className="px-2 py-0.5 bg-blue-900/40 text-blue-200 rounded-full uppercase tracking-wide text-[10px]">
+                                  {lastMessageSender}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1562,14 +1633,27 @@ const AgentDashboard = () => {
     const reminderActiveRaw = Boolean(chat.reminderActive || chat.chatType === 'reminder');
     const reminderActive = reminderActiveRaw && !hasUnread;
 
+    const backendChatTypeRaw = chat.chatType;
+    const backendChatType = typeof backendChatTypeRaw === 'string'
+      ? backendChatTypeRaw.toLowerCase()
+      : backendChatTypeRaw || null;
+
     let baseChatType;
-    if (chat.chatType) {
-      baseChatType = chat.chatType;
-      if (hasUnread && baseChatType === 'reminder') {
-        baseChatType = 'queue';
-      }
-    } else if (chat.isInPanicRoom) {
+    if (chat.isInPanicRoom === true) {
       baseChatType = 'panic';
+    } else if (backendChatType === 'panic') {
+      // Backend type can lag behind panic flag updates; fall back to live state
+      if (hasUnread) {
+        baseChatType = 'queue';
+      } else if (reminderActive) {
+        baseChatType = 'reminder';
+      } else {
+        baseChatType = 'idle';
+      }
+    } else if (backendChatType === 'reminder' && hasUnread) {
+      baseChatType = 'queue';
+    } else if (backendChatType) {
+      baseChatType = backendChatType;
     } else if (hasUnread) {
       baseChatType = 'queue';
     } else if (reminderActive) {
@@ -1625,6 +1709,76 @@ const AgentDashboard = () => {
     };
   }, []);
   
+  const getChatRecencyScore = useCallback((chat) => {
+    if (!chat) {
+      return 0;
+    }
+
+    const candidates = [
+      chat.panicRoomMovedAt,
+      chat.panicRoomEnteredAt,
+      chat.updatedAt,
+      chat.lastActive,
+      chat.createdAt
+    ];
+
+    for (const value of candidates) {
+      if (!value) {
+        continue;
+      }
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+
+    return 0;
+  }, []);
+
+  const mergeChatsSafely = useCallback((previousChats, incomingChats) => {
+    const normalizedIncoming = Array.isArray(incomingChats) ? incomingChats : [];
+    if (!Array.isArray(previousChats) || previousChats.length === 0) {
+      return normalizedIncoming;
+    }
+    if (normalizedIncoming.length === 0) {
+      return normalizedIncoming;
+    }
+
+    const previousMap = new Map();
+    previousChats.forEach(chat => {
+      if (chat?._id) {
+        previousMap.set(chat._id, chat);
+      }
+    });
+
+    const STALE_TOLERANCE_MS = 1000;
+
+    return normalizedIncoming.map(chat => {
+      if (!chat?._id) {
+        return chat;
+      }
+
+      const previousChat = previousMap.get(chat._id);
+      if (!previousChat) {
+        return chat;
+      }
+
+      const previousScore = getChatRecencyScore(previousChat);
+      const nextScore = getChatRecencyScore(chat);
+
+      const previousIsNewer = previousScore > 0 && (nextScore === 0 || previousScore > nextScore + STALE_TOLERANCE_MS);
+
+      if (previousIsNewer) {
+        return previousChat;
+      }
+
+      return {
+        ...previousChat,
+        ...chat
+      };
+    });
+  }, [getChatRecencyScore]);
+  
   // Fetch likes data for agent dashboard
   const fetchLikesData = useCallback(async () => {
     try {
@@ -1657,12 +1811,15 @@ const AgentDashboard = () => {
     setPanicRoomCount(panicChats.length);
   }, []);
 
-  const fetchLiveQueueData = useCallback(async () => {
+  const fetchLiveQueueData = useCallback(async (forceRefresh = false) => {
     try {
-      const liveQueue = await agentAuth.getLiveQueue();
+      const liveQueue = await agentAuth.getLiveQueue(undefined, undefined, forceRefresh);
       const normalized = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
-      setChats(normalized);
-      updatePanicRoomCount(normalized);
+      setChats(prevChats => {
+        const merged = mergeChatsSafely(prevChats, normalized);
+        updatePanicRoomCount(merged);
+        return merged;
+      });
 
       const presenceMap = new Map();
       normalized.forEach(chat => {
@@ -1686,7 +1843,7 @@ const AgentDashboard = () => {
     } catch (error) {
       console.error('Failed to fetch live queue (corrected endpoint):', error);
     }
-  }, [normalizeChat, updatePanicRoomCount]);
+  }, [mergeChatsSafely, normalizeChat, updatePanicRoomCount]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -1698,9 +1855,12 @@ const AgentDashboard = () => {
 
       if (cachedDashboard && cachedQueue && cachedEscorts) {
         const normalizedCachedQueue = Array.isArray(cachedQueue) ? cachedQueue.map(normalizeChat) : [];
-        setChats(normalizedCachedQueue);
+        setChats(prevChats => {
+          const merged = mergeChatsSafely(prevChats, normalizedCachedQueue);
+          updatePanicRoomCount(merged);
+          return merged;
+        });
         setMyEscorts(cachedEscorts);
-        updatePanicRoomCount(normalizedCachedQueue);
 
         const cachedPresence = new Map();
         normalizedCachedQueue.forEach(chat => {
@@ -1742,9 +1902,12 @@ const AgentDashboard = () => {
       cacheService.set('live_queue', normalizedLiveQueue, 1 * 60 * 1000);
       cacheService.set('all_escorts', escortData, 5 * 60 * 1000);
 
-      setChats(normalizedLiveQueue);
+      setChats(prevChats => {
+        const merged = mergeChatsSafely(prevChats, normalizedLiveQueue);
+        updatePanicRoomCount(merged);
+        return merged;
+      });
       setMyEscorts(escortData);
-      updatePanicRoomCount(normalizedLiveQueue);
 
       const presenceMap = new Map();
       normalizedLiveQueue.forEach(chat => {
@@ -1773,7 +1936,7 @@ const AgentDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate, normalizeChat, updatePanicRoomCount]);
+  }, [mergeChatsSafely, navigate, normalizeChat, updatePanicRoomCount]);
 
   const refreshDashboard = useCallback(() => {
     fetchDashboardData();
@@ -1822,6 +1985,102 @@ const AgentDashboard = () => {
           }
           return chat;
         }));
+        return;
+      }
+
+      if (data.type === 'live_queue_refresh') {
+        const {
+          chatId,
+          isInPanicRoom,
+          panicRoomEnteredAt,
+          panicRoomReason,
+          panicRoomEnteredBy
+        } = data;
+
+        let computedTimestamp = null;
+        if (panicRoomEnteredAt) {
+          const parsed = Date.parse(panicRoomEnteredAt);
+          if (!Number.isNaN(parsed)) {
+            computedTimestamp = new Date(parsed).toISOString();
+          }
+        }
+        if (!computedTimestamp) {
+          computedTimestamp = new Date().toISOString();
+        }
+
+        if (chatId) {
+          setChats(prevChats => {
+            if (!Array.isArray(prevChats) || prevChats.length === 0) {
+              return prevChats;
+            }
+
+            let didUpdate = false;
+            const updated = prevChats.map(chat => {
+              if (!chat || chat._id !== chatId) {
+                return chat;
+              }
+
+              didUpdate = true;
+              const unreadCount = chat.unreadCount || 0;
+              const reminderActive = chat.reminderActive && unreadCount === 0;
+              const nextChatType = isInPanicRoom
+                ? 'panic'
+                : (unreadCount > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle'));
+
+              const previousLastActive = chat.lastActive || chat.updatedAt || chat.panicRoomEnteredAt || null;
+              let nextLastActive = previousLastActive;
+              const computedMillis = Date.parse(computedTimestamp);
+              if (!Number.isNaN(computedMillis)) {
+                const previousMillis = previousLastActive ? Date.parse(previousLastActive) : NaN;
+                if (Number.isNaN(previousMillis) || computedMillis >= previousMillis) {
+                  nextLastActive = new Date(computedMillis).toISOString();
+                }
+              }
+
+              return {
+                ...chat,
+                isInPanicRoom: Boolean(isInPanicRoom),
+                panicRoomEnteredAt: isInPanicRoom
+                  ? (panicRoomEnteredAt ?? chat.panicRoomEnteredAt ?? null)
+                  : null,
+                panicRoomMovedAt: isInPanicRoom
+                  ? (panicRoomEnteredAt ?? chat.panicRoomMovedAt ?? chat.panicRoomEnteredAt ?? null)
+                  : null,
+                panicRoomReason: isInPanicRoom
+                  ? (panicRoomReason ?? chat.panicRoomReason ?? null)
+                  : null,
+                panicRoomEnteredBy: isInPanicRoom
+                  ? (panicRoomEnteredBy ?? chat.panicRoomEnteredBy ?? null)
+                  : null,
+                chatType: nextChatType,
+                updatedAt: computedTimestamp,
+                lastActive: nextLastActive
+              };
+            });
+
+            if (didUpdate) {
+              updatePanicRoomCount(updated);
+              return updated;
+            }
+
+            return prevChats;
+          });
+        }
+
+        if (isInPanicRoom && chatId) {
+          setSuppressedChatIds(prev => {
+            if (!prev || !prev.has(chatId)) {
+              return prev;
+            }
+            const next = new Set(prev);
+            next.delete(chatId);
+            return next;
+          });
+        }
+
+        fetchLiveQueueData(true).catch(error => {
+          console.error('Failed to sync live queue after panic update:', error);
+        });
         return;
       }
 
@@ -2137,7 +2396,7 @@ const AgentDashboard = () => {
       websocketService.disconnect();
       notificationService.stopMonitoring();
     };
-  }, [fetchLikesData, loadSuppressedChatIdsFromStorage, refreshDashboard]);
+  }, [fetchLikesData, fetchLiveQueueData, loadSuppressedChatIdsFromStorage, refreshDashboard, updatePanicRoomCount]);
 
   useEffect(() => {
     const agentKey = agentIdRef.current;
@@ -2213,6 +2472,7 @@ const AgentDashboard = () => {
 
     const chatId = chat._id;
     const wasInPanic = chat.isInPanicRoom || chat.chatType === 'panic';
+    const cacheService = window.agentCacheService || { delete: () => {} };
 
     try {
       if (wasInPanic) {
@@ -2223,7 +2483,9 @@ const AgentDashboard = () => {
           return;
         }
 
-        await agentAuth.removeFromPanicRoom(chatId, 'Removed via dashboard');
+        const result = await agentAuth.removeFromPanicRoom(chatId, 'Removed via dashboard');
+        const updatedMeta = result?.chat || {};
+        const removalTimestamp = new Date().toISOString();
 
         setChats(prevChats => {
           const next = prevChats.map(item => {
@@ -2233,17 +2495,34 @@ const AgentDashboard = () => {
 
             const unread = item.unreadCount || 0;
             const reminderActive = item.reminderActive && unread === 0;
+            const previousLastActive = item.lastActive || item.updatedAt || null;
+            let nextLastActive = removalTimestamp;
+            const previousMillis = previousLastActive ? Date.parse(previousLastActive) : NaN;
+            const removalMillis = Date.parse(removalTimestamp);
+            if (!Number.isNaN(previousMillis) && !Number.isNaN(removalMillis) && previousMillis > removalMillis) {
+              nextLastActive = new Date(previousMillis).toISOString();
+            }
             return {
               ...item,
               isInPanicRoom: false,
+              panicRoomEnteredAt: updatedMeta.panicRoomEnteredAt ?? null,
+              panicRoomMovedAt: null,
+              panicRoomReason: updatedMeta.panicRoomReason ?? null,
+              panicRoomEnteredBy: updatedMeta.panicRoomEnteredBy ?? null,
               chatType: unread > 0 ? 'queue' : (reminderActive ? 'reminder' : 'idle'),
-              reminderActive
+              reminderActive,
+              updatedAt: removalTimestamp,
+              lastActive: nextLastActive
             };
           });
 
           updatePanicRoomCount(next);
           return next;
         });
+
+        cacheService.delete?.('live_queue');
+        cacheService.delete?.('dashboard_stats');
+        cacheService.delete?.('panic_room');
       } else {
         let reason = 'AGENT_ESCALATION';
         let notes;
@@ -2251,12 +2530,30 @@ const AgentDashboard = () => {
         if (typeof window !== 'undefined') {
           const isSmallScreen = window.matchMedia?.('(max-width: 768px)').matches;
           if (!isSmallScreen) {
-            reason = window.prompt('Reason for Panic Room (e.g., AGENT_ESCALATION, ABUSE, FRAUD):', reason) || reason;
-            notes = window.prompt('Optional notes for Panic Room:', '') || undefined;
+            const reasonPrompt = window.prompt(
+              'Reason for Panic Room (e.g., AGENT_ESCALATION, ABUSE, FRAUD):',
+              reason
+            );
+            if (reasonPrompt === null) {
+              return;
+            }
+            const trimmedReason = reasonPrompt.trim();
+            reason = trimmedReason.length > 0 ? trimmedReason : reason;
+
+            const notesPrompt = window.prompt('Optional notes for Panic Room:', '');
+            if (notesPrompt !== null) {
+              const trimmedNotes = notesPrompt.trim();
+              notes = trimmedNotes.length > 0 ? trimmedNotes : undefined;
+            }
           }
         }
 
-        await agentAuth.moveToPanicRoom(chatId, reason, notes);
+        const result = await agentAuth.moveToPanicRoom(chatId, reason, notes);
+        const panicMeta = result?.chat || {};
+        const enteredAt = panicMeta.panicRoomEnteredAt || new Date().toISOString();
+        const entryTimestamp = enteredAt && !Number.isNaN(Date.parse(enteredAt))
+          ? new Date(Date.parse(enteredAt)).toISOString()
+          : new Date().toISOString();
 
         setChats(prevChats => {
           const next = prevChats.map(item => {
@@ -2269,17 +2566,42 @@ const AgentDashboard = () => {
               isInPanicRoom: true,
               chatType: 'panic',
               reminderActive: false,
-              reminderHandled: false
+              reminderHandled: false,
+              panicRoomEnteredAt: entryTimestamp,
+              panicRoomMovedAt: entryTimestamp,
+              panicRoomReason: panicMeta.panicRoomReason || reason,
+              panicRoomEnteredBy: panicMeta.panicRoomEnteredBy || agent?._id || agent?.id || null,
+              updatedAt: entryTimestamp,
+              lastActive: entryTimestamp
             };
           });
 
           updatePanicRoomCount(next);
           return next;
         });
+
+        cacheService.delete?.('live_queue');
+        cacheService.delete?.('dashboard_stats');
+        cacheService.delete?.('panic_room');
+
+        // Ensure panic chats always reappear even if previously suppressed
+        setSuppressedChatIds(prev => {
+          if (!prev || !prev.has(chatId)) {
+            return prev;
+          }
+          const next = new Set(prev);
+          next.delete(chatId);
+          return next;
+        });
       }
 
+      try {
+        await fetchLiveQueueData(true);
+      } catch (err) {
+        console.error('Forced live queue refresh failed:', err);
+      }
       if (typeof window !== 'undefined' && window.fetchLiveQueueData) {
-        setTimeout(() => window.fetchLiveQueueData(), 150);
+        setTimeout(() => window.fetchLiveQueueData?.(true), 150);
       }
     } catch (error) {
       console.error('Panic Room action failed:', error);
@@ -2387,7 +2709,12 @@ const AgentDashboard = () => {
       try {
   const response = await agentAuth.getLiveQueue();
   const liveQueue = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
-        setChats(Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : []);
+        const normalizedQueue = Array.isArray(liveQueue) ? liveQueue.map(normalizeChat) : [];
+        setChats(prevChats => {
+          const merged = mergeChatsSafely(prevChats, normalizedQueue);
+          updatePanicRoomCount(merged);
+          return merged;
+        });
       } catch (error) {
         console.error('Error fetching live queue:', error);
       }
@@ -2398,13 +2725,19 @@ const AgentDashboard = () => {
     // const interval = setInterval(watchLiveQueue, 30000); // Refresh every 30 seconds
 
     // return () => clearInterval(interval);
-  }, [normalizeChat]);
+  }, [mergeChatsSafely, normalizeChat, updatePanicRoomCount]);
 
   // Only show non-suppressed chats in the table
   const visibleChats = useMemo(() => {
     if (!Array.isArray(chats)) return [];
     if (!suppressedChatIds || suppressedChatIds.size === 0) return chats;
-    return chats.filter(c => !suppressedChatIds.has(c._id));
+    return chats.filter(chat => {
+      if (!suppressedChatIds.has(chat._id)) {
+        return true;
+      }
+      // Panic room chats should never stay hidden
+      return chat.isInPanicRoom === true || chat.chatType === 'panic';
+    });
   }, [chats, suppressedChatIds]);
 
   if (loading) {

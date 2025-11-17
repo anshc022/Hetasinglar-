@@ -432,6 +432,8 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
   
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  // Keep track of the active chat id so the socket handler never works with a stale closure
+  const selectedChatIdRef = useRef(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(null);
   const [userDetails, setUserDetails] = useState({
@@ -446,6 +448,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     profileImage: null
   });
   const messagesEndRef = useRef(null);
+    useEffect(() => {
+      selectedChatIdRef.current = selectedChat?._id || null;
+    }, [selectedChat?._id]);
+
   const [pushBackOptions] = useState([
     { label: '2h', hours: 2 },
     { label: '4h', hours: 4 },
@@ -496,11 +502,16 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     const t = setTimeout(() => fetchNotes(), 250);
     return () => { cancelled = true; clearTimeout(t); };
   }, [selectedChat?._id]);
+
+  useEffect(() => {
+    setRevealedImageIds(new Set());
+  }, [selectedChat?._id]);
   // Mobile sidebar states
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [mobileSidebarType, setMobileSidebarType] = useState(''); // 'chats', 'user', 'escort'
   // State for the current agent
   const [currentAgent, setCurrentAgent] = useState(null);
+  const [revealedImageIds, setRevealedImageIds] = useState(() => new Set());
   
   // Function to get agent color based on agent name
   const getAgentColor = (agentName) => {
@@ -705,9 +716,57 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);  // Memoized callback to prevent MessageComposer re-renders
   
+  useEffect(() => {
+    if (!selectedChatIdRef.current) {
+      return;
+    }
+    if (!Array.isArray(selectedChat?.messages)) {
+      return;
+    }
+    scrollToBottom();
+  }, [selectedChat?.messages?.length, scrollToBottom]);
+  
   // Notification helper - defined early to avoid hoisting issues
   const showNotification = React.useCallback((message, type = 'info') => {
     setNotification({ message, type });
+  }, []);
+
+  const openImagePreview = React.useCallback((src, filename = 'Image') => {
+    if (!src) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const escapeHtml = (value) =>
+      value
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const safeTitle = escapeHtml(filename || 'Image');
+    const safeSrc = escapeHtml(src);
+
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      console.warn('Popup blocked while attempting to preview image');
+      return;
+    }
+
+    previewWindow.document.write(`
+      <html>
+        <head><title>${safeTitle}</title></head>
+        <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
+          <img src="${safeSrc}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="${safeTitle}" />
+        </body>
+      </html>
+    `);
+    previewWindow.document.close();
   }, []);
   
   // Image handling - defined before memoizedSendMessage to avoid hoisting issues
@@ -1177,9 +1236,10 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
     
     const messageHandler = (data) => {
       if (data.type === 'chat_message') {
+        const messageTimestamp = data.timestamp ? new Date(data.timestamp) : new Date();
         const newMessage = {
           message: data.message,
-          timestamp: new Date(data.timestamp),
+          timestamp: messageTimestamp,
           sender: data.sender,
           senderName: data.senderName,
           readByAgent: data.readByAgent,
@@ -1191,111 +1251,62 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
           filename: data.filename,
           status: 'sent' // Real messages from WebSocket are already sent
         };
+        const isImageMessage = data.messageType === 'image';
+        const lastMessage = isImageMessage ? '📷 Image' : data.message;
+        const activeChatId = selectedChatIdRef.current;
+        let shouldScroll = false;
 
-        setChats(prevChats => {
-          return prevChats.map(chat => {
-            if (chat._id === data.chatId) {
-              // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
-              const updatedMessages = [...(chat.messages || [])];
-              
-              // Find matching optimistic message (same content and sender)
-              const optimisticIndex = updatedMessages.findIndex(msg => 
-                msg.isOptimistic && (
-                  (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
-                  (
-                    msg.sender === data.sender && 
-                    ((data.messageType === 'image' && msg.filename === data.filename) ||
-                     (data.messageType !== 'image' && msg.message === data.message))
-                  )
-                )
-              );
-              
-              if (optimisticIndex !== -1) {
-                // Replace optimistic message with real one
-                updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
-              } else {
-                // Prevent duplicates: skip if an identical non-optimistic message already exists
-                const existingIndex = updatedMessages.findIndex(msg =>
-                  !msg.isOptimistic &&
-                  msg.sender === data.sender &&
-                  (msg.messageType || 'text') === (data.messageType || 'text') &&
-                  (
-                    (data.messageType === 'image' && msg.filename === data.filename) ||
-                    (data.messageType !== 'image' && msg.message === data.message)
-                  )
-                );
-                if (existingIndex === -1) {
-                  updatedMessages.push(newMessage);
-                }
-              }
-              
-              // Show appropriate last message for image messages (no filename)
-              const lastMessage = data.messageType === 'image' 
-                ? `📷 Image`
-                : data.message;
-              
-              return {
-                ...chat,
-                messages: updatedMessages,
-                lastMessage: lastMessage,
-                updatedAt: new Date(data.timestamp)
-              };
-            }
+        updateChatState(data.chatId, (chat) => {
+          if (!chat) {
             return chat;
-          });
-        });
+          }
 
-        // Update selected chat if this is the active chat
-        if (selectedChat?._id === data.chatId) {
-          const lastMessage = data.messageType === 'image' 
-            ? `📷 Image`
-            : data.message;
-            
-          setSelectedChat(prev => {
-            if (!prev) return prev;
-            
-            // 🔄 SMART UPDATE: Replace optimistic message if it exists, or add new message
-            const updatedMessages = [...(prev.messages || [])];
-            
-            // Find matching optimistic message (same content and sender)
-            const optimisticIndex = updatedMessages.findIndex(msg => 
-              msg.isOptimistic && (
-                (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
-                (
-                  msg.sender === data.sender && 
-                  ((data.messageType === 'image' && msg.filename === data.filename) ||
-                   (data.messageType !== 'image' && msg.message === data.message))
-                )
+          const existingMessages = Array.isArray(chat.messages) ? chat.messages : [];
+          const updatedMessages = [...existingMessages];
+
+          const optimisticIndex = updatedMessages.findIndex(msg =>
+            msg.isOptimistic && (
+              (data.clientId && msg.clientId && msg.clientId === data.clientId) ||
+              (
+                msg.sender === data.sender &&
+                ((data.messageType === 'image' && msg.filename === data.filename) ||
+                 (data.messageType !== 'image' && msg.message === data.message))
+              )
+            )
+          );
+
+          if (optimisticIndex !== -1) {
+            updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
+          } else {
+            const existingIndex = updatedMessages.findIndex(msg =>
+              !msg.isOptimistic &&
+              msg.sender === data.sender &&
+              (msg.messageType || 'text') === (data.messageType || 'text') &&
+              (
+                (data.messageType === 'image' && msg.filename === data.filename) ||
+                (data.messageType !== 'image' && msg.message === data.message)
               )
             );
-            
-            if (optimisticIndex !== -1) {
-              // Replace optimistic message with real one
-              updatedMessages[optimisticIndex] = { ...newMessage, isOptimistic: false };
-            } else {
-              // Prevent duplicates: skip if an identical non-optimistic message already exists
-              const existingIndex = updatedMessages.findIndex(msg =>
-                !msg.isOptimistic &&
-                msg.sender === data.sender &&
-                (msg.messageType || 'text') === (data.messageType || 'text') &&
-                (
-                  (data.messageType === 'image' && msg.filename === data.filename) ||
-                  (data.messageType !== 'image' && msg.message === data.message)
-                )
-              );
-              if (existingIndex === -1) {
-                updatedMessages.push(newMessage);
-              }
+
+            if (existingIndex === -1) {
+              updatedMessages.push(newMessage);
             }
-            
-            return {
-              ...prev,
-              messages: updatedMessages,
-              lastMessage: lastMessage,
-              updatedAt: new Date(data.timestamp)
-            };
-          });
-          scrollToBottom();
+          }
+
+          if (!shouldScroll && activeChatId === chat._id) {
+            shouldScroll = true;
+          }
+
+          return {
+            ...chat,
+            messages: updatedMessages,
+            lastMessage,
+            updatedAt: messageTimestamp
+          };
+        });
+
+        if (shouldScroll) {
+          setTimeout(() => scrollToBottom(), 80);
         }
       } else if (data.type === 'message_deleted') {
         const deletionPlaceholder = DELETED_PLACEHOLDER;
@@ -3099,39 +3110,85 @@ const ChatBox = ({ onMessageSent, isFollowUp }) => {
                                 {msg.message || DELETED_PLACEHOLDER}
                               </p>
                             ) : msg.messageType === 'image' && (msg.imageData || msg.filename) ? (
-                              <div className="space-y-2">
-                                <div className="relative">
-                                  <img
-                                    src={msg.imageData || `/uploads/chat/${msg.filename}`}
-                                    alt={msg.filename || 'Sent image'}
-                                    className="max-w-full max-h-32 sm:max-h-48 md:max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity border border-gray-600"
-                                    onClick={() => {
-                                      const newWindow = window.open();
-                                      newWindow.document.write(`
-                                        <html>
-                                          <head><title>${msg.filename || 'Image'}</title></head>
-                                          <body style=\"margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;\">
-                                            <img src=\"${msg.imageData || `/uploads/chat/${msg.filename}`}\" style=\"max-width:100%;max-height:100%;object-fit:contain;\" alt=\"${msg.filename || 'Image'}\" />
-                                          </body>
-                                        </html>
-                                      `);
-                                    }}
-                                    title="Click to view full size"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                  <div className="hidden items-center justify-center h-32 bg-gray-600 rounded-lg border border-gray-500">
-                                    <div className="text-center text-gray-400">
-                                      <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
-                                      </svg>
-                                      <p className="text-xs">Image failed to load</p>
+                              (() => {
+                                const imageSrc = msg.imageData || `/uploads/chat/${msg.filename}`;
+                                const imageKey =
+                                  msg._id ||
+                                  msg.messageId ||
+                                  msg.clientMessageId ||
+                                  msg.clientId ||
+                                  msg.tempId ||
+                                  `${selectedChat?._id || 'chat'}-${origIndex}-${msg.timestamp || idx}`;
+                                const isCustomerImage = msg.sender !== 'agent';
+                                const isRevealed = !isCustomerImage || revealedImageIds.has(imageKey);
+
+                                const handleImageClick = (event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+
+                                  if (typeof window === 'undefined') {
+                                    return;
+                                  }
+
+                                  if (isCustomerImage && !isRevealed) {
+                                    const confirmed = window.confirm('Reveal this customer image?');
+                                    if (!confirmed) {
+                                      return;
+                                    }
+                                    setRevealedImageIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.add(imageKey);
+                                      return next;
+                                    });
+                                    return;
+                                  }
+
+                                  openImagePreview(imageSrc, msg.filename || 'Image');
+                                };
+
+                                return (
+                                  <div className="space-y-2">
+                                    <div className="relative">
+                                      <img
+                                        src={imageSrc}
+                                        alt={msg.filename || 'Sent image'}
+                                        className={`max-w-full max-h-32 sm:max-h-48 md:max-h-64 rounded-lg object-cover border cursor-pointer transition-all ${
+                                          isRevealed
+                                            ? 'border-gray-600 hover:opacity-90'
+                                            : 'border-yellow-500/60 filter blur-2xl brightness-75 saturate-75 scale-[1.02]'
+                                        }`}
+                                        onClick={handleImageClick}
+                                        title={isRevealed ? 'Click to view full size' : 'Tap to reveal'}
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                      {!isRevealed && isCustomerImage && (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-black/45 text-center px-3">
+                                          <span className="text-xs font-semibold text-yellow-100 uppercase tracking-wide">Customer image hidden</span>
+                                          <button
+                                            type="button"
+                                            onClick={handleImageClick}
+                                            className="px-3 py-1.5 text-xs font-semibold text-gray-900 bg-yellow-400 hover:bg-yellow-300 rounded-full transition-colors"
+                                          >
+                                            Reveal Image
+                                          </button>
+                                          <span className="text-[11px] text-yellow-100/80">Tap OK to confirm</span>
+                                        </div>
+                                      )}
+                                      <div className="hidden items-center justify-center h-32 bg-gray-600 rounded-lg border border-gray-500">
+                                        <div className="text-center text-gray-400">
+                                          <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5C2.962 17.333 3.924 19 5.464 19z" />
+                                          </svg>
+                                          <p className="text-xs">Image failed to load</p>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
+                                );
+                              })()
                             ) : msg.message?.startsWith('[Image:') && msg.message?.endsWith(']') ? (
                               <div className="space-y-2">
                                 <div className="flex items-center space-x-3 p-3 bg-gray-600/50 rounded-lg border border-gray-500">

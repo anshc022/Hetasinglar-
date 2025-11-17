@@ -129,7 +129,7 @@ export const agentAuth = {
     }
   },
 
-  async getLiveQueue(escortId, chatId) {
+  async getLiveQueue(escortId, chatId, forceRefresh = false) {
     try {
       // Use optimized agent-scoped endpoint
       let url = '/agents/chats/live-queue';
@@ -137,6 +137,13 @@ export const agentAuth = {
         url = `/agents/chats/live-queue/${escortId}`;
         // Note: backend currently doesn't support chatId on this route; keep simple
       }
+      
+      // Add cache busting parameter for force refresh
+      if (forceRefresh) {
+        const timestamp = Date.now();
+        url += (url.includes('?') ? '&' : '?') + `_t=${timestamp}&cache=false`;
+      }
+      
       const response = await agentApi.get(url);
   const payload = response?.data;
   if (Array.isArray(payload)) return payload;
