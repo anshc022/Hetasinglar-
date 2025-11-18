@@ -23,19 +23,19 @@ const Sidebar = ({ activeTab, setActiveTab, admin, isOpen, toggleSidebar }) => (
     
     {/* Sidebar */}
     <div className={`
-      bg-gray-900 text-gray-300 min-h-screen flex flex-col transition-transform duration-300 ease-in-out z-50
+      group bg-gray-900 text-gray-300 min-h-screen flex flex-col transition-all duration-300 ease-in-out z-50 overflow-hidden
       ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
       lg:translate-x-0 lg:relative lg:z-auto
-      fixed lg:static w-64 lg:w-64
+      fixed lg:static w-64 lg:w-20 lg:hover:w-64
     `}>
       <div className="p-4 lg:p-6 border-b border-gray-700">
         {/* Mobile close button */}
         <div className="flex justify-between items-center lg:block">
-          <div className="flex items-center gap-3 lg:gap-4">
+          <div className="flex items-center gap-3 lg:gap-2 lg:group-hover:gap-4 transition-all duration-300">
             <div className="h-10 w-10 lg:h-12 lg:w-12 rounded-full bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center text-white text-lg lg:text-xl font-bold">
               {admin?.name?.charAt(0) || 'A'}
             </div>
-            <div className="hidden lg:block">
+            <div className="hidden lg:hidden lg:group-hover:block transition-opacity duration-200">
               <h3 className="text-base lg:text-lg font-semibold">{admin?.name || 'Admin'}</h3>
               <p className="text-xs lg:text-sm text-gray-500">ID: {admin?.adminId}</p>
             </div>
@@ -76,14 +76,15 @@ const Sidebar = ({ activeTab, setActiveTab, admin, isOpen, toggleSidebar }) => (
                 setActiveTab(item.name.toLowerCase());
                 toggleSidebar(); // Close sidebar on mobile after selection
               }}
-              className={`w-full text-left px-3 lg:px-4 py-2 lg:py-3 rounded-lg transition-all flex items-center gap-2 lg:gap-3 text-sm lg:text-base ${
+              title={item.name}
+              className={`w-full text-left px-3 lg:px-2 py-2 lg:py-3 rounded-lg transition-all flex items-center gap-2 lg:gap-0 lg:group-hover:gap-3 text-sm lg:text-base ${
                 activeTab === item.name.toLowerCase()
                   ? 'bg-rose-600 text-white'
                   : 'hover:bg-gray-800'
-              }`}
+              } lg:justify-center lg:group-hover:justify-start lg:group-hover:px-4`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{item.name}</span>
+              <span className="truncate lg:hidden lg:group-hover:inline">{item.name}</span>
             </button>
           );
         })}

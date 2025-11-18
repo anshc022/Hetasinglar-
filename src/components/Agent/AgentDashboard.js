@@ -75,17 +75,17 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
 
       {/* Sidebar */}
       <div className={`
-        bg-gray-900 text-gray-300 w-72 sm:w-64 h-screen flex flex-col
-        fixed lg:sticky top-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
+        group bg-gray-900 text-gray-300 w-72 sm:w-64 lg:w-20 lg:hover:w-64 h-screen flex flex-col overflow-hidden
+        fixed lg:sticky top-0 left-0 z-40 transform transition-all duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header */}
         <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 lg:gap-2 lg:group-hover:gap-3 transition-all duration-300">
             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-bold">
               {(agent?.name?.[0] || 'A').toUpperCase()}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 block lg:hidden lg:group-hover:block transition-opacity duration-200">
               <h3 className="text-sm font-semibold truncate">{agent?.name || 'Agent'}</h3>
               <p className="text-xs text-gray-500 truncate">ID: {agent?.agentId}</p>
             </div>
@@ -93,7 +93,7 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <div className="flex-1 p-3 space-y-1 overflow-y-auto lg:px-2 lg:group-hover:px-3">
           {[
             { 
               name: 'Dashboard', 
@@ -118,14 +118,15 @@ const Sidebar = ({ activeTab, setActiveTab, agent, panicRoomCount = 0 }) => {
                   setActiveTab(item.name.toLowerCase());
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full text-left px-3 py-3 rounded-lg transition-all flex items-center gap-2 sm:gap-3 relative text-sm ${
+                title={item.name}
+                className={`w-full text-left px-3 lg:px-2 py-3 rounded-lg transition-all flex items-center gap-2 sm:gap-3 lg:gap-0 lg:group-hover:gap-3 relative text-sm lg:justify-center lg:group-hover:justify-start ${
                   activeTab === item.name.toLowerCase()
                     ? 'bg-blue-600 text-white shadow-lg'
                     : 'hover:bg-gray-800'
                 }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">
+                <span className="truncate lg:hidden lg:group-hover:inline">
                   <span className="hidden sm:inline">{item.name}</span>
                   <span className="sm:hidden">{item.mobileTitle || item.name}</span>
                 </span>
